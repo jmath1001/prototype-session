@@ -1,12 +1,12 @@
 "use client"
 import React, { useState } from 'react';
 import { X, Trash2, UserPlus, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
-import { TIME_SLOTS, formatTime } from '@/components/constants';
+import { SESSION_BLOCKS } from '@/components/constants';
 import { supabase } from '@/lib/supabaseClient';
 import type { Tutor } from '@/lib/useScheduleData';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAY_NUMS = [1, 2, 3, 4, 5, 6, 7];
+
+
 
 // ─── Subject definitions ──────────────────────────────────────────────────────
 
@@ -68,7 +68,15 @@ function SubjectCheckboxes({ selected, onChange }: { selected: string[]; onChang
   );
 }
 
-// ─── Availability Grid ────────────────────────────────────────────────────────
+// ─── Availability Grid (session-based) ───────────────────────────────────────
+
+const ACTIVE_DAYS_INFO = [
+  { dow: 1, label: 'Mon' },
+  { dow: 2, label: 'Tue' },
+  { dow: 3, label: 'Wed' },
+  { dow: 4, label: 'Thu' },
+  { dow: 6, label: 'Sat' },
+];
 
 function AvailabilityGrid({ blocks, onChange }: { blocks: string[]; onChange: (b: string[]) => void }) {
   const toggle = (d: number, t: string) => {
@@ -79,31 +87,48 @@ function AvailabilityGrid({ blocks, onChange }: { blocks: string[]; onChange: (b
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#a8a29e' }}>Availability</p>
-      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: '#e7e3dd' }}>
-        <div className="inline-grid min-w-[520px]" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
-          <div style={{ background: '#faf9f7', borderBottom: '1px solid #e7e3dd' }} />
-          {DAYS.map(d => (
-            <div key={d} className="p-2 text-center text-[10px] font-bold uppercase" style={{ background: '#faf9f7', borderBottom: '1px solid #e7e3dd', borderLeft: '1px solid #f0ece8', color: '#78716c' }}>{d}</div>
-          ))}
-          {TIME_SLOTS.map((t, ti) => (
-            <React.Fragment key={t}>
-              <div className="flex items-center justify-end pr-3 text-[10px] font-medium" style={{ background: '#faf9f7', borderBottom: ti < TIME_SLOTS.length - 1 ? '1px solid #f0ece8' : 'none', borderRight: '1px solid #e7e3dd', color: '#a8a29e' }}>
-                {formatTime(t).replace(' PM', 'p').replace(' AM', 'a')}
-              </div>
-              {DAY_NUMS.map(dn => {
-                const active = blocks.includes(`${dn}-${t}`);
-                return (
-                  <button key={`${dn}-${t}`} type="button" onClick={() => toggle(dn, t)}
-                    className="h-9 transition-all"
-                    style={{ background: active ? '#6d28d9' : 'white', borderBottom: ti < TIME_SLOTS.length - 1 ? '1px solid #f0ece8' : 'none', borderLeft: '1px solid #f0ece8' }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f5f3ff'; }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'white'; }}
-                  />
-                );
-              })}
-            </React.Fragment>
-          ))}
-        </div>
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#e7e3dd' }}>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr style={{ background: '#faf9f7', borderBottom: '1px solid #e7e3dd' }}>
+              <th className="p-2 text-left text-[10px] font-bold uppercase" style={{ color: '#78716c', borderRight: '1px solid #e7e3dd', minWidth: 120 }}>Session</th>
+              {ACTIVE_DAYS_INFO.map(d => (
+                <th key={d.dow} className="p-2 text-center text-[10px] font-bold uppercase" style={{ color: '#78716c', borderLeft: '1px solid #f0ece8' }}>{d.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {SESSION_BLOCKS.map((block, bi) => (
+              <tr key={block.id} style={{ borderBottom: bi < SESSION_BLOCKS.length - 1 ? '1px solid #f0ece8' : 'none' }}>
+                <td className="px-3 py-2" style={{ background: '#faf9f7', borderRight: '1px solid #e7e3dd' }}>
+                  <div className="text-[10px] font-bold" style={{ color: '#1c1917' }}>{block.label}</div>
+                  <div className="text-[9px]" style={{ color: '#a8a29e' }}>{block.display}</div>
+                </td>
+                {ACTIVE_DAYS_INFO.map(d => {
+                  // Only show a cell if this session block runs on this day
+                  const applicable = block.days.includes(d.dow);
+                  const active = applicable && blocks.includes(`${d.dow}-${block.time}`);
+                  return (
+                    <td key={d.dow} className="p-1 text-center" style={{ borderLeft: '1px solid #f0ece8' }}>
+                      {applicable ? (
+                        <button type="button" onClick={() => toggle(d.dow, block.time)}
+                          className="w-8 h-8 rounded-lg mx-auto flex items-center justify-center transition-all"
+                          style={{ background: active ? '#6d28d9' : 'white', border: `1.5px solid ${active ? '#6d28d9' : '#e7e3dd'}` }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f5f3ff'; }}
+                          onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'white'; }}
+                        >
+                          {active && <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>✓</span>}
+                        </button>
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg mx-auto" style={{ background: '#f0ece8' }} />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

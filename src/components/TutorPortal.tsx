@@ -1,8 +1,8 @@
 "use client"
 import React, { useState, useMemo } from 'react';
-import { User, X, Check, ChevronDown, ChevronLeft, ChevronRight, CalendarDays, Loader2, BookOpen, Clock } from "lucide-react";
+import { User, X, Check, ChevronDown, ChevronLeft, ChevronRight, CalendarDays, Loader2 } from "lucide-react";
 
-import { TIME_SLOTS, MAX_CAPACITY, formatTime } from '@/components/constants';
+import { MAX_CAPACITY, getSessionsForDay } from '@/components/constants';
 import {
   useScheduleData,
   updateAttendance,
@@ -16,14 +16,15 @@ import {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const isTutorAvailable = (tutor: Tutor, time: string) =>
-  tutor.availabilityBlocks.includes(time);
+const isTutorAvailable = (tutor: Tutor, dow: number, time: string) =>
+  tutor.availabilityBlocks.includes(`${dow}-${time}`);
 
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const ACTIVE_DAYS = [1, 2, 3, 4, 6];
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'];
 
 function formatWeekRange(weekStart: Date): string {
   const end = new Date(weekStart);
-  end.setDate(end.getDate() + 4);
+  end.setDate(end.getDate() + 5);
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   return `${weekStart.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`;
 }
@@ -60,7 +61,7 @@ function TutorDropdown({ tutors, selected, onSelect }: {
                 style={{ background: selected?.id === tutor.id ? '#ede9fe' : 'transparent' }}
               >
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: selected?.id === tutor.id ? '#6d28d9' : '#f0ece8' }}>
-                  <User size={12} className={selected?.id === tutor.id ? 'text-white' : '#78716c'} />
+                  <User size={12} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-[#1c1917] leading-none">{tutor.name}</p>
@@ -98,7 +99,7 @@ export default function TutorPortal() {
     selectedTutor ? sessions.filter(s => s.tutorId === selectedTutor.id) : [],
     [sessions, selectedTutor]
   );
-  
+
   const totalStudents = tutorSessions.reduce((t, s) => t + s.students.length, 0);
 
   const handleAttendanceToggle = async (session: Session, studentId: string, currentStatus: string) => {
@@ -108,6 +109,12 @@ export default function TutorPortal() {
       refetch();
     } catch (err) { console.error(err); }
   };
+
+  // Only show Mon–Thu + Sat
+  const activeDates = useMemo(() =>
+    weekDates.filter(d => ACTIVE_DAYS.includes(dayOfWeek(toISODate(d)))),
+    [weekDates]
+  );
 
   if (loading) return (
     <div className="w-full min-h-screen flex items-center justify-center bg-[#faf9f7]">
@@ -120,15 +127,15 @@ export default function TutorPortal() {
 
   return (
     <div className="relative w-full min-h-screen pb-12 font-sans bg-[#faf9f7] text-[#1c1917]">
-      
+
       {/* HEADER */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-[#e7e3dd]">
         <div className="max-w-[1600px] mx-auto flex justify-between items-center px-4 md:px-8 py-3">
-            <div>
+          <div>
             <h1 className="text-xl font-black uppercase tracking-tighter text-[#1c1917] leading-none">Tutor View</h1>
             <p className="text-[9px] font-black text-[#6d28d9] uppercase tracking-widest mt-1">Attendance & Scheduling</p>
-            </div>
-            <TutorDropdown tutors={tutors} selected={selectedTutor} onSelect={setSelectedTutor} />
+          </div>
+          <TutorDropdown tutors={tutors} selected={selectedTutor} onSelect={setSelectedTutor} />
         </div>
       </div>
 
@@ -151,7 +158,6 @@ export default function TutorPortal() {
                   </div>
                 </div>
               </div>
-              
               <div className="flex gap-10">
                 <div className="text-left md:text-center">
                   <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest mb-1">Total Students</p>
@@ -170,8 +176,8 @@ export default function TutorPortal() {
         <div className="pt-8 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex bg-white border border-[#e7e3dd] rounded-xl overflow-hidden shadow-sm">
-                <button onClick={goToPrevWeek} className="p-2.5 hover:bg-[#faf9f7] text-[#78716c] transition-colors border-r border-[#e7e3dd]"><ChevronLeft size={18} /></button>
-                <button onClick={goToNextWeek} className="p-2.5 hover:bg-[#faf9f7] text-[#78716c] transition-colors"><ChevronRight size={18} /></button>
+              <button onClick={goToPrevWeek} className="p-2.5 hover:bg-[#faf9f7] text-[#78716c] transition-colors border-r border-[#e7e3dd]"><ChevronLeft size={18} /></button>
+              <button onClick={goToNextWeek} className="p-2.5 hover:bg-[#faf9f7] text-[#78716c] transition-colors"><ChevronRight size={18} /></button>
             </div>
             <div>
               <div className="text-lg font-black text-[#1c1917] uppercase tracking-tight leading-none">{formatWeekRange(weekStart)}</div>
@@ -191,18 +197,21 @@ export default function TutorPortal() {
             <div className="rounded-3xl p-20 text-center bg-white border-2 border-dashed border-[#e7e3dd]">
               <p className="text-sm font-bold text-[#a8a29e] uppercase italic">Please select a tutor from the dropdown above</p>
             </div>
-          ) : weekDates.map((date, idx) => {
+          ) : activeDates.map((date) => {
             const isoDate = toISODate(date);
-            const dow = idx + 1;
+            const dow = dayOfWeek(isoDate);
+            const dayIdx = ACTIVE_DAYS.indexOf(dow);
+            const dayLabel = DAY_NAMES[dayIdx];
             const isToday = isoDate === toISODate(new Date());
             const isAvailableDay = selectedTutor.availability.includes(dow);
             const dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const daySessions = getSessionsForDay(dow);
 
             return (
               <div key={isoDate} className="space-y-4">
                 <div className="flex items-center gap-4">
                   <h2 className={`text-4xl font-black uppercase italic tracking-tighter leading-none ${isToday ? 'text-[#6d28d9]' : isAvailableDay ? 'text-[#1c1917]' : 'text-[#d6d3d1]'}`}>
-                    {DAY_NAMES[idx]}
+                    {dayLabel}
                   </h2>
                   <span className={`text-sm font-bold uppercase tracking-widest ${isToday ? 'text-[#6d28d9]' : 'text-[#a8a29e]'}`}>
                     {dateLabel}
@@ -217,32 +226,33 @@ export default function TutorPortal() {
                       <table className="w-full border-collapse">
                         <thead>
                           <tr className="bg-[#faf9f7] border-b border-[#e7e3dd]">
-                            {TIME_SLOTS.map(t => (
-                              <th key={t} className="p-3 text-center border-r border-[#e7e3dd] last:border-0 min-w-[130px]">
-                                <span className="text-[10px] font-black text-[#78716c] uppercase tracking-tighter">{formatTime(t)}</span>
+                            {daySessions.map(block => (
+                              <th key={block.id} className="p-3 text-center border-r border-[#e7e3dd] last:border-0 min-w-[160px]">
+                                <div className="text-[10px] font-black text-[#78716c] uppercase tracking-tighter">{block.label}</div>
+                                <div className="text-[9px] font-medium text-[#a8a29e] mt-0.5">{block.display}</div>
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            {TIME_SLOTS.map(time => {
-                              const session = sessions.find(s => s.date === isoDate && s.tutorId === selectedTutor.id && s.time === time);
+                            {daySessions.map(block => {
+                              const session = sessions.find(s => s.date === isoDate && s.tutorId === selectedTutor.id && s.time === block.time);
                               const hasStudents = session && session.students.length > 0;
-                              const isAvail = isTutorAvailable(selectedTutor, time);
+                              const isAvail = isTutorAvailable(selectedTutor, dow, block.time);
 
                               return (
-                                <td key={time} className="p-3 align-top h-[180px] border-r border-[#e7e3dd] last:border-0"
-                                    style={{ background: isAvail ? 'white' : '#faf9f7' }}>
+                                <td key={block.id} className="p-3 align-top h-[180px] border-r border-[#e7e3dd] last:border-0"
+                                  style={{ background: isAvail ? 'white' : '#faf9f7' }}>
                                   <div className="flex flex-col gap-2 h-full">
                                     {hasStudents ? (
                                       session!.students.map(student => (
                                         <div key={student.rowId || student.id}
-                                             className={`p-3 rounded-xl border-2 transition-all ${
-                                               student.status === 'present' 
-                                               ? 'bg-[#f0fdf4] border-[#bcf0da] shadow-sm' 
-                                               : 'bg-white border-[#e7e3dd]'
-                                             }`}
+                                          className={`p-3 rounded-xl border-2 transition-all ${
+                                            student.status === 'present'
+                                            ? 'bg-[#f0fdf4] border-[#bcf0da] shadow-sm'
+                                            : 'bg-white border-[#e7e3dd]'
+                                          }`}
                                         >
                                           <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0">
@@ -252,8 +262,8 @@ export default function TutorPortal() {
                                             <button
                                               onClick={() => handleAttendanceToggle(session!, student.id, student.status)}
                                               className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-90 border shadow-sm ${
-                                                student.status === 'present' 
-                                                ? 'bg-[#6d28d9] border-[#6d28d9] text-white' 
+                                                student.status === 'present'
+                                                ? 'bg-[#6d28d9] border-[#6d28d9] text-white'
                                                 : 'bg-white border-[#e7e3dd] text-[#a8a29e]'
                                               }`}
                                             >
