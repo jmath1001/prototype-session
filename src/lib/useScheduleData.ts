@@ -46,6 +46,13 @@ export type ScheduleData = {
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
+// ── Date helpers (FIXED FOR CENTRAL TIME) ──────────────────────────────────────
+
+// Add this one new function to get "Now" in Central Time
+export function getCentralTimeNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+}
+
 export function getWeekStart(d: Date): Date {
   const date = new Date(d)
   const day = date.getDay()
@@ -55,8 +62,12 @@ export function getWeekStart(d: Date): Date {
   return date
 }
 
+// THIS IS THE MAIN FIX: Manual string building prevents UTC day-jumping
 export function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function getWeekDates(weekStart: Date): Date[] {
@@ -67,18 +78,21 @@ export function getWeekDates(weekStart: Date): Date[] {
   })
 }
 
+// KEPT EXACTLY THE SAME: Monday=1, Saturday=6, Sunday=7
 export function dayOfWeek(isoDate: string): number {
   const d = new Date(isoDate + 'T00:00:00')
   const js = d.getDay()
   return js === 0 ? 7 : js
 }
 
+// KEPT EXACTLY THE SAME: Safe for rendering
 export function formatDate(isoDate: string): string {
   return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
 }
 
+// KEPT EXACTLY THE SAME: Just math
 export function getOccupiedBlocks(startTime: string, durationMinutes: number): string[] {
   const [h, m] = startTime.split(':').map(Number)
   const blocks: string[] = []

@@ -13,6 +13,7 @@ import {
   toISODate,
   formatDate,
   dayOfWeek,
+  getCentralTimeNow,
   type Tutor,
 } from '@/lib/useScheduleData';
 import { BookingForm, BookingToast } from '@/components/BookingForm';
@@ -46,7 +47,7 @@ const TUTOR_PALETTES = [
 ];
 
 export default function MasterDeployment() {
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(getCentralTimeNow()));
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
 
   const { tutors, students, sessions, loading, error, refetch } = useScheduleData(weekStart);
