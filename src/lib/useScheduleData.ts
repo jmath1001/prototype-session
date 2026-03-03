@@ -8,8 +8,8 @@ export type Tutor = {
   name: string
   subjects: string[]
   cat: string
-  availability: number[]        // 1=Mon … 5=Fri — which weekdays they work
-  availabilityBlocks: string[]  // e.g. '1-14:00'
+  availability: number[]
+  availabilityBlocks: string[]
 }
 
 export type Student = {
@@ -25,12 +25,11 @@ export type SessionStudent = {
   name: string
   topic: string
   status: string
-  durationMinutes: number   // NEW
 }
 
 export type Session = {
   id: string
-  date: string      // ISO date string e.g. '2026-02-25'
+  date: string
   tutorId: string
   time: string
   students: SessionStudent[]
@@ -47,22 +46,19 @@ export type ScheduleData = {
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-/** Returns the Monday of the week containing `d` */
 export function getWeekStart(d: Date): Date {
   const date = new Date(d)
-  const day = date.getDay()                     // 0=Sun … 6=Sat
-  const diff = day === 0 ? -6 : 1 - day         // shift to Monday
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
   date.setDate(date.getDate() + diff)
   date.setHours(0, 0, 0, 0)
   return date
 }
 
-/** Returns ISO date string 'YYYY-MM-DD' for a Date */
 export function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-/** Returns the 7 Mon-Sun dates for a given week start (Monday) */
 export function getWeekDates(weekStart: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
@@ -71,21 +67,18 @@ export function getWeekDates(weekStart: Date): Date[] {
   })
 }
 
-/** Day-of-week number (1=Mon … 7=Sun) from an ISO date string */
 export function dayOfWeek(isoDate: string): number {
   const d = new Date(isoDate + 'T00:00:00')
-  const js = d.getDay()                         // 0=Sun
-  return js === 0 ? 7 : js                      // Mon=1 … Sun=7
+  const js = d.getDay()
+  return js === 0 ? 7 : js
 }
 
-/** Format a date nicely e.g. 'Mon Feb 25' */
 export function formatDate(isoDate: string): string {
   return new Date(isoDate + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
 }
 
-/** Given a time string like '14:00' and duration in minutes, return all 30-min block times it occupies */
 export function getOccupiedBlocks(startTime: string, durationMinutes: number): string[] {
   const [h, m] = startTime.split(':').map(Number)
   const blocks: string[] = []
@@ -119,24 +112,23 @@ export function useScheduleData(weekStart: Date): ScheduleData {
       setLoading(true)
       setError(null)
 
-      // Week date range
       const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekEnd.getDate() + 5)
+      weekEnd.setDate(weekEnd.getDate() + 6)
       const from = toISODate(weekStart)
       const to   = toISODate(weekEnd)
 
       try {
         const [tutorRes, studentRes, sessionRes] = await Promise.all([
-          supabase.from('tutors').select('*').order('name'),
-          supabase.from('students').select('*').order('name'),
+          supabase.from('tutors2').select('*').order('name'),
+          supabase.from('students2').select('*').order('name'),
           supabase
-            .from('sessions')
+            .from('sessions2')
             .select(`
               id, session_date, tutor_id, time,
-              session_students ( id, student_id, name, topic, status, duration_minutes )
+              session_students2 ( id, student_id, name, topic, status )
             `)
             .gte('session_date', from)
-            .lt('session_date', to)
+            .lte('session_date', to)
             .order('session_date')
             .order('time'),
         ])
@@ -166,13 +158,12 @@ export function useScheduleData(weekStart: Date): ScheduleData {
           date:     r.session_date,
           tutorId:  r.tutor_id,
           time:     r.time,
-          students: (r.session_students ?? []).map((ss: any) => ({
-            id:              ss.student_id,
-            rowId:           ss.id,
-            name:            ss.name,
-            topic:           ss.topic,
-            status:          ss.status,
-            durationMinutes: ss.duration_minutes ?? 30,  // NEW
+          students: (r.session_students2 ?? []).map((ss: any) => ({
+            id:     ss.student_id,
+            rowId:  ss.id,
+            name:   ss.name,
+            topic:  ss.topic,
+            status: ss.status,
           })),
         }))
 
@@ -197,17 +188,12 @@ export function useScheduleData(weekStart: Date): ScheduleData {
 
 // ── Write helpers ─────────────────────────────────────────────────────────────
 
-/**
- * Book a student into a slot.
- * If recurring=true, creates one session per week for `recurringWeeks` weeks.
- */
 export async function bookStudent({
   tutorId,
   date,
   time,
   student,
   topic,
-  durationMinutes = 30,
   recurring = false,
   recurringWeeks = 1,
 }: {
@@ -216,7 +202,6 @@ export async function bookStudent({
   time: string
   student: Student
   topic: string
-  durationMinutes?: number
   recurring?: boolean
   recurringWeeks?: number
 }) {
@@ -227,9 +212,8 @@ export async function bookStudent({
     d.setDate(d.getDate() + w * 7)
     const isoDate = toISODate(d)
 
-    // Find or create session
     let { data: existing, error: fetchErr } = await supabase
-      .from('sessions')
+      .from('sessions2')
       .select('id')
       .eq('session_date', isoDate)
       .eq('tutor_id', tutorId)
@@ -244,8 +228,8 @@ export async function bookStudent({
       sessionId = existing.id
     } else {
       const { data: created, error: createErr } = await supabase
-        .from('sessions')
-        .insert({ session_date: isoDate, tutor_id: tutorId, time, duration_minutes: durationMinutes })
+        .from('sessions2')
+        .insert({ session_date: isoDate, tutor_id: tutorId, time })
         .select('id')
         .single()
       if (createErr) throw createErr
@@ -253,21 +237,19 @@ export async function bookStudent({
     }
 
     const { error: enrollErr } = await supabase
-      .from('session_students')
+      .from('session_students2')
       .insert({
-        session_id:       sessionId,
-        student_id:       student.id,
-        name:             student.name,
+        session_id: sessionId,
+        student_id: student.id,
+        name:       student.name,
         topic,
-        status:           'scheduled',
-        duration_minutes: durationMinutes,  // NEW
+        status:     'scheduled',
       })
 
     if (enrollErr) throw enrollErr
   }
 }
 
-/** Update attendance status for a student in a session */
 export async function updateAttendance({
   sessionId,
   studentId,
@@ -278,7 +260,7 @@ export async function updateAttendance({
   status: 'scheduled' | 'present' | 'no-show'
 }) {
   const { error } = await supabase
-    .from('session_students')
+    .from('session_students2')
     .update({ status })
     .eq('session_id', sessionId)
     .eq('student_id', studentId)
@@ -286,7 +268,6 @@ export async function updateAttendance({
   if (error) throw error
 }
 
-/** Remove a student from a session */
 export async function removeStudentFromSession({
   sessionId,
   studentId,
@@ -295,7 +276,7 @@ export async function removeStudentFromSession({
   studentId: string
 }) {
   const { error } = await supabase
-    .from('session_students')
+    .from('session_students2')
     .delete()
     .eq('session_id', sessionId)
     .eq('student_id', studentId)

@@ -17,7 +17,7 @@ export function Navbar() {
         {/* Logo - Smaller text on mobile */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[#6d28d9] rounded-lg flex items-center justify-center text-white font-bold">T</div>
-          <span className="font-bold text-sm md:text-base text-stone-900">Splendid</span>
+          <span className="font-bold text-sm md:text-base text-stone-900">Tutoring Center</span>
         </div>
 
         {/* Desktop Links (Hidden on Mobile) */}
