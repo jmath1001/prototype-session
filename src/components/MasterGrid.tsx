@@ -127,7 +127,8 @@ export default function MasterDeployment() {
       setIsEnrollModalOpen(false);
       setGridSlotToBook(null);
       setTimeout(() => setBookingToast(null), 4000);
-    } catch (err) {
+    } catch (err: any) {
+      alert(err.message || "Something went wrong with the booking.");
       console.error('Booking failed:', err);
     }
   };
@@ -181,20 +182,23 @@ export default function MasterDeployment() {
           <h1 className="text-lg md:text-xl font-bold tracking-tight leading-none" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>Weekly Schedule</h1>
           <p className="text-[9px] font-semibold uppercase tracking-widest mt-0.5" style={{ color: '#c27d38' }}>Tutor Management</p>
         </div>
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-2">
           <button onClick={() => setIsTutorModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-2 md:px-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all"
             style={{ background: 'white', border: '1px solid #ddd4c8', color: '#7a6a5a' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.color = '#3d2f1f'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#7a6a5a'; }}>
-            Manage Tutors
+            <PlusCircle size={14} />
+            <span className="hidden md:inline">Manage Tutors</span>
           </button>
           <button onClick={() => setIsEnrollModalOpen(true)}
-            className="flex items-center gap-2 px-5 md:px-7 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold uppercase tracking-wider text-white transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 md:px-6 md:py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white transition-all active:scale-95"
             style={{ background: '#2d2318', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
             onMouseEnter={e => e.currentTarget.style.background = '#4a3828'}
             onMouseLeave={e => e.currentTarget.style.background = '#2d2318'}>
-            <PlusCircle size={14} /> Schedule Student
+            <PlusCircle size={14} />
+            <span className="hidden md:inline">Schedule Student</span>
+            <span className="md:hidden">Book</span>
           </button>
         </div>
       </div>
@@ -272,8 +276,8 @@ export default function MasterDeployment() {
                       <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content' }}>
                         <thead>
                           <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
-                            <th className="p-4 text-left text-xs font-bold uppercase tracking-wider"
-                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 160, position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                            <th className="p-3 text-left text-[10px] font-bold uppercase tracking-wider"
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 140, position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
                               Instructor
                             </th>
                             {daySessions.map(block => (
@@ -289,14 +293,14 @@ export default function MasterDeployment() {
                             const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                             return (
                               <tr key={tutor.id} style={{ borderBottom: '1px solid #ede6db' }}>
-                                <td className="p-4 align-top"
+                                <td className="p-3 align-middle"
                                   style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1 }}>
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                                       style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
                                       {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                     </div>
-                                    <p className="text-sm font-bold" style={{ color: '#1c1008' }}>{tutor.name}</p>
+                                    <p className="text-[13px] font-bold" style={{ color: '#1c1008' }}>{tutor.name}</p>
                                   </div>
                                 </td>
                                 {daySessions.map(block => {
@@ -318,7 +322,7 @@ export default function MasterDeployment() {
                                                 className="group relative p-2.5 rounded-lg transition-all hover:shadow-md cursor-pointer"
                                                 style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
                                                   : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                                  : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
                                                 <div className="flex justify-between items-start mb-0.5">
                                                   <p className="text-xs font-bold leading-tight" style={{ color: '#1c1008' }}>{student.name}</p>
                                                   <RefreshCw size={9} className="opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" style={{ color: palette.tag }} />
@@ -345,11 +349,11 @@ export default function MasterDeployment() {
                                         ) : isAvailable ? (
                                           <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                             className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all group"
-                                            style={{ background: 'white', border: '1.5px dashed #c8b89a' }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = '#fef9f0'; e.currentTarget.style.borderColor = '#c27d38'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
-                                            <PlusCircle size={16} style={{ color: '#c8b89a' }} className="group-hover:text-amber-600 transition-colors" />
-                                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#c8b89a' }}>Open</span>
+                                            style={{ background: '#f6fff9', border: '1.5px dashed #a7f3d0' }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#10b981'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = '#f6fff9'; e.currentTarget.style.borderColor = '#a7f3d0'; }}>
+                                            <PlusCircle size={16} style={{ color: '#10b981' }} className="group-hover:text-emerald-600 transition-colors" />
+                                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#10b981' }}>Open</span>
                                           </div>
                                         ) : (
                                           <div className="w-full h-full rounded-lg flex items-center justify-center"
@@ -416,11 +420,11 @@ export default function MasterDeployment() {
                                       ) : isAvailable ? (
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                           className="w-full h-20 rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-                                          style={{ background: 'white', border: '1.5px dashed #c8b89a' }}
-                                          onMouseEnter={e => { e.currentTarget.style.background = '#fef9f0'; e.currentTarget.style.borderColor = '#c27d38'; }}
-                                          onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
-                                          <PlusCircle size={18} style={{ color: '#c8b89a' }} />
-                                          <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#c8b89a' }}>Open</span>
+                                          style={{ background: '#f6fff9', border: '1.5px dashed #a7f3d0' }}
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#10b981'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = '#f6fff9'; e.currentTarget.style.borderColor = '#a7f3d0'; }}>
+                                          <PlusCircle size={18} style={{ color: '#10b981' }} />
+                                          <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#10b981' }}>Open</span>
                                         </div>
                                       ) : (
                                         <div className="w-full h-20 rounded-lg" style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }} />
@@ -453,6 +457,9 @@ export default function MasterDeployment() {
           <BookingForm prefilledSlot={gridSlotToBook} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} />
         </div>
       )}
+      {isTutorModalOpen && (
+        <TutorManagementModal isOpen={isTutorModalOpen} onClose={() => setIsTutorModalOpen(false)} onUpdate={refetch} />
+      )}
 
       {/* ATTENDANCE MODAL */}
       {selectedSession && (
@@ -478,84 +485,49 @@ export default function MasterDeployment() {
                   style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; e.currentTarget.style.color = '#1c1008'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; e.currentTarget.style.color = '#9e8e7e'; }}>
-                  <X size={14} />
+                  <X size={18} />
                 </button>
               </div>
-            </div>
-            <div className="px-6 md:px-8 pb-5">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#b0a090' }}>Mark Attendance</p>
-              <div className="grid grid-cols-2 gap-2.5 mb-3">
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
                 <button onClick={() => handleAttendance('present')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#16a34a', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#15803d'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#16a34a'}>
-                  <Check size={15} strokeWidth={2.5} /> Present
-                </button>
-                <button onClick={() => handleAttendance('scheduled')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#c27d38', boxShadow: '0 2px 8px rgba(194,125,56,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#a06020'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#c27d38'}>
-                  <AlertCircle size={15} strokeWidth={2.5} /> Excused
+                  className="flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                  style={{ background: '#edfaf3', border: '1px solid #6ee7b7', color: '#065f46' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#d1fae5'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#edfaf3'}>
+                  <Check size={16} /> Present
                 </button>
                 <button onClick={() => handleAttendance('no-show')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#dc2626', boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}>
-                  <XCircle size={15} strokeWidth={2.5} /> Unexcused
-                </button>
-                <button onClick={handleRemove}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-all active:scale-95"
-                  style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#7a6a5a' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; e.currentTarget.style.color = '#3d2f1f'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; e.currentTarget.style.color = '#7a6a5a'; }}>
-                  <UserX size={15} strokeWidth={2} /> Remove
+                  className="flex items-center justify-center gap-2 py-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}>
+                  <UserX size={16} /> No-Show
                 </button>
               </div>
-              <button className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm uppercase tracking-wider transition-all active:scale-95"
-                style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#7a6a5a' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; }}>
-                <CalendarClock size={14} strokeWidth={2} /> Reschedule Appointment
-              </button>
-            </div>
-            <div className="mx-6 md:mx-8 h-px" style={{ background: '#ede6db' }} />
-            <div className="max-h-[32vh] overflow-y-auto">
-              <div className="p-6 md:p-8 pt-5">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#b0a090' }}>
-                  Alternative Coverage &nbsp;·&nbsp; {selectedSession.block?.label ?? selectedSession.time}
-                </p>
-                {tutors.filter(t =>
-                  t.id !== selectedSession.tutorId &&
-                  isTutorAvailable(t, dayOfWeek(selectedSession.date), selectedSession.time) &&
-                  t.availability.includes(dayOfWeek(selectedSession.date)) &&
-                  t.cat === tutors.find(ot => ot.id === selectedSession.tutorId)?.cat
-                ).map(t => (
-                  <div key={t.id}
-                    className="flex items-center justify-between mb-2.5 p-3.5 rounded-xl transition-all cursor-pointer"
-                    style={{ background: '#faf7f3', border: '1px solid #ddd4c8' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.borderColor = '#c8b89a'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#faf7f3'; e.currentTarget.style.borderColor = '#ddd4c8'; }}>
-                    <div>
-                      <p className="text-sm font-bold leading-none mb-0.5" style={{ color: '#1c1008' }}>{t.name}</p>
-                      <p className="text-[9px] font-medium uppercase tracking-wider" style={{ color: '#9e8e7e' }}>{t.subjects.join(', ')}</p>
-                    </div>
-                    <button className="px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider text-white transition-all active:scale-95"
-                      style={{ background: '#2d2318' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#4a3828'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#2d2318'}>Reassign</button>
-                  </div>
-                ))}
+
+              <div className="space-y-2">
+                <button onClick={() => handleAttendance('scheduled')}
+                  className="w-full py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                  style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f7f2eb'; e.currentTarget.style.color = '#1c1008'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#9e8e7e'; }}>
+                  Reset to Scheduled
+                </button>
+                <button onClick={handleRemove}
+                  className="w-full py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                  style={{ background: 'transparent', color: '#c0392b' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#fff5f5'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                  Cancel & Remove Student
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {bookingToast && <BookingToast data={bookingToast} onClose={() => setBookingToast(null)} />}
-      {isTutorModalOpen && <TutorManagementModal tutors={tutors} onClose={() => setIsTutorModalOpen(false)} onRefetch={refetch} />}
+      {bookingToast && <BookingToast data={bookingToast} onClear={() => setBookingToast(null)} />}
     </div>
   );
 }

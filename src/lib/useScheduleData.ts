@@ -220,15 +220,32 @@ export async function bookStudent({
   recurringWeeks?: number
 }) {
   const weeks = recurring ? recurringWeeks : 1
+  const MAX_CAPACITY = 3 // Adjust this number to your center's limit
 
   for (let w = 0; w < weeks; w++) {
     const d = new Date(date + 'T00:00:00')
     d.setDate(d.getDate() + w * 7)
     const isoDate = toISODate(d)
 
+    // 1. CHECK FOR STUDENT DOUBLE-BOOKING
+    // Check if this student is already in ANY session on this date and time
+    const { data: studentConflict, error: conflictErr } = await supabase
+      .from('session_students2')
+      .select('id, sessions2!inner(id)')
+      .eq('student_id', student.id)
+      .eq('sessions2.session_date', isoDate)
+      .eq('sessions2.time', time)
+      .maybeSingle()
+
+    if (conflictErr) throw conflictErr
+    if (studentConflict) {
+      throw new Error(`${student.name} is already booked at ${time} on ${isoDate}`)
+    }
+
+    // 2. FIND OR CREATE SESSION & CHECK CAPACITY
     let { data: existing, error: fetchErr } = await supabase
       .from('sessions2')
-      .select('id')
+      .select('id, session_students2(id)')
       .eq('session_date', isoDate)
       .eq('tutor_id', tutorId)
       .eq('time', time)
@@ -239,6 +256,10 @@ export async function bookStudent({
     let sessionId: string
 
     if (existing) {
+      // Check if session is full
+      if (existing.session_students2 && existing.session_students2.length >= MAX_CAPACITY) {
+        throw new Error(`This session with the tutor is full for ${isoDate}`)
+      }
       sessionId = existing.id
     } else {
       const { data: created, error: createErr } = await supabase
@@ -250,14 +271,15 @@ export async function bookStudent({
       sessionId = created.id
     }
 
+    // 3. FINAL ENROLLMENT
     const { error: enrollErr } = await supabase
       .from('session_students2')
       .insert({
         session_id: sessionId,
         student_id: student.id,
-        name:       student.name,
+        name: student.name,
         topic,
-        status:     'scheduled',
+        status: 'scheduled',
       })
 
     if (enrollErr) throw enrollErr

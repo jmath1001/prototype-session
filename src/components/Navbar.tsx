@@ -14,11 +14,11 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-white border-b border-stone-200">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo - Smaller text on mobile */}
-        <div className="flex items-center gap-2">
+        {/* Logo - Clickable to Home */}
+        <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="w-8 h-8 bg-[#6d28d9] rounded-lg flex items-center justify-center text-white font-bold">T</div>
           <span className="font-bold text-sm md:text-base text-stone-900">Tutoring Center</span>
-        </div>
+        </a>
 
         {/* Desktop Links (Hidden on Mobile) */}
         <div className="hidden md:flex items-center gap-6">
