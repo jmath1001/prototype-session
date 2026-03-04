@@ -20,12 +20,10 @@ import { BookingForm, BookingToast } from '@/components/BookingForm';
 import { TutorManagementModal } from '@/components/TutorManagementModal';
 import type { PrefilledSlot, BookingConfirmData } from '@/components/BookingForm';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const isTutorAvailable = (tutor: Tutor, dow: number, time: string) =>
   tutor.availabilityBlocks.includes(`${dow}-${time}`);
 
-const ACTIVE_DAYS = [1, 2, 3, 4, 6]; // Mon Tue Wed Thu Sat
+const ACTIVE_DAYS = [1, 2, 3, 4, 6];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'];
 
 function formatWeekRange(weekStart: Date): string {
@@ -49,7 +47,6 @@ const TUTOR_PALETTES = [
 export default function MasterDeployment() {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(getCentralTimeNow()));
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
-
   const { tutors, students, sessions, loading, error, refetch } = useScheduleData(weekStart);
 
   const [selectedSession, setSelectedSession] = useState<any>(null);
@@ -87,24 +84,12 @@ export default function MasterDeployment() {
           const session = sessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
           const count = session ? session.students.length : 0;
           if (count < MAX_CAPACITY) {
-            seats.push({
-              tutor,
-              dayName: DAY_NAMES[ACTIVE_DAYS.indexOf(dow)],
-              date: isoDate,
-              time: block.time,
-              block,
-              count,
-              seatsLeft: MAX_CAPACITY - count,
-              dayNum: dow,
-            });
+            seats.push({ tutor, dayName: DAY_NAMES[ACTIVE_DAYS.indexOf(dow)], date: isoDate, time: block.time, block, count, seatsLeft: MAX_CAPACITY - count, dayNum: dow });
           }
         });
       });
     });
-    return seats.sort((a, b) => {
-      const dd = a.date.localeCompare(b.date);
-      return dd !== 0 ? dd : a.time.localeCompare(b.time);
-    });
+    return seats.sort((a, b) => { const dd = a.date.localeCompare(b.date); return dd !== 0 ? dd : a.time.localeCompare(b.time); });
   }, [enrollCat, tutors, sessions, activeDates]);
 
   const handleGridSlotClick = (tutor: Tutor, date: string, dayName: string, block: SessionBlock) => {
@@ -113,15 +98,7 @@ export default function MasterDeployment() {
 
   const handleConfirmBooking = async (data: BookingConfirmData) => {
     try {
-      await bookStudent({
-        tutorId: data.slot.tutor.id,
-        date: (data.slot as any).date,
-        time: data.slot.time,
-        student: data.student,
-        topic: data.subject || data.student.subject,
-        recurring: data.recurring,
-        recurringWeeks: data.recurringWeeks,
-      });
+      await bookStudent({ tutorId: data.slot.tutor.id, date: (data.slot as any).date, time: data.slot.time, student: data.student, topic: data.subject || data.student.subject, recurring: data.recurring, recurringWeeks: data.recurringWeeks });
       refetch();
       setBookingToast(data);
       setIsEnrollModalOpen(false);
@@ -137,8 +114,7 @@ export default function MasterDeployment() {
     if (!selectedSession) return;
     try {
       await updateAttendance({ sessionId: selectedSession.id, studentId: selectedSession.activeStudent.id, status });
-      refetch();
-      setSelectedSession(null);
+      refetch(); setSelectedSession(null);
     } catch (err) { console.error(err); }
   };
 
@@ -146,8 +122,7 @@ export default function MasterDeployment() {
     if (!selectedSession) return;
     try {
       await removeStudentFromSession({ sessionId: selectedSession.id, studentId: selectedSession.activeStudent.id });
-      refetch();
-      setSelectedSession(null);
+      refetch(); setSelectedSession(null);
     } catch (err) { console.error(err); }
   };
 
@@ -276,8 +251,8 @@ export default function MasterDeployment() {
                       <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content' }}>
                         <thead>
                           <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
-                            <th className="p-4 text-left text-xs font-bold uppercase tracking-wider"
-                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 160, position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                            <th className="p-3 text-left text-xs font-bold uppercase tracking-wider"
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 120, position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
                               Instructor
                             </th>
                             {daySessions.map(block => (
@@ -293,14 +268,15 @@ export default function MasterDeployment() {
                             const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                             return (
                               <tr key={tutor.id} style={{ borderBottom: '1px solid #ede6db' }}>
-                                <td className="p-4 align-top"
-                                  style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1 }}>
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                {/* ── INSTRUCTOR CELL (smaller) ── */}
+                                <td className="p-3 align-middle"
+                                  style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1, minWidth: 120 }}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                                       style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
                                       {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                     </div>
-                                    <p className="text-sm font-bold" style={{ color: '#1c1008' }}>{tutor.name}</p>
+                                    <p className="text-xs font-bold leading-tight" style={{ color: '#1c1008' }}>{tutor.name}</p>
                                   </div>
                                 </td>
                                 {daySessions.map(block => {
@@ -347,13 +323,14 @@ export default function MasterDeployment() {
                                             )}
                                           </>
                                         ) : isAvailable ? (
+                                          // ── GREEN AVAILABLE CELL ──
                                           <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all group"
-                                            style={{ background: 'white', border: '1.5px dashed #c8b89a' }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = '#fef9f0'; e.currentTarget.style.borderColor = '#c27d38'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
-                                            <PlusCircle size={16} style={{ color: '#c8b89a' }} className="group-hover:text-amber-600 transition-colors" />
-                                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#c8b89a' }}>Open</span>
+                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                                            style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                            <PlusCircle size={16} style={{ color: '#16a34a' }} />
+                                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#16a34a' }}>Open</span>
                                           </div>
                                         ) : (
                                           <div className="w-full h-full rounded-lg flex items-center justify-center"
@@ -418,13 +395,14 @@ export default function MasterDeployment() {
                                           )}
                                         </>
                                       ) : isAvailable ? (
+                                        // ── GREEN AVAILABLE CELL (mobile) ──
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                           className="w-full h-20 rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-                                          style={{ background: 'white', border: '1.5px dashed #c8b89a' }}
-                                          onMouseEnter={e => { e.currentTarget.style.background = '#fef9f0'; e.currentTarget.style.borderColor = '#c27d38'; }}
-                                          onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
-                                          <PlusCircle size={18} style={{ color: '#c8b89a' }} />
-                                          <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#c8b89a' }}>Open</span>
+                                          style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                          <PlusCircle size={18} style={{ color: '#16a34a' }} />
+                                          <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#16a34a' }}>Open</span>
                                         </div>
                                       ) : (
                                         <div className="w-full h-20 rounded-lg" style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }} />
@@ -458,7 +436,7 @@ export default function MasterDeployment() {
         </div>
       )}
 
-      {/* ATTENDANCE MODAL */}
+      {/* ── ATTENDANCE MODAL ── */}
       {selectedSession && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(20,14,8,0.75)', backdropFilter: 'blur(8px)' }}>
           <div className="w-full max-w-md md:max-w-lg rounded-2xl overflow-hidden" style={{ background: 'white', border: '1px solid #ddd4c8', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
