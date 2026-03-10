@@ -840,7 +840,7 @@ export default function MasterDeployment() {
                   {notesSaved && <span className="text-[9px] font-bold text-[#16a34a] uppercase tracking-wider">Saved ✓</span>}
                 </div>
                 <textarea
-                  className="w-full px-3 py-2 rounded-xl text-sm border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none transition-all resize-none"
+                  className="w-full px-3 py-2 rounded-xl text-sm text-black border-2 border-[#161007] focus:border-[#6d28d9] outline-none transition-all resize-none"
                   placeholder="Add notes about this session…"
                   rows={3}
                   value={localNotes}
