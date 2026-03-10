@@ -293,12 +293,12 @@ export default function MasterDeployment() {
                       <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content' }}>
                         <thead>
                           <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
-                            <th className="p-3 text-left text-xs font-bold uppercase tracking-wider"
-                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 120, position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                            <th className="px-2 py-2 text-left text-xs font-bold uppercase tracking-wider"
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
                               Instructor
                             </th>
                             {daySessions.map(block => (
-                              <th key={block.id} className="p-3 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 180 }}>
+                              <th key={block.id} className="px-3 py-2 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 160 }}>
                                 <div className="text-xs font-bold uppercase tracking-wider">{block.label}</div>
                                 <div className="text-[10px] font-medium mt-0.5" style={{ color: '#b0a090' }}>{block.display}</div>
                               </th>
@@ -310,14 +310,24 @@ export default function MasterDeployment() {
                             const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                             return (
                               <tr key={tutor.id} style={{ borderBottom: '1px solid #ede6db' }}>
-                                <td className="p-3 align-middle"
-                                  style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1, minWidth: 120 }}>
+                                {/* ── INSTRUCTOR CELL: tighter padding, no fixed width ── */}
+                                <td className="px-2 py-2 align-middle"
+                                  style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                                   <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                                       style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
                                       {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                     </div>
-                                    <p className="text-xs font-bold leading-tight" style={{ color: '#1c1008' }}>{tutor.name}</p>
+                                    <div>
+                                      <p className="text-xs font-bold leading-tight whitespace-nowrap" style={{ color: '#1c1008' }}>{tutor.name}</p>
+                                      <span className="text-[8px] font-bold px-1 py-0.5 rounded mt-0.5 inline-block"
+                                        style={{
+                                          background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3',
+                                          color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d'
+                                        }}>
+                                        {tutor.cat === 'math' ? 'Math' : 'English'}
+                                      </span>
+                                    </div>
                                   </div>
                                 </td>
                                 {daySessions.map(block => {
@@ -330,15 +340,15 @@ export default function MasterDeployment() {
                                   const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
 
                                   return (
-                                    <td key={block.id} className="p-2 align-top h-[160px]"
+                                    <td key={block.id} className="p-1.5 align-top h-[110px]"
                                       style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
-                                      <div className="flex flex-col gap-1.5 h-full">
+                                      <div className="flex flex-col gap-1 h-full">
                                         {hasStudents && !isOnTimeOff ? (
                                           <>
                                             {session!.students.map(student => (
                                               <div key={student.rowId || student.id}
                                                 onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                className="group relative p-2.5 rounded-lg transition-all hover:shadow-md cursor-pointer"
+                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md cursor-pointer"
                                                 style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
                                                   : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
                                                     : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
@@ -348,7 +358,7 @@ export default function MasterDeployment() {
                                                 </div>
                                                 <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
                                                 {student.status === 'present' && (
-                                                  <div className="flex items-center gap-1 mt-1">
+                                                  <div className="flex items-center gap-1 mt-0.5">
                                                     <Check size={9} style={{ color: '#059669' }} strokeWidth={3} />
                                                     <span className="text-[9px] font-semibold" style={{ color: '#059669' }}>Present</span>
                                                   </div>
@@ -357,7 +367,7 @@ export default function MasterDeployment() {
                                             ))}
                                             {!isFull && (
                                               <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                                className="mt-auto py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                                                className="mt-auto py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
                                                 style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = '#2d2318'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#2d2318'; }}
                                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9e8e7e'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
@@ -367,11 +377,11 @@ export default function MasterDeployment() {
                                           </>
                                         ) : isAvailable ? (
                                           <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
                                             style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
                                             onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
                                             onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
-                                            <PlusCircle size={16} style={{ color: '#16a34a' }} />
+                                            <PlusCircle size={14} style={{ color: '#16a34a' }} />
                                             <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#16a34a' }}>Open</span>
                                           </div>
                                         ) : (
@@ -407,7 +417,7 @@ export default function MasterDeployment() {
                       const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                       return (
                         <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #ddd4c8', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
-                          <div className="p-3" style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
+                          <div className="p-2.5" style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
                             <p className="text-xs font-bold" style={{ color: '#1c1008' }}>{tutor.name}</p>
                           </div>
                           <div className="overflow-x-auto">
@@ -421,19 +431,19 @@ export default function MasterDeployment() {
                                 const isOutside = !isTutorAvailable(tutor, dow, block.time) || isOnTimeOff;
 
                                 return (
-                                  <div key={block.id} className="flex-shrink-0 w-44 p-2"
+                                  <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
                                     style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
-                                    <div className="text-center mb-2">
+                                    <div className="text-center mb-1.5">
                                       <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#9e8e7e' }}>{block.label}</div>
                                       <div className="text-[8px]" style={{ color: '#b0a090' }}>{block.display}</div>
                                     </div>
-                                    <div className="space-y-1.5 min-h-[100px]">
+                                    <div className="space-y-1 min-h-[80px]">
                                       {hasStudents && !isOnTimeOff ? (
                                         <>
                                           {session!.students.map(student => (
                                             <div key={student.rowId || student.id}
                                               onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                              className="p-2 rounded-lg cursor-pointer transition-all active:scale-95"
+                                              className="p-1.5 rounded-lg cursor-pointer transition-all active:scale-95"
                                               style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 } : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
                                               <p className="text-[10px] font-bold leading-tight mb-0.5" style={{ color: '#1c1008' }}>{student.name}</p>
                                               <p className="text-[7px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
@@ -441,7 +451,7 @@ export default function MasterDeployment() {
                                           ))}
                                           {!isFull && (
                                             <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                              className="w-full py-1.5 rounded-lg text-[7px] font-bold uppercase transition-all"
+                                              className="w-full py-1 rounded-lg text-[7px] font-bold uppercase transition-all"
                                               style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}>
                                               + {MAX_CAPACITY - session!.students.length}
                                             </button>
@@ -449,15 +459,15 @@ export default function MasterDeployment() {
                                         </>
                                       ) : isAvailable ? (
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                          className="w-full h-20 rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                                          className="w-full h-16 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
                                           style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
                                           onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
                                           onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
-                                          <PlusCircle size={18} style={{ color: '#16a34a' }} />
+                                          <PlusCircle size={16} style={{ color: '#16a34a' }} />
                                           <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#16a34a' }}>Open</span>
                                         </div>
                                       ) : (
-                                        <div className="w-full h-20 rounded-lg flex flex-col items-center justify-center gap-1"
+                                        <div className="w-full h-16 rounded-lg flex flex-col items-center justify-center gap-1"
                                           style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
                                           {isOnTimeOff ? (
                                             <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
