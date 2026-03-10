@@ -16,6 +16,7 @@ export type Student = {
   id: string
   name: string
   subject: string
+  grade: string | null
   hoursLeft: number
 }
 
@@ -25,6 +26,7 @@ export type SessionStudent = {
   name: string
   topic: string
   status: string
+  grade: string | null
 }
 
 export type Session = {
@@ -172,8 +174,13 @@ export function useScheduleData(weekStart: Date): ScheduleData {
           id:        r.id,
           name:      r.name,
           subject:   r.subject,
+          grade:     r.grade ?? null,
           hoursLeft: r.hours_left,
         }))
+
+        // Build a grade lookup map so we can enrich session students
+        const gradeMap: Record<string, string | null> = {}
+        students.forEach(s => { gradeMap[s.id] = s.grade })
 
         const sessions: Session[] = (sessionRes.data ?? []).map(r => ({
           id:       r.id,
@@ -186,6 +193,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             name:   ss.name,
             topic:  ss.topic,
             status: ss.status,
+            grade:  gradeMap[ss.student_id] ?? null,
           })),
         }))
 

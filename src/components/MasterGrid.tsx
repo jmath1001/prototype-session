@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useMemo } from 'react';
-import { PlusCircle, RefreshCw, Check, AlertCircle, XCircle, UserX, X, CalendarClock, Loader2, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from "lucide-react";
+import { PlusCircle, Check, XCircle, UserX, X, CalendarClock, Loader2, ChevronLeft, ChevronRight, CalendarDays, ChevronDown } from "lucide-react";
 
 import { MAX_CAPACITY, getSessionsForDay, type SessionBlock } from '@/components/constants';
 import {
@@ -347,22 +347,43 @@ export default function MasterDeployment() {
                                           <>
                                             {session!.students.map(student => (
                                               <div key={student.rowId || student.id}
-                                                onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md cursor-pointer"
+                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md"
                                                 style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
                                                   : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
                                                     : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                                {/* Top row: name + present toggle */}
                                                 <div className="flex justify-between items-start mb-0.5">
-                                                  <p className="text-xs font-bold leading-tight" style={{ color: '#1c1008' }}>{student.name}</p>
-                                                  <RefreshCw size={9} className="opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" style={{ color: palette.tag }} />
+                                                  <p
+                                                    className="text-xs font-bold leading-tight cursor-pointer"
+                                                    style={{ color: '#1c1008' }}
+                                                    onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
+                                                  >{student.name}</p>
+                                                  <button
+                                                    onClick={async (e) => {
+                                                      e.stopPropagation();
+                                                      const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                      await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                      refetch();
+                                                    }}
+                                                    className="shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
+                                                    style={student.status === 'present'
+                                                      ? { background: '#059669', border: '1.5px solid #059669' }
+                                                      : { background: 'white', border: '1.5px solid #c8b89a' }}
+                                                    title="Toggle present"
+                                                  >
+                                                    {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
+                                                  </button>
                                                 </div>
-                                                <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
-                                                {student.status === 'present' && (
-                                                  <div className="flex items-center gap-1 mt-0.5">
-                                                    <Check size={9} style={{ color: '#059669' }} strokeWidth={3} />
-                                                    <span className="text-[9px] font-semibold" style={{ color: '#059669' }}>Present</span>
-                                                  </div>
-                                                )}
+                                                {/* Topic + grade */}
+                                                <div
+                                                  className="cursor-pointer"
+                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
+                                                >
+                                                  <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                                  {student.grade && (
+                                                    <p className="text-[9px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>
+                                                  )}
+                                                </div>
                                               </div>
                                             ))}
                                             {!isFull && (
@@ -442,11 +463,35 @@ export default function MasterDeployment() {
                                         <>
                                           {session!.students.map(student => (
                                             <div key={student.rowId || student.id}
-                                              onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                              className="p-1.5 rounded-lg cursor-pointer transition-all active:scale-95"
-                                              style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 } : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
-                                              <p className="text-[10px] font-bold leading-tight mb-0.5" style={{ color: '#1c1008' }}>{student.name}</p>
+                                              className="p-1.5 rounded-lg transition-all"
+                                              style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
+                                                : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                              <div className="flex justify-between items-start mb-0.5">
+                                                <p
+                                                  className="text-[10px] font-bold leading-tight cursor-pointer"
+                                                  style={{ color: '#1c1008' }}
+                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
+                                                >{student.name}</p>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                    await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                    refetch();
+                                                  }}
+                                                  className="shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center"
+                                                  style={student.status === 'present'
+                                                    ? { background: '#059669', border: '1.5px solid #059669' }
+                                                    : { background: 'white', border: '1.5px solid #c8b89a' }}
+                                                >
+                                                  {student.status === 'present' && <Check size={8} strokeWidth={3} color="white" />}
+                                                </button>
+                                              </div>
                                               <p className="text-[7px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                              {student.grade && (
+                                                <p className="text-[7px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Gr. {student.grade}</p>
+                                              )}
                                             </div>
                                           ))}
                                           {!isFull && (
@@ -506,104 +551,129 @@ export default function MasterDeployment() {
       )}
 
       {/* ── ATTENDANCE MODAL ── */}
-      {selectedSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(20,14,8,0.75)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-md md:max-w-lg rounded-2xl overflow-hidden" style={{ background: 'white', border: '1px solid #ddd4c8', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
-            <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #c27d38, #f5c842, #c27d38)' }} />
-            <div className="p-6 md:p-8 pb-4 md:pb-5">
-              <div className="flex items-start justify-between mb-5">
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-3" style={{ background: '#fef3e2', border: '1px solid #f5d08a' }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c27d38' }} />
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#a06020' }}>{selectedSession.activeStudent.topic}</span>
+      {selectedSession && (() => {
+        const s = selectedSession;
+        const student = s.activeStudent;
+        const sessionDow = dayOfWeek(s.date);
+        const sessionTime = s.time ?? s.block?.time;
+        const originalTutor = tutors.find(t => t.id === s.tutorId);
+
+        const altTutors = tutors.filter(t => {
+          if (t.id === s.tutorId) return false;
+          if (t.cat !== originalTutor?.cat) return false;
+          if (!t.availability.includes(sessionDow)) return false;
+          if (!isTutorAvailable(t, sessionDow, sessionTime)) return false;
+          const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
+          if (altSession && altSession.students.length >= MAX_CAPACITY) return false;
+          return true;
+        });
+
+        const currentStatus = student.status;
+
+        const handleReassign = async (newTutor: Tutor) => {
+          try {
+            // Remove from current session
+            await removeStudentFromSession({ sessionId: s.id, studentId: student.id });
+            // Book with new tutor (reuses find-or-create logic)
+            const studentObj = students.find(st => st.id === student.id) ?? { id: student.id, name: student.name, subject: student.topic, grade: student.grade ?? null, hoursLeft: 0 };
+            await bookStudent({ tutorId: newTutor.id, date: s.date, time: sessionTime, student: studentObj, topic: student.topic });
+            refetch();
+            setSelectedSession(null);
+          } catch (err: any) {
+            alert(err.message || 'Reassignment failed');
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(28,16,8,0.7)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden border border-[#e7e3dd] shadow-2xl" style={{ maxHeight: 'min(560px, 90vh)' }}>
+
+              {/* Header */}
+              <div className="p-4 bg-[#faf9f7] border-b border-[#e7e3dd] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#ede9fe] flex items-center justify-center text-sm font-black text-[#6d28d9] shrink-0">
+                    {student.name.charAt(0)}
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-bold leading-none mb-2" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>{selectedSession.activeStudent.name}</h3>
-                  <p className="text-xs font-medium" style={{ color: '#9e8e7e' }}>
-                    {selectedSession.dayName} &nbsp;·&nbsp; {formatDate(selectedSession.date)} &nbsp;·&nbsp;
-                    {selectedSession.block ? `${selectedSession.block.label} · ${selectedSession.block.display}` : selectedSession.time}
-                    &nbsp;·&nbsp; {selectedSession.tutorName}
-                  </p>
+                  <div>
+                    <p className="text-sm font-black text-[#1c1917] leading-tight">{student.name}</p>
+                    <p className="text-[10px] text-[#a8a29e] font-medium">
+                      {student.grade ? `Grade ${student.grade} · ` : ''}{student.topic}
+                    </p>
+                  </div>
                 </div>
-                <button onClick={() => setSelectedSession(null)}
-                  className="ml-4 mt-1 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all"
-                  style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; e.currentTarget.style.color = '#1c1008'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; e.currentTarget.style.color = '#9e8e7e'; }}>
-                  <X size={14} />
+                <button onClick={() => setSelectedSession(null)} className="p-1.5 hover:bg-[#f0ece8] rounded-full text-[#a8a29e] transition-colors shrink-0">
+                  <X size={16} />
                 </button>
               </div>
-            </div>
-            <div className="px-6 md:px-8 pb-5">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#b0a090' }}>Mark Attendance</p>
-              <div className="grid grid-cols-2 gap-2.5 mb-3">
-                <button onClick={() => handleAttendance('present')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#16a34a', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#15803d'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#16a34a'}>
-                  <Check size={15} strokeWidth={2.5} /> Present
-                </button>
-                <button onClick={() => handleAttendance('scheduled')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#c27d38', boxShadow: '0 2px 8px rgba(194,125,56,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#a06020'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#c27d38'}>
-                  <AlertCircle size={15} strokeWidth={2.5} /> Excused
-                </button>
-                <button onClick={() => handleAttendance('no-show')}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider text-white transition-all active:scale-95"
-                  style={{ background: '#dc2626', boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}>
-                  <XCircle size={15} strokeWidth={2.5} /> Unexcused
-                </button>
-                <button onClick={handleRemove}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-all active:scale-95"
-                  style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#7a6a5a' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; e.currentTarget.style.color = '#3d2f1f'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; e.currentTarget.style.color = '#7a6a5a'; }}>
-                  <UserX size={15} strokeWidth={2} /> Remove
-                </button>
+
+              {/* Session info strip */}
+              <div className="px-4 py-2 bg-white border-b border-[#f0ece8] flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#1c1917] text-white uppercase tracking-wider">{s.dayName}</span>
+                <span className="text-[10px] text-[#78716c]">{formatDate(s.date)}</span>
+                <span className="text-[#d4cfc9]">·</span>
+                <span className="text-[10px] text-[#78716c]">{s.block?.label ?? sessionTime}{s.block?.display ? ` · ${s.block.display}` : ''}</span>
+                <span className="text-[#d4cfc9]">·</span>
+                <span className="text-[10px] font-semibold text-[#6d28d9]">{s.tutorName}</span>
               </div>
-              <button className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm uppercase tracking-wider transition-all active:scale-95"
-                style={{ background: '#f7f2eb', border: '1px solid #ddd4c8', color: '#7a6a5a' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#ede6db'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f7f2eb'; }}>
-                <CalendarClock size={14} strokeWidth={2} /> Reschedule Appointment
-              </button>
-            </div>
-            <div className="mx-6 md:mx-8 h-px" style={{ background: '#ede6db' }} />
-            <div className="max-h-[32vh] overflow-y-auto">
-              <div className="p-6 md:p-8 pt-5">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#b0a090' }}>
-                  Alternative Coverage &nbsp;·&nbsp; {selectedSession.block?.label ?? selectedSession.time}
-                </p>
-                {tutors.filter(t =>
-                  t.id !== selectedSession.tutorId &&
-                  isTutorAvailable(t, dayOfWeek(selectedSession.date), selectedSession.time) &&
-                  t.availability.includes(dayOfWeek(selectedSession.date)) &&
-                  t.cat === tutors.find(ot => ot.id === selectedSession.tutorId)?.cat
-                ).map(t => (
-                  <div key={t.id}
-                    className="flex items-center justify-between mb-2.5 p-3.5 rounded-xl transition-all cursor-pointer"
-                    style={{ background: '#faf7f3', border: '1px solid #ddd4c8' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.borderColor = '#c8b89a'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#faf7f3'; e.currentTarget.style.borderColor = '#ddd4c8'; }}>
-                    <div>
-                      <p className="text-sm font-bold leading-none mb-0.5" style={{ color: '#1c1008' }}>{t.name}</p>
-                      <p className="text-[9px] font-medium uppercase tracking-wider" style={{ color: '#9e8e7e' }}>{t.subjects.join(', ')}</p>
-                    </div>
-                    <button className="px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider text-white transition-all active:scale-95"
-                      style={{ background: '#2d2318' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#4a3828'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#2d2318'}>Reassign</button>
+
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(min(560px, 90vh) - 120px)' }}>
+                {/* Attendance */}
+                <div className="p-4 border-b border-[#f0ece8]">
+                  <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest mb-2">Attendance</p>
+                  <div className="flex gap-2 mb-2">
+                    {([
+                      { status: 'present', label: 'Present', activeStyle: { background: '#dcfce7', borderColor: '#16a34a', color: '#15803d' } },
+                      { status: 'no-show', label: 'No-show', activeStyle: { background: '#fee2e2', borderColor: '#dc2626', color: '#b91c1c' } },
+                      { status: 'scheduled', label: 'Scheduled', activeStyle: { background: '#fef3c7', borderColor: '#f59e0b', color: '#b45309' } },
+                    ] as const).map(({ status, label, activeStyle }) => (
+                      <button key={status} onClick={() => handleAttendance(status)}
+                        className="flex-1 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 border-2"
+                        style={currentStatus === status ? activeStyle : { background: 'white', borderColor: '#e7e3dd', color: '#a8a29e' }}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                  <button onClick={handleRemove}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border border-dashed border-[#fca5a5] text-[#ef4444] hover:bg-[#fff1f1] transition-all">
+                    <UserX size={12} strokeWidth={2} /> Remove
+                  </button>
+                </div>
+
+                {/* Alt coverage */}
+                {altTutors.length > 0 && (
+                  <div className="p-4">
+                    <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest mb-2">Reassign to</p>
+                    <div className="space-y-2">
+                      {altTutors.map(t => {
+                        const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
+                        const spotsUsed = altSession ? altSession.students.length : 0;
+                        return (
+                          <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-[#f0ece8] hover:border-[#c4b5fd] hover:bg-[#faf9ff] transition-all">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-[#ede9fe] flex items-center justify-center text-xs font-black text-[#6d28d9]">
+                                {t.name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-[#1c1917]">{t.name}</p>
+                                <p className="text-[9px] text-[#a8a29e] uppercase">{spotsUsed}/{MAX_CAPACITY} spots</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleReassign(t)}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white bg-[#6d28d9] hover:bg-[#5b21b6] transition-all active:scale-95">
+                              Move
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {bookingToast && <BookingToast data={bookingToast} onClose={() => setBookingToast(null)} />}
       {isTutorModalOpen && <TutorManagementModal tutors={tutors} onClose={() => setIsTutorModalOpen(false)} onRefetch={refetch} />}
