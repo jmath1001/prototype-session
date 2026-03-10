@@ -129,7 +129,7 @@ function StudentRow({
   const handleConfirmBooking = async (data: any) => {
     await bookStudent({
       tutorId: data.slot.tutor.id, date: data.slot.date, time: data.slot.time,
-      student: { id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null, hoursLeft: student.hours_left ?? 0 },
+      student: { id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null, hoursLeft: student.hours_left ?? 0, availabilityBlocks: student.availability_blocks ?? [] },
       topic: data.topic, recurring: data.recurring, recurringWeeks: data.recurringWeeks,
     });
     setShowBooking(false);
