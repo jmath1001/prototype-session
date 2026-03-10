@@ -340,74 +340,65 @@ export default function MasterDeployment() {
                                   const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
 
                                   return (
-                                    <td key={block.id} className="p-1.5 align-top h-[110px]"
+                                    <td key={block.id} className="p-1.5 align-top"
                                       style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
                                       <div className="flex flex-col gap-1 h-full">
                                         {hasStudents && !isOnTimeOff ? (
                                           <>
                                             {session!.students.map(student => (
                                               <div key={student.rowId || student.id}
-                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md"
-                                                style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
-                                                  : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all"
+                                                style={student.status === 'no-show'
+                                                  ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.4 }
+                                                  : student.status === 'present'
+                                                    ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
                                                     : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
-                                                {/* Top row: name + present toggle */}
-                                                <div className="flex justify-between items-start mb-0.5">
-                                                  <p
-                                                    className="text-xs font-bold leading-tight cursor-pointer"
-                                                    style={{ color: '#1c1008' }}
-                                                    onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                  >{student.name}</p>
-                                                  <button
-                                                    onClick={async (e) => {
-                                                      e.stopPropagation();
-                                                      const next = student.status === 'present' ? 'scheduled' : 'present';
-                                                      await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
-                                                      refetch();
-                                                    }}
-                                                    className="shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
-                                                    style={student.status === 'present'
-                                                      ? { background: '#059669', border: '1.5px solid #059669' }
-                                                      : { background: 'white', border: '1.5px solid #c8b89a' }}
-                                                    title="Toggle present"
-                                                  >
-                                                    {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
-                                                  </button>
-                                                </div>
-                                                {/* Topic + grade */}
-                                                <div
-                                                  className="cursor-pointer"
-                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                >
-                                                  <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
-                                                  {student.grade && (
-                                                    <p className="text-[9px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>
-                                                  )}
+                                                {/* Present toggle */}
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                    await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                    refetch();
+                                                  }}
+                                                  className="shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center transition-all"
+                                                  style={student.status === 'present'
+                                                    ? { background: '#059669', border: '1.5px solid #059669' }
+                                                    : { background: 'white', border: '1.5px solid #c8b89a' }}>
+                                                  {student.status === 'present' && <Check size={8} strokeWidth={3} color="white" />}
+                                                </button>
+                                                {/* Name + meta — click opens modal */}
+                                                <div className="flex-1 min-w-0 cursor-pointer"
+                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}>
+                                                  <p className="text-[11px] font-bold leading-none truncate" style={{ color: '#1c1008' }}>{student.name}</p>
+                                                  <p className="text-[9px] leading-none mt-0.5 truncate" style={{ color: palette.tag }}>
+                                                    {student.topic}{student.grade ? ` · Gr.${student.grade}` : ''}
+                                                  </p>
                                                 </div>
                                               </div>
                                             ))}
                                             {!isFull && (
                                               <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                                className="mt-auto py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                                                className="py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all"
                                                 style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = '#2d2318'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#2d2318'; }}
                                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9e8e7e'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
-                                                + ADD ({MAX_CAPACITY - session!.students.length})
+                                                + ADD
                                               </button>
                                             )}
                                           </>
                                         ) : isAvailable ? (
                                           <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
-                                            style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
+                                            className="w-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
+                                            style={{ minHeight: 64, background: '#f0fdf4', border: '1.5px dashed #86efac' }}
                                             onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
                                             onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
                                             <PlusCircle size={14} style={{ color: '#16a34a' }} />
                                             <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#16a34a' }}>Open</span>
                                           </div>
                                         ) : (
-                                          <div className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1"
-                                            style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                          <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
+                                            style={{ minHeight: 64, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
                                             {isOnTimeOff ? (
                                               <>
                                                 <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
