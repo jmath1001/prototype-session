@@ -8,6 +8,7 @@ import {
   bookStudent,
   updateAttendance,
   removeStudentFromSession,
+  updateSessionNotes,
   getWeekStart,
   getWeekDates,
   toISODate,
@@ -56,6 +57,10 @@ export default function MasterDeployment() {
   const [bookingToast, setBookingToast] = useState<BookingConfirmData | null>(null);
   const [isTutorModalOpen, setIsTutorModalOpen] = useState(false);
   const [selectedTutorFilter, setSelectedTutorFilter] = useState<string | null>(null);
+  const [localNotes, setLocalNotes] = useState<string>('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [todayView, setTodayView] = useState(false);
 
   const tutorPaletteMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -101,7 +106,8 @@ export default function MasterDeployment() {
     try {
       await bookStudent({
         tutorId: data.slot.tutor.id, date: (data.slot as any).date, time: data.slot.time,
-        student: data.student, topic: data.topic || data.subject || data.student.subject, recurring: data.recurring, recurringWeeks: data.recurringWeeks
+        student: data.student, topic: data.topic || data.subject || data.student.subject,
+        notes: data.notes || '', recurring: data.recurring, recurringWeeks: data.recurringWeeks
       });
       refetch();
       setBookingToast(data);
@@ -128,6 +134,12 @@ export default function MasterDeployment() {
       await removeStudentFromSession({ sessionId: selectedSession.id, studentId: selectedSession.activeStudent.id });
       refetch(); setSelectedSession(null);
     } catch (err) { console.error(err); }
+  };
+
+  const setSelectedSessionWithNotes = (s: any) => {
+    setSelectedSession(s);
+    setLocalNotes(s?.activeStudent?.notes ?? '');
+    setNotesSaved(false);
   };
 
   const closeAllModals = () => { setIsEnrollModalOpen(false); setGridSlotToBook(null); };
@@ -157,9 +169,26 @@ export default function MasterDeployment() {
       {/* ── HEADER ── */}
       <div className="sticky top-0 z-40 flex justify-between items-center px-4 md:px-8 py-3 border-b"
         style={{ background: 'rgba(247,244,239,0.95)', backdropFilter: 'blur(16px)', borderColor: '#e2d9cc' }}>
-        <div>
-          <h1 className="text-lg md:text-xl font-bold tracking-tight leading-none" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>Weekly Schedule</h1>
-          <p className="text-[9px] font-semibold uppercase tracking-widest mt-0.5" style={{ color: '#c27d38' }}>Tutor Management</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-lg md:text-xl font-bold tracking-tight leading-none" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>
+              {todayView ? 'Today' : 'Weekly Schedule'}
+            </h1>
+            <p className="text-[9px] font-semibold uppercase tracking-widest mt-0.5" style={{ color: '#c27d38' }}>Tutor Management</p>
+          </div>
+          {/* Today / Week toggle */}
+          <div className="flex gap-0.5 bg-[#ede8e1] p-0.5 rounded-lg">
+            <button onClick={() => setTodayView(false)}
+              className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
+              style={!todayView ? { background: 'white', color: '#1c1008', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' } : { color: '#9e8e7e' }}>
+              Week
+            </button>
+            <button onClick={() => setTodayView(true)}
+              className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
+              style={todayView ? { background: '#c27d38', color: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' } : { color: '#9e8e7e' }}>
+              Today
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setIsTutorModalOpen(true)}
@@ -183,71 +212,256 @@ export default function MasterDeployment() {
       </div>
 
       {/* ── WEEK NAVIGATION ── */}
-<div className="max-w-[1600px] mx-auto px-2 md:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
-  
-  {/* Left Side: Prev/Next + Date */}
-  <div className="flex items-center gap-1.5 md:gap-3">
-    <button onClick={goToPrevWeek} 
-      className="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0"
-      style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}>
-      <ChevronLeft size={14} />
-    </button>
-
-    <div className="text-center min-w-[110px] md:min-w-0">
-      <div className="text-[13px] md:text-lg font-bold tracking-tight leading-none whitespace-nowrap" 
-           style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>
-        {formatWeekRange(weekStart)}
+      {!todayView && (
+      <div className="max-w-[1600px] mx-auto px-3 md:px-6 pt-6 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={goToPrevWeek} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+            style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.color = '#3d2f1f'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#9e8e7e'; }}>
+            <ChevronLeft size={16} />
+          </button>
+          <div>
+            <div className="text-base md:text-lg font-bold tracking-tight leading-none" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>
+              {formatWeekRange(weekStart)}
+            </div>
+            {isCurrentWeek && <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: '#c27d38' }}>Current Week</span>}
+          </div>
+          <button onClick={goToNextWeek} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+            style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.color = '#3d2f1f'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#9e8e7e'; }}>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {!isCurrentWeek && (
+            <button onClick={goToThisWeek}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+              style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fde8c0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fef3e2'}>
+              <CalendarDays size={12} /> Today
+            </button>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={selectedTutorFilter ?? ''}
+                onChange={e => setSelectedTutorFilter(e.target.value || null)}
+                className="appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
+                style={{
+                  background: selectedTutorFilter ? '#fef3e2' : 'white',
+                  border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`,
+                  color: selectedTutorFilter ? '#a06020' : '#7a6a5a',
+                  outline: 'none',
+                }}>
+                <option value="">All Tutors</option>
+                {tutors.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: selectedTutorFilter ? '#a06020' : '#9e8e7e' }} />
+            </div>
+            {selectedTutorFilter && (
+              <button onClick={() => setSelectedTutorFilter(null)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#fde8c0'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fef3e2'}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-      {isCurrentWeek && (
-        <span className="block text-[8px] md:text-[9px] font-bold uppercase tracking-widest mt-0.5" 
-              style={{ color: '#c27d38' }}>
-          Current
-        </span>
       )}
-    </div>
 
-    <button onClick={goToNextWeek} 
-      className="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-all flex-shrink-0"
-      style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}>
-      <ChevronRight size={14} />
-    </button>
-  </div>
+      {/* ── TODAY VIEW ── */}
+      {todayView && (() => {
+        const todayIso = toISODate(new Date());
+        const todayDow = dayOfWeek(todayIso);
+        const dayIdx = ACTIVE_DAYS.indexOf(todayDow);
+        const dayLabel = DAY_NAMES[dayIdx] ?? 'Today';
+        const daySessions = getSessionsForDay(todayDow);
+        const todayTutors = tutors.filter(t =>
+          t.availability.includes(todayDow) &&
+          (selectedTutorFilter === null || t.id === selectedTutorFilter)
+        );
+        const isWeekend = !ACTIVE_DAYS.includes(todayDow);
 
-  {/* Right Side: Today + Filter */}
-  <div className="flex items-center gap-1.5 md:gap-2">
-    {!isCurrentWeek && (
-      <button onClick={goToThisWeek}
-        className="flex items-center justify-center w-8 h-8 md:w-auto md:px-3 md:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-        style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}>
-        <CalendarDays size={14} />
-        <span className="hidden md:inline ml-1.5">Today</span>
-      </button>
-    )}
+        return (
+          <div className="max-w-[1600px] mx-auto p-3 md:p-6">
+            {isWeekend ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-3">
+                <p className="text-4xl">🎉</p>
+                <p className="text-lg font-bold" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions today</p>
+                <p className="text-xs" style={{ color: '#a8a29e' }}>Enjoy your day off</p>
+              </div>
+            ) : (
+              <>
+                {/* Date header */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div>
+                    <h2 className="text-3xl font-bold" style={{ color: '#c27d38', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
+                    <p className="text-sm font-semibold" style={{ color: '#c27d38' }}>
+                      {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="h-px flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #f5d08a, transparent)' }} />
+                  {/* Tutor filter */}
+                  <div className="relative">
+                    <select value={selectedTutorFilter ?? ''} onChange={e => setSelectedTutorFilter(e.target.value || null)}
+                      className="appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider cursor-pointer outline-none"
+                      style={{ background: selectedTutorFilter ? '#fef3e2' : 'white', border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`, color: selectedTutorFilter ? '#a06020' : '#7a6a5a' }}>
+                      <option value="">All Tutors</option>
+                      {tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9e8e7e' }} />
+                  </div>
+                </div>
 
-    <div className="relative">
-      <select
-        value={selectedTutorFilter ?? ''}
-        onChange={e => setSelectedTutorFilter(e.target.value || null)}
-        className="appearance-none pl-2 pr-6 md:pl-3 md:pr-8 py-2 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
-        style={{
-          background: selectedTutorFilter ? '#fef3e2' : 'white',
-          border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`,
-          color: selectedTutorFilter ? '#a06020' : '#7a6a5a',
-          outline: 'none',
-        }}
-      >
-        <option value="">{/* Empty on mobile via CSS or use "All" */}All</option>
-        {tutors.map(t => (
-          <option key={t.id} value={t.id}>{t.name}</option>
-        ))}
-      </select>
-      <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
-        style={{ color: selectedTutorFilter ? '#a06020' : '#9e8e7e' }} />
-    </div>
-  </div>
-</div>
+                {todayTutors.length === 0 ? (
+                  <div className="rounded-xl p-8 text-center border border-dashed" style={{ borderColor: '#ddd4c8' }}>
+                    <p className="text-sm italic" style={{ color: '#c4b5a0' }}>No tutors available today</p>
+                  </div>
+                ) : (
+                  /* Time-slot columns across, tutors down */
+                  <div className="rounded-2xl overflow-hidden" style={{ background: 'white', border: '1px solid #ddd4c8', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
+                    <div className="overflow-x-auto">
+                      <table className="border-collapse w-full">
+                        <thead>
+                          <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
+                            <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider"
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                              Instructor
+                            </th>
+                            {daySessions.map(block => (
+                              <th key={block.id} className="px-4 py-3 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 200 }}>
+                                <div className="text-sm font-bold uppercase tracking-wider">{block.label}</div>
+                                <div className="text-[11px] font-medium mt-0.5" style={{ color: '#b0a090' }}>{block.display}</div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {todayTutors.map(tutor => {
+                            const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
+                            const isOnTimeOff = timeOff.some(t => t.tutorId === tutor.id && t.date === todayIso);
+                            return (
+                              <tr key={tutor.id} style={{ borderBottom: '1px solid #ede6db' }}>
+                                <td className="px-3 py-3 align-middle"
+                                  style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                      style={{ background: palette.bg, color: palette.text, border: `1.5px solid ${palette.border}` }}>
+                                      {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-bold leading-tight" style={{ color: '#1c1008' }}>{tutor.name}</p>
+                                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block"
+                                        style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
+                                        {tutor.cat === 'math' ? 'Math' : 'English'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                                {daySessions.map(block => {
+                                  const session = sessions.find(s => s.date === todayIso && s.tutorId === tutor.id && s.time === block.time);
+                                  const hasStudents = session && session.students.length > 0;
+                                  const isAvailable = isTutorAvailable(tutor, todayDow, block.time) && !hasStudents && !isOnTimeOff;
+                                  const isFull = hasStudents && session!.students.length >= MAX_CAPACITY;
+                                  const isOutside = !isTutorAvailable(tutor, todayDow, block.time) || isOnTimeOff;
+                                  const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === todayIso)?.note : null;
+
+                                  return (
+                                    <td key={block.id} className="p-2 align-top"
+                                      style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db', minWidth: 200 }}>
+                                      <div className="flex flex-col gap-1.5 min-h-[100px]">
+                                        {hasStudents && !isOnTimeOff ? (
+                                          <>
+                                            {session!.students.map(student => (
+                                              <div key={student.rowId || student.id}
+                                                className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
+                                                style={student.status === 'no-show'
+                                                  ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
+                                                  : student.status === 'present'
+                                                    ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}` }}
+                                                onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                                <div className="flex justify-between items-start mb-1">
+                                                  <p className="text-sm font-bold leading-tight" style={{ color: '#1c1008' }}>{student.name}</p>
+                                                  <button onClick={async e => {
+                                                    e.stopPropagation();
+                                                    const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                    await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                    refetch();
+                                                  }}
+                                                    className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all"
+                                                    style={student.status === 'present'
+                                                      ? { background: '#059669', border: '1.5px solid #059669' }
+                                                      : { background: 'white', border: '1.5px solid #c8b89a' }}>
+                                                    {student.status === 'present' && <Check size={11} strokeWidth={3} color="white" />}
+                                                  </button>
+                                                </div>
+                                                <p className="text-[11px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                                {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>}
+                                                {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#b0a090' }}>📝 {student.notes}</p>}
+                                              </div>
+                                            ))}
+                                            {!isFull && (
+                                              <button onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
+                                                className="py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                                                style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}
+                                                onMouseEnter={e => { e.currentTarget.style.background = '#2d2318'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#2d2318'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9e8e7e'; e.currentTarget.style.borderColor = '#c8b89a'; }}>
+                                                + ADD ({MAX_CAPACITY - session!.students.length})
+                                              </button>
+                                            )}
+                                          </>
+                                        ) : isAvailable ? (
+                                          <div onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
+                                            className="flex-1 rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all"
+                                            style={{ minHeight: 100, background: '#f0fdf4', border: '1.5px dashed #86efac' }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                            <PlusCircle size={18} style={{ color: '#16a34a' }} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#16a34a' }}>Open</span>
+                                          </div>
+                                        ) : (
+                                          <div className="flex-1 rounded-xl flex flex-col items-center justify-center gap-1"
+                                            style={{ minHeight: 100, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                            {isOnTimeOff ? (
+                                              <>
+                                                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
+                                                {timeOffNote && <span className="text-[9px] font-medium text-center px-2" style={{ color: '#b0906a' }}>{timeOffNote}</span>}
+                                              </>
+                                            ) : (
+                                              <span className="text-[10px] font-semibold text-stone-300 uppercase tracking-wider">—</span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── MAIN GRID ── */}
+      {!todayView && (
       <div className="max-w-[1600px] mx-auto p-3 md:p-6 space-y-10 md:space-y-14">
         {activeDates.map((date) => {
           const isoDate = toISODate(date);
@@ -307,7 +521,6 @@ export default function MasterDeployment() {
                             const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                             return (
                               <tr key={tutor.id} style={{ borderBottom: '1px solid #ede6db' }}>
-                                {/* ── INSTRUCTOR CELL: tighter padding, no fixed width ── */}
                                 <td className="px-2 py-2 align-middle"
                                   style={{ background: 'white', borderRight: '1px solid #ddd4c8', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                                   <div className="flex items-center gap-2">
@@ -318,10 +531,7 @@ export default function MasterDeployment() {
                                     <div>
                                       <p className="text-xs font-bold leading-tight whitespace-nowrap" style={{ color: '#1c1008' }}>{tutor.name}</p>
                                       <span className="text-[8px] font-bold px-1 py-0.5 rounded mt-0.5 inline-block"
-                                        style={{
-                                          background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3',
-                                          color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d'
-                                        }}>
+                                        style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
                                         {tutor.cat === 'math' ? 'Math' : 'English'}
                                       </span>
                                     </div>
@@ -337,24 +547,23 @@ export default function MasterDeployment() {
                                   const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
 
                                   return (
-                                    <td key={block.id} className="p-1.5 align-top h-[110px]"
+                                    <td key={block.id} className="p-1.5 align-top"
                                       style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
-                                      <div className="flex flex-col gap-1 h-full">
+                                      <div className="flex flex-col gap-1 min-h-[110px]">
                                         {hasStudents && !isOnTimeOff ? (
                                           <>
                                             {session!.students.map(student => (
                                               <div key={student.rowId || student.id}
-                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md"
-                                                style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
-                                                  : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                                className="group relative p-2 rounded-lg transition-all hover:shadow-md cursor-pointer"
+                                                style={student.status === 'no-show'
+                                                  ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
+                                                  : student.status === 'present'
+                                                    ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}` }}
+                                                onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}>
                                                 {/* Top row: name + present toggle */}
                                                 <div className="flex justify-between items-start mb-0.5">
-                                                  <p
-                                                    className="text-xs font-bold leading-tight cursor-pointer"
-                                                    style={{ color: '#1c1008' }}
-                                                    onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                  >{student.name}</p>
+                                                  <p className="text-xs font-bold leading-tight" style={{ color: '#1c1008' }}>{student.name}</p>
                                                   <button
                                                     onClick={async (e) => {
                                                       e.stopPropagation();
@@ -365,22 +574,15 @@ export default function MasterDeployment() {
                                                     className="shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
                                                     style={student.status === 'present'
                                                       ? { background: '#059669', border: '1.5px solid #059669' }
-                                                      : { background: 'white', border: '1.5px solid #c8b89a' }}
-                                                    title="Toggle present"
-                                                  >
+                                                      : { background: 'white', border: '1.5px solid #c8b89a' }}>
                                                     {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
                                                   </button>
                                                 </div>
-                                                {/* Topic + grade */}
-                                                <div
-                                                  className="cursor-pointer"
-                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                >
-                                                  <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
-                                                  {student.grade && (
-                                                    <p className="text-[9px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>
-                                                  )}
-                                                </div>
+                                                <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                                {student.grade && <p className="text-[9px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>}
+                                                {student.notes && (
+                                                  <p className="text-[9px] mt-1 italic truncate" style={{ color: '#b0a090' }}>📝 {student.notes}</p>
+                                                )}
                                               </div>
                                             ))}
                                             {!isFull && (
@@ -395,22 +597,20 @@ export default function MasterDeployment() {
                                           </>
                                         ) : isAvailable ? (
                                           <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                            className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
-                                            style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
+                                            className="w-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
+                                            style={{ minHeight: 64, background: '#f0fdf4', border: '1.5px dashed #86efac' }}
                                             onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
                                             onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
                                             <PlusCircle size={14} style={{ color: '#16a34a' }} />
                                             <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#16a34a' }}>Open</span>
                                           </div>
                                         ) : (
-                                          <div className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1"
-                                            style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                          <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
+                                            style={{ minHeight: 64, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
                                             {isOnTimeOff ? (
                                               <>
                                                 <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
-                                                {timeOffNote && (
-                                                  <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#b0906a' }}>{timeOffNote}</span>
-                                                )}
+                                                {timeOffNote && <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#b0906a' }}>{timeOffNote}</span>}
                                               </>
                                             ) : (
                                               <span className="text-[9px] font-semibold text-stone-300 uppercase tracking-wider">—</span>
@@ -455,67 +655,60 @@ export default function MasterDeployment() {
                                       <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#9e8e7e' }}>{block.label}</div>
                                       <div className="text-[8px]" style={{ color: '#b0a090' }}>{block.display}</div>
                                     </div>
-                                    <div className="space-y-1 min-h-[80px]">
+                                    <div className="space-y-1" style={{ minHeight: 64 }}>
                                       {hasStudents && !isOnTimeOff ? (
                                         <>
                                           {session!.students.map(student => (
                                             <div key={student.rowId || student.id}
-                                              className="p-1.5 rounded-lg transition-all"
-                                              style={student.status === 'no-show' ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
-                                                : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                                : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
-                                              <div className="flex justify-between items-start mb-0.5">
-                                                <p
-                                                  className="text-[10px] font-bold leading-tight cursor-pointer"
-                                                  style={{ color: '#1c1008' }}
-                                                  onClick={() => setSelectedSession({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}
-                                                >{student.name}</p>
-                                                <button
-                                                  onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    const next = student.status === 'present' ? 'scheduled' : 'present';
-                                                    await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
-                                                    refetch();
-                                                  }}
-                                                  className="shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center"
-                                                  style={student.status === 'present'
-                                                    ? { background: '#059669', border: '1.5px solid #059669' }
-                                                    : { background: 'white', border: '1.5px solid #c8b89a' }}
-                                                >
-                                                  {student.status === 'present' && <Check size={8} strokeWidth={3} color="white" />}
-                                                </button>
+                                              className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
+                                              style={student.status === 'no-show'
+                                                ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.4 }
+                                                : student.status === 'present'
+                                                  ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                  : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                  await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                  refetch();
+                                                }}
+                                                className="shrink-0 w-3 h-3 rounded flex items-center justify-center"
+                                                style={student.status === 'present'
+                                                  ? { background: '#059669', border: '1.5px solid #059669' }
+                                                  : { background: 'white', border: '1.5px solid #c8b89a' }}>
+                                                {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
+                                              </button>
+                                              <div className="flex-1 min-w-0 cursor-pointer"
+                                                onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block })}>
+                                                <p className="text-[10px] font-bold leading-none truncate" style={{ color: '#1c1008' }}>{student.name}</p>
+                                                <p className="text-[8px] leading-none mt-0.5 truncate" style={{ color: palette.tag }}>
+                                                  {student.topic}{student.grade ? ` · Gr.${student.grade}` : ''}
+                                                </p>
                                               </div>
-                                              <p className="text-[7px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
-                                              {student.grade && (
-                                                <p className="text-[7px] font-medium mt-0.5" style={{ color: '#b0a090' }}>Gr. {student.grade}</p>
-                                              )}
                                             </div>
                                           ))}
                                           {!isFull && (
                                             <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                               className="w-full py-1 rounded-lg text-[7px] font-bold uppercase transition-all"
                                               style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}>
-                                              + {MAX_CAPACITY - session!.students.length}
+                                              + ADD
                                             </button>
                                           )}
                                         </>
                                       ) : isAvailable ? (
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                          className="w-full h-16 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                          style={{ background: '#f0fdf4', border: '1.5px dashed #86efac' }}
-                                          onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#4ade80'; }}
-                                          onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}>
-                                          <PlusCircle size={16} style={{ color: '#16a34a' }} />
+                                          className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                                          style={{ minHeight: 56, background: '#f0fdf4', border: '1.5px dashed #86efac' }}>
+                                          <PlusCircle size={14} style={{ color: '#16a34a' }} />
                                           <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#16a34a' }}>Open</span>
                                         </div>
                                       ) : (
-                                        <div className="w-full h-16 rounded-lg flex flex-col items-center justify-center gap-1"
-                                          style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
-                                          {isOnTimeOff ? (
-                                            <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
-                                          ) : (
-                                            <span className="text-[8px] font-semibold text-stone-300 uppercase tracking-wider">—</span>
-                                          )}
+                                        <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
+                                          style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                          {isOnTimeOff
+                                            ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#c27d38' }}>OFF</span>
+                                            : <span className="text-[8px] font-semibold text-stone-300 uppercase tracking-wider">—</span>}
                                         </div>
                                       )}
                                     </div>
@@ -534,6 +727,7 @@ export default function MasterDeployment() {
           );
         })}
       </div>
+      )}
 
       {/* ── MODALS ── */}
       {isEnrollModalOpen && (
@@ -555,13 +749,11 @@ export default function MasterDeployment() {
         const sessionTime = s.time ?? s.block?.time;
         const originalTutor = tutors.find(t => t.id === s.tutorId);
 
-        // Alt tutors: same cat, available that day+block, not at capacity, not the original
         const altTutors = tutors.filter(t => {
           if (t.id === s.tutorId) return false;
           if (t.cat !== originalTutor?.cat) return false;
           if (!t.availability.includes(sessionDow)) return false;
           if (!isTutorAvailable(t, sessionDow, sessionTime)) return false;
-          // Check not at capacity
           const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
           if (altSession && altSession.students.length >= MAX_CAPACITY) return false;
           return true;
@@ -569,113 +761,148 @@ export default function MasterDeployment() {
 
         const currentStatus = student.status;
 
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(28,16,8,0.7)', backdropFilter: 'blur(8px)' }}>
-            <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden border border-[#e7e3dd] shadow-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
+        const handleSaveNotes = async () => {
+          setNotesSaving(true);
+          try {
+            await updateSessionNotes({ rowId: student.rowId, notes: localNotes || null });
+            refetch();
+            setNotesSaved(true);
+            setTimeout(() => setNotesSaved(false), 2000);
+          } catch (err) { console.error(err); }
+          setNotesSaving(false);
+        };
 
-              {/* Header */}
-              <div className="p-5 bg-[#faf9f7] border-b border-[#e7e3dd] flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-[#ede9fe] flex items-center justify-center text-sm font-black text-[#6d28d9]">
-                    {student.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-base font-black text-[#1c1917] leading-tight">{student.name}</p>
-                    {student.grade && <p className="text-[10px] text-[#a8a29e] uppercase font-medium">Grade {student.grade}</p>}
-                    <p className="text-[10px] text-[#6d28d9] font-bold uppercase tracking-wide mt-0.5">{student.topic}</p>
-                  </div>
+        const handleReassign = async (newTutor: Tutor) => {
+          try {
+            await removeStudentFromSession({ sessionId: s.id, studentId: student.id });
+            const studentObj = students.find(st => st.id === student.id) ?? { id: student.id, name: student.name, subject: student.topic, grade: student.grade ?? null, hoursLeft: 0, availabilityBlocks: [] };
+            await bookStudent({ tutorId: newTutor.id, date: s.date, time: sessionTime, student: studentObj, topic: student.topic });
+            refetch();
+            setSelectedSession(null);
+          } catch (err: any) {
+            alert(err.message || 'Reassignment failed');
+          }
+        };
+
+        // Shared inner content
+        const ModalContent = () => (
+          <>
+            {/* Header */}
+            <div className="p-4 bg-[#faf9f7] border-b border-[#e7e3dd] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#ede9fe] flex items-center justify-center text-sm font-black text-[#6d28d9] shrink-0">
+                  {student.name.charAt(0)}
                 </div>
-                <button onClick={() => setSelectedSession(null)} className="p-1.5 hover:bg-[#f0ece8] rounded-full text-[#a8a29e] transition-colors">
-                  <X size={18} />
+                <div>
+                  <p className="text-sm font-black text-[#1c1917] leading-tight">{student.name}</p>
+                  <p className="text-[10px] text-[#a8a29e] font-medium">{student.grade ? `Gr.${student.grade} · ` : ''}{student.topic}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedSession(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-[#e7e3dd] text-[#78716c] shrink-0">
+                <X size={15} />
+              </button>
+            </div>
+            {/* Session info */}
+            <div className="px-4 py-2 bg-white border-b border-[#f0ece8] flex items-center gap-1.5 flex-wrap shrink-0">
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#1c1917] text-white uppercase tracking-wider">{s.dayName}</span>
+              <span className="text-[10px] text-[#78716c]">{formatDate(s.date)}</span>
+              <span className="text-[#d4cfc9]">·</span>
+              <span className="text-[10px] text-[#78716c]">{s.block?.label ?? sessionTime}</span>
+              <span className="text-[#d4cfc9]">·</span>
+              <span className="text-[10px] font-semibold text-[#6d28d9]">{s.tutorName}</span>
+            </div>
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1">
+              <div className="p-4 border-b border-[#f0ece8]">
+                <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest mb-2">Attendance</p>
+                <div className="flex gap-2 mb-2">
+                  {([
+                    { status: 'present', label: 'Present', activeStyle: { background: '#dcfce7', borderColor: '#16a34a', color: '#15803d' } },
+                    { status: 'no-show', label: 'No-show', activeStyle: { background: '#fee2e2', borderColor: '#dc2626', color: '#b91c1c' } },
+                    { status: 'scheduled', label: 'Scheduled', activeStyle: { background: '#fef3c7', borderColor: '#f59e0b', color: '#b45309' } },
+                  ] as const).map(({ status, label, activeStyle }) => (
+                    <button key={status} onClick={() => handleAttendance(status)}
+                      className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 border-2"
+                      style={currentStatus === status ? activeStyle : { background: 'white', borderColor: '#e7e3dd', color: '#a8a29e' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleRemove}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border border-dashed border-[#fca5a5] text-[#ef4444] hover:bg-[#fff1f1] transition-all">
+                  <UserX size={12} strokeWidth={2} /> Remove
                 </button>
               </div>
-
-              {/* Session info strip */}
-              <div className="px-5 py-2.5 bg-white border-b border-[#f0ece8] flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-[#1c1917] text-white uppercase tracking-wider">{s.dayName}</span>
-                <span className="text-[10px] font-semibold text-[#78716c]">{formatDate(s.date)}</span>
-                <span className="text-[#d4cfc9]">·</span>
-                <span className="text-[10px] font-semibold text-[#78716c]">{s.block?.label ?? sessionTime} {s.block?.display ? `· ${s.block.display}` : ''}</span>
-                <span className="text-[#d4cfc9]">·</span>
-                <span className="text-[10px] font-semibold text-[#78716c]">{s.tutorName}</span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {/* Attendance */}
-                <div className="p-5 border-b border-[#f0ece8]">
-                  <p className="text-[10px] font-black text-[#a8a29e] uppercase tracking-widest mb-3">Mark Attendance</p>
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                    <button onClick={() => handleAttendance('present')}
-                      className="flex flex-col items-center gap-1.5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 border-2"
-                      style={currentStatus === 'present'
-                        ? { background: '#dcfce7', borderColor: '#16a34a', color: '#15803d' }
-                        : { background: 'white', borderColor: '#e7e3dd', color: '#78716c' }}>
-                      <Check size={16} strokeWidth={2.5} />
-                      Present
-                    </button>
-                    <button onClick={() => handleAttendance('no-show')}
-                      className="flex flex-col items-center gap-1.5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 border-2"
-                      style={currentStatus === 'no-show'
-                        ? { background: '#fee2e2', borderColor: '#dc2626', color: '#b91c1c' }
-                        : { background: 'white', borderColor: '#e7e3dd', color: '#78716c' }}>
-                      <XCircle size={16} strokeWidth={2} />
-                      No-show
-                    </button>
-                    <button onClick={() => handleAttendance('scheduled')}
-                      className="flex flex-col items-center gap-1.5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 border-2"
-                      style={currentStatus === 'scheduled'
-                        ? { background: '#fef3c7', borderColor: '#f59e0b', color: '#b45309' }
-                        : { background: 'white', borderColor: '#e7e3dd', color: '#78716c' }}>
-                      <CalendarClock size={16} strokeWidth={2} />
-                      Scheduled
-                    </button>
-                  </div>
-                  <button onClick={handleRemove}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border-2 border-dashed border-[#fca5a5] text-[#ef4444] hover:bg-[#fff1f1] transition-all active:scale-[0.98]">
-                    <UserX size={13} strokeWidth={2} /> Remove from session
-                  </button>
+              {/* Notes */}
+              <div className="p-4 border-b border-[#f0ece8]">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">Session Notes</p>
+                  {notesSaved && <span className="text-[9px] font-bold text-[#16a34a] uppercase tracking-wider">Saved ✓</span>}
                 </div>
-
-                {/* Alt coverage */}
-                <div className="p-5">
-                  <p className="text-[10px] font-black text-[#a8a29e] uppercase tracking-widest mb-3">
-                    Alternative Coverage
-                    <span className="ml-2 font-semibold normal-case text-[#c4b5fd]">{s.block?.label ?? sessionTime}</span>
-                  </p>
-                  {altTutors.length === 0 ? (
-                    <div className="py-6 text-center rounded-xl border border-dashed border-[#e7e3dd]">
-                      <p className="text-xs text-[#a8a29e] italic">No available tutors for this slot</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {altTutors.map(t => {
-                        const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
-                        const spotsUsed = altSession ? altSession.students.length : 0;
-                        return (
-                          <div key={t.id} className="flex items-center justify-between p-3.5 rounded-xl border-2 border-[#f0ece8] hover:border-[#c4b5fd] hover:bg-[#faf9ff] transition-all cursor-pointer">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#ede9fe] flex items-center justify-center text-xs font-black text-[#6d28d9]">
-                                {t.name.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-[#1c1917] leading-tight">{t.name}</p>
-                                <p className="text-[9px] text-[#a8a29e] uppercase font-medium">{t.subjects.join(', ')}</p>
-                              </div>
+                <textarea
+                  className="w-full px-3 py-2 rounded-xl text-sm border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none transition-all resize-none"
+                  placeholder="Add notes about this session…"
+                  rows={3}
+                  value={localNotes}
+                  onChange={e => { setLocalNotes(e.target.value); setNotesSaved(false); }}
+                />
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={notesSaving}
+                  className="mt-2 w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                  style={{ background: notesSaving ? '#e7e3dd' : '#6d28d9', color: notesSaving ? '#a8a29e' : 'white' }}>
+                  {notesSaving ? 'Saving…' : 'Save Notes'}
+                </button>
+              </div>
+              {altTutors.length > 0 && (
+                <div className="p-4">
+                  <p className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest mb-2">Reassign to</p>
+                  <div className="space-y-2">
+                    {altTutors.map(t => {
+                      const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
+                      const spotsUsed = altSession ? altSession.students.length : 0;
+                      return (
+                        <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-[#f0ece8] hover:border-[#c4b5fd] hover:bg-[#faf9ff] transition-all">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-[#ede9fe] flex items-center justify-center text-xs font-black text-[#6d28d9]">
+                              {t.name.charAt(0)}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#f0ece8] text-[#78716c]">
-                                {spotsUsed}/{MAX_CAPACITY}
-                              </span>
-                              <button className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white bg-[#6d28d9] hover:bg-[#5b21b6] transition-all active:scale-95">
-                                Reassign
-                              </button>
+                            <div>
+                              <p className="text-xs font-bold text-[#1c1917]">{t.name}</p>
+                              <p className="text-[9px] text-[#a8a29e] uppercase">{spotsUsed}/{MAX_CAPACITY} spots</p>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          <button onClick={() => handleReassign(t)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white bg-[#6d28d9] hover:bg-[#5b21b6] transition-all active:scale-95">
+                            Move
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+              )}
+            </div>
+          </>
+        );
+
+        return (
+          <div className="fixed inset-0 z-50" style={{ background: 'rgba(28,16,8,0.7)', backdropFilter: 'blur(8px)' }}>
+            {/* Desktop: centered modal */}
+            <div className="hidden md:flex items-center justify-center h-full p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden border border-[#e7e3dd] shadow-2xl flex flex-col" style={{ maxHeight: 'min(560px, 90vh)' }}>
+                <ModalContent />
+              </div>
+            </div>
+            {/* Mobile: bottom sheet — tap backdrop to close */}
+            <div className="md:hidden flex flex-col h-full">
+              <div className="flex-1" onClick={() => setSelectedSession(null)} />
+              <div className="bg-white rounded-t-2xl border-t border-[#e7e3dd] shadow-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
+                {/* Drag handle */}
+                <div className="flex justify-center pt-3 pb-1 shrink-0">
+                  <div className="w-10 h-1 rounded-full bg-[#e7e3dd]" />
+                </div>
+                <ModalContent />
               </div>
             </div>
           </div>

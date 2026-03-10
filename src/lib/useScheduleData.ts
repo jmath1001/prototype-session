@@ -18,6 +18,7 @@ export type Student = {
   subject: string
   grade: string | null
   hoursLeft: number
+  availabilityBlocks: string[]
 }
 
 export type SessionStudent = {
@@ -27,6 +28,7 @@ export type SessionStudent = {
   topic: string
   status: string
   grade: string | null
+  notes: string | null
 }
 
 export type Session = {
@@ -143,7 +145,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             .from('slake_sessions')
             .select(`
               id, session_date, tutor_id, time,
-              slake_session_students ( id, student_id, name, topic, status )
+              slake_session_students ( id, student_id, name, topic, status, notes )
             `)
             .gte('session_date', from)
             .lte('session_date', to)
@@ -171,11 +173,12 @@ export function useScheduleData(weekStart: Date): ScheduleData {
         }))
 
         const students: Student[] = (studentRes.data ?? []).map(r => ({
-          id:        r.id,
-          name:      r.name,
-          subject:   r.subject,
-          grade:     r.grade ?? null,
-          hoursLeft: r.hours_left,
+          id:                 r.id,
+          name:               r.name,
+          subject:            r.subject,
+          grade:              r.grade ?? null,
+          hoursLeft:          r.hours_left,
+          availabilityBlocks: r.availability_blocks ?? [],
         }))
 
         // Build a grade lookup map so we can enrich session students
@@ -194,6 +197,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             topic:  ss.topic,
             status: ss.status,
             grade:  gradeMap[ss.student_id] ?? null,
+            notes:  ss.notes ?? null,
           })),
         }))
 
@@ -232,6 +236,7 @@ export async function bookStudent({
   time,
   student,
   topic,
+  notes = '',
   recurring = false,
   recurringWeeks = 1,
 }: {
@@ -240,6 +245,7 @@ export async function bookStudent({
   time: string
   student: Student
   topic: string
+  notes?: string
   recurring?: boolean
   recurringWeeks?: number
 }) {
@@ -308,6 +314,7 @@ export async function bookStudent({
         student_id: student.id,
         name:       student.name,
         topic,
+        notes:      notes || null,
         status:     'scheduled',
       })
 
@@ -345,6 +352,21 @@ export async function removeStudentFromSession({
     .delete()
     .eq('session_id', sessionId)
     .eq('student_id', studentId)
+
+  if (error) throw error
+}
+
+export async function updateSessionNotes({
+  rowId,
+  notes,
+}: {
+  rowId: string
+  notes: string | null
+}) {
+  const { error } = await supabase
+    .from('slake_session_students')
+    .update({ notes })
+    .eq('id', rowId)
 
   if (error) throw error
 }

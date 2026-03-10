@@ -23,6 +23,7 @@ export interface BookingConfirmData {
   recurringWeeks: number;
   subject: string;
   topic: string;
+  notes: string;
 }
 
 export interface BookingFormProps {
@@ -68,10 +69,12 @@ export function BookingForm({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [topic, setTopic] = useState('');
+  const [notes, setNotes] = useState('');
   const [recurring, setRecurring] = useState(false);
   const [recurringWeeks, setRecurringWeeks] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState<any>(prefilledSlot || null);
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState(false);
   // Mobile tab: 0=student, 1=slot, 2=confirm
   const [mobileTab, setMobileTab] = useState(0);
 
@@ -101,12 +104,41 @@ export function BookingForm({
     return groups;
   }, [filteredSeats]);
 
-  const selectStudent = (student: any) => { setSelectedStudent(student); setTopic(''); };
+  // Filter slots by student availability if they have blocks set
+  const studentHasAvailability = selectedStudent?.availabilityBlocks?.length > 0;
+  const availableSlotsByDay = useMemo(() => {
+    if (!studentHasAvailability || showAllSlots) return slotsByDay;
+    const blocks: string[] = selectedStudent.availabilityBlocks;
+    const filtered: Record<string, any[]> = {};
+    Object.entries(slotsByDay).forEach(([day, slots]) => {
+      const matching = slots.filter(slot => blocks.includes(`${slot.dayNum}-${slot.time}`));
+      if (matching.length > 0) filtered[day] = matching;
+    });
+    return filtered;
+  }, [slotsByDay, selectedStudent, studentHasAvailability, showAllSlots]);
+
+  const selectStudent = (student: any) => { setSelectedStudent(student); setTopic(''); setNotes(''); setShowAllSlots(false); };
   const canConfirm = selectedStudent && (selectedSlot || prefilledSlot) && topic.trim() !== '';
 
   // ── Shared slot panel ──
   const SlotPanel = () => (
     <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      {/* Availability filter banner */}
+      {studentHasAvailability && !prefilledSlot && (
+        <div className="flex items-center justify-between mb-4 px-3 py-2.5 rounded-xl border"
+          style={{ background: showAllSlots ? '#f7f4ef' : '#f0fdf4', borderColor: showAllSlots ? '#e7e3dd' : '#86efac' }}>
+          <p className="text-[11px] font-bold" style={{ color: showAllSlots ? '#78716c' : '#15803d' }}>
+            {showAllSlots
+              ? 'Showing all slots'
+              : `Filtered to ${selectedStudent.name.split(' ')[0]}'s availability`}
+          </p>
+          <button onClick={() => setShowAllSlots(v => !v)}
+            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg transition-all"
+            style={{ background: showAllSlots ? '#e7e3dd' : '#dcfce7', color: showAllSlots ? '#78716c' : '#15803d' }}>
+            {showAllSlots ? 'Filter' : 'Show all'}
+          </button>
+        </div>
+      )}
       {prefilledSlot ? (
         <div className="max-w-md mx-auto py-6">
           <div className="p-5 rounded-2xl border-2 border-[#6d28d9] bg-[#faf9ff] flex items-center gap-4">
@@ -122,7 +154,7 @@ export function BookingForm({
         </div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(slotsByDay).length > 0 ? Object.entries(slotsByDay).map(([day, slots]) => (
+          {Object.entries(availableSlotsByDay).length > 0 ? Object.entries(availableSlotsByDay).map(([day, slots]) => (
             <div key={day} className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="px-3 py-1 rounded-full bg-[#1c1917] text-white text-[10px] font-black uppercase tracking-widest">{day}</div>
@@ -154,7 +186,19 @@ export function BookingForm({
               </div>
             </div>
           )) : (
-            <div className="text-center py-16"><p className="text-sm text-[#a8a29e] italic">No available slots this week.</p></div>
+            <div className="text-center py-16">
+              <p className="text-sm text-[#a8a29e] italic">
+                {studentHasAvailability && !showAllSlots
+                  ? `No slots match ${selectedStudent.name.split(' ')[0]}'s availability.`
+                  : 'No available slots this week.'}
+              </p>
+              {studentHasAvailability && !showAllSlots && (
+                <button onClick={() => setShowAllSlots(true)}
+                  className="mt-3 text-xs font-bold text-[#6d28d9] underline underline-offset-2">
+                  Show all slots anyway
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -181,7 +225,7 @@ export function BookingForm({
           </div>
         </div>
         <button disabled={!canConfirm}
-          onClick={() => onConfirm({ student: selectedStudent, slot: prefilledSlot || selectedSlot, recurring, recurringWeeks, subject: selectedStudent?.subject, topic })}
+          onClick={() => onConfirm({ student: selectedStudent, slot: prefilledSlot || selectedSlot, recurring, recurringWeeks, subject: selectedStudent?.subject, topic, notes })}
           className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] ${canConfirm ? 'bg-[#6d28d9] text-white hover:bg-[#5b21b6] shadow-lg' : 'bg-[#e7e3dd] text-[#a8a29e] cursor-not-allowed'}`}>
           {canConfirm ? `Book ${topic} · ${selectedStudent.name}` : 'Select Student, Topic & Slot'}
         </button>
@@ -200,7 +244,7 @@ export function BookingForm({
             <p className="text-xs text-[#a8a29e] mb-3">Select a student to schedule</p>
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a8a29e]" />
-              <input className="w-full pl-9 pr-3 py-2 bg-[#f0ece8]/50 rounded-xl text-sm focus:ring-2 focus:ring-[#6d28d9] outline-none border-none"
+              <input className="w-full pl-9 pr-3 py-2 bg-[#f0ece8]/50 rounded-xl text-sm text-[#1c1917] focus:ring-2 focus:ring-[#6d28d9] outline-none border-none"
                 placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             </div>
           </div>
@@ -210,10 +254,22 @@ export function BookingForm({
             )) : <div className="p-10 text-center text-xs text-[#a8a29e] italic">No students found</div>}
           </div>
           {selectedStudent && (
-            <div className="p-4 bg-white border-t border-[#e7e3dd]">
-              <label className="text-[10px] font-black text-[#6d28d9] uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><BookOpen size={10} /> Topic</label>
-              <input className="w-full px-3 py-2.5 rounded-xl text-sm border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none transition-all"
-                placeholder="e.g. Geometry, SAT Prep" value={topic} onChange={e => setTopic(e.target.value)} />
+            <div className="p-4 bg-white border-t border-[#e7e3dd] space-y-3">
+              <div>
+                <label className="text-[10px] font-black text-[#6d28d9] uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><BookOpen size={10} /> Topic</label>
+                <input className="w-full px-3 py-2.5 rounded-xl text-sm text-[#1c1917] border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none transition-all"
+                  placeholder="e.g. Geometry, SAT Prep" value={topic} onChange={e => setTopic(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-[#a8a29e] uppercase tracking-widest mb-1.5 block">Notes</label>
+                <textarea
+                  className="w-full px-3 py-2 rounded-xl text-sm text-[#1c1917] border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none transition-all resize-none"
+                  placeholder="Any notes for this session…"
+                  rows={2}
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -285,7 +341,7 @@ export function BookingForm({
               <div className="p-3 bg-[#faf9f7] border-b border-[#e7e3dd] shrink-0">
                 <div className="relative">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a8a29e]" />
-                  <input className="w-full pl-9 pr-3 py-2.5 bg-white rounded-xl text-sm border border-[#e7e3dd] outline-none focus:border-[#6d28d9]"
+                  <input className="w-full pl-9 pr-3 py-2.5 bg-white rounded-xl text-sm text-[#1c1917] border border-[#e7e3dd] outline-none focus:border-[#6d28d9]"
                     placeholder="Search students..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                 </div>
               </div>
@@ -297,8 +353,16 @@ export function BookingForm({
               {selectedStudent && (
                 <div className="p-3 bg-white border-t border-[#e7e3dd] shrink-0 space-y-2">
                   <label className="text-[10px] font-black text-[#6d28d9] uppercase tracking-widest flex items-center gap-1.5"><BookOpen size={10} /> Session Topic</label>
-                  <input className="w-full px-3 py-2.5 rounded-xl text-sm border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none"
+                  <input className="w-full px-3 py-2.5 rounded-xl text-sm text-[#1c1917] border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none"
                     placeholder="e.g. Geometry, SAT Prep" value={topic} onChange={e => setTopic(e.target.value)} />
+                  <label className="text-[10px] font-black text-[#a8a29e] uppercase tracking-widest block">Notes</label>
+                  <textarea
+                    className="w-full px-3 py-2 rounded-xl text-sm text-[#1c1917] border-2 border-[#e7e3dd] focus:border-[#6d28d9] outline-none resize-none"
+                    placeholder="Any notes for this session…"
+                    rows={2}
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                  />
                   <button onClick={() => setMobileTab(1)}
                     className="w-full py-3 rounded-xl font-black text-sm text-white bg-[#6d28d9] flex items-center justify-center gap-2 active:scale-[0.98]">
                     Next: Pick Slot <ChevronRight size={16} />
@@ -358,6 +422,12 @@ export function BookingForm({
                     <span className="text-[10px] text-[#a8a29e] uppercase font-bold">Topic</span>
                     <span className="text-sm font-bold text-[#6d28d9]">{topic || '—'}</span>
                   </div>
+                  {notes && (
+                    <div className="flex flex-col gap-1 pt-1 border-t border-[#e7e3dd]">
+                      <span className="text-[10px] text-[#a8a29e] uppercase font-bold">Notes</span>
+                      <span className="text-xs text-[#1c1917]">{notes}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] text-[#a8a29e] uppercase font-bold">Slot</span>
                     <span className="text-sm font-bold text-[#1c1917]">
