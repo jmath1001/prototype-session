@@ -206,10 +206,10 @@ export default function MasterDeployment() {
   );
 
   return (
-    <div className="w-full min-h-screen pb-12 overflow-x-hidden" style={{ background: '#f7f4ef', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+    <div className="w-full min-h-screen pb-12" style={{ background: '#f7f4ef', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
 
       {/* ── HEADER ── */}
-      <div className="sticky top-0 z-40 flex justify-between items-center px-4 md:px-8 py-3 border-b"
+      <div className="sticky top-[56px] z-30 flex justify-between items-center px-4 md:px-8 py-3 border-b"
         style={{ background: 'rgba(247,244,239,0.95)', backdropFilter: 'blur(16px)', borderColor: '#e2d9cc' }}>
         <div className="flex items-center gap-3">
           <div>
@@ -254,67 +254,67 @@ export default function MasterDeployment() {
 
       {/* ── WEEK NAVIGATION ── */}
       {!todayView && (
-      <div className="max-w-[1600px] mx-auto px-3 md:px-6 pt-6 pb-2 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={goToPrevWeek} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+      <div className="sticky top-[100px] z-20 max-w-[1600px] mx-auto px-3 md:px-6 py-2 flex items-center justify-between border-b"
+        style={{ background: 'rgba(247,244,239,0.97)', backdropFilter: 'blur(12px)', borderColor: '#e2d9cc' }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={goToPrevWeek} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0"
             style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.color = '#3d2f1f'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#9e8e7e'; }}>
-            <ChevronLeft size={16} />
+            <ChevronLeft size={14} />
           </button>
-          <div>
-            <div className="text-base md:text-lg font-bold tracking-tight leading-none" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>
+          <div className="text-center min-w-0">
+            <div className="text-sm font-bold tracking-tight leading-none truncate" style={{ color: '#1c1008', fontFamily: 'ui-serif, Georgia, serif' }}>
               {formatWeekRange(weekStart)}
             </div>
             {isCurrentWeek && <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: '#c27d38' }}>Current Week</span>}
           </div>
-          <button onClick={goToNextWeek} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all"
+          <button onClick={goToNextWeek} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0"
             style={{ background: 'white', border: '1px solid #ddd4c8', color: '#9e8e7e' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0ebe3'; e.currentTarget.style.color = '#3d2f1f'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#9e8e7e'; }}>
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {!isCurrentWeek && (
             <button onClick={goToThisWeek}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
               style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}
               onMouseEnter={e => e.currentTarget.style.background = '#fde8c0'}
               onMouseLeave={e => e.currentTarget.style.background = '#fef3e2'}>
-              <CalendarDays size={12} /> Today
+              <CalendarDays size={11} /> <span className="hidden sm:inline">Today</span>
             </button>
           )}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <select
-                value={selectedTutorFilter ?? ''}
-                onChange={e => setSelectedTutorFilter(e.target.value || null)}
-                className="appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
-                style={{
-                  background: selectedTutorFilter ? '#fef3e2' : 'white',
-                  border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`,
-                  color: selectedTutorFilter ? '#a06020' : '#7a6a5a',
-                  outline: 'none',
-                }}>
-                <option value="">All Tutors</option>
-                {tutors.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: selectedTutorFilter ? '#a06020' : '#9e8e7e' }} />
-            </div>
-            {selectedTutorFilter && (
-              <button onClick={() => setSelectedTutorFilter(null)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#fde8c0'}
-                onMouseLeave={e => e.currentTarget.style.background = '#fef3e2'}>
-                <X size={12} />
-              </button>
-            )}
+          <div className="relative">
+            <select
+              value={selectedTutorFilter ?? ''}
+              onChange={e => setSelectedTutorFilter(e.target.value || null)}
+              className="appearance-none pl-3 pr-7 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
+              style={{
+                background: selectedTutorFilter ? '#fef3e2' : 'white',
+                border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`,
+                color: selectedTutorFilter ? '#a06020' : '#7a6a5a',
+                outline: 'none',
+                maxWidth: 120,
+              }}>
+              <option value="">All Tutors</option>
+              {tutors.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: selectedTutorFilter ? '#a06020' : '#9e8e7e' }} />
           </div>
+          {selectedTutorFilter && (
+            <button onClick={() => setSelectedTutorFilter(null)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
+              style={{ background: '#fef3e2', border: '1px solid #f5d08a', color: '#a06020' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#fde8c0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fef3e2'}>
+              <X size={12} />
+            </button>
+          )}
         </div>
       </div>
       )}
@@ -373,13 +373,13 @@ export default function MasterDeployment() {
                         <thead>
                           <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
                             <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider"
-                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#f7f2eb' }}>
                               Instructor
                             </th>
                             {daySessions.map(block => (
                               <th key={block.id} className="px-4 py-3 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 200 }}>
-                                <div className="text-sm font-bold uppercase tracking-wider">{block.label}</div>
-                                <div className="text-[11px] font-medium mt-0.5" style={{ color: '#b0a090' }}>{block.display}</div>
+                                <div className="text-sm font-black uppercase tracking-wider" style={{ color: '#1c1008' }}>{block.label}</div>
+                                <div className="text-xs font-semibold mt-0.5" style={{ color: '#57534e' }}>{block.display}</div>
                               </th>
                             ))}
                           </tr>
@@ -448,7 +448,7 @@ export default function MasterDeployment() {
                                                     </button>
                                                   </div>
                                                 </div>
-                                                <p className="text-[11px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                                <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
                                                 {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#b0a090' }}>Grade {student.grade}</p>}
                                                 {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#b0a090' }}>📝 {student.notes}</p>}
                                               </div>
@@ -519,8 +519,8 @@ export default function MasterDeployment() {
                                   <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
                                     style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
                                     <div className="text-center mb-1.5">
-                                      <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#9e8e7e' }}>{block.label}</div>
-                                      <div className="text-[8px]" style={{ color: '#b0a090' }}>{block.display}</div>
+                                      <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#3d2f1f' }}>{block.label}</div>
+                                      <div className="text-[9px] font-semibold" style={{ color: '#78716c' }}>{block.display}</div>
                                     </div>
                                     <div className="space-y-1" style={{ minHeight: 64 }}>
                                       {hasStudents && !isOnTimeOff ? (
@@ -637,17 +637,17 @@ export default function MasterDeployment() {
                   <div className="hidden md:block rounded-xl overflow-hidden"
                     style={{ background: 'white', border: '1px solid #ddd4c8', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
                     <div className="overflow-x-auto">
-                      <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content' }}>
+                      <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}>
                         <thead>
                           <tr style={{ background: '#f7f2eb', borderBottom: '1px solid #ddd4c8' }}>
                             <th className="px-2 py-2 text-left text-xs font-bold uppercase tracking-wider"
-                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 2, background: '#f7f2eb' }}>
+                              style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#f7f2eb' }}>
                               Instructor
                             </th>
                             {daySessions.map(block => (
-                              <th key={block.id} className="px-3 py-2 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 160 }}>
-                                <div className="text-xs font-bold uppercase tracking-wider">{block.label}</div>
-                                <div className="text-[10px] font-medium mt-0.5" style={{ color: '#b0a090' }}>{block.display}</div>
+                              <th key={block.id} className="px-3 py-2 text-center" style={{ color: '#9e8e7e', borderRight: '1px solid #ddd4c8', minWidth: 160, position: 'sticky', top: 0, background: '#f7f2eb', zIndex: 3 }}>
+                                <div className="text-sm font-black uppercase tracking-wider" style={{ color: '#1c1008' }}>{block.label}</div>
+                                <div className="text-xs font-semibold mt-0.5" style={{ color: '#57534e' }}>{block.display}</div>
                               </th>
                             ))}
                           </tr>
@@ -790,8 +790,8 @@ export default function MasterDeployment() {
                                   <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
                                     style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' : 'white', borderRight: '1px solid #ede6db' }}>
                                     <div className="text-center mb-1.5">
-                                      <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#9e8e7e' }}>{block.label}</div>
-                                      <div className="text-[8px]" style={{ color: '#b0a090' }}>{block.display}</div>
+                                      <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#3d2f1f' }}>{block.label}</div>
+                                      <div className="text-[9px] font-semibold" style={{ color: '#78716c' }}>{block.display}</div>
                                     </div>
                                     <div className="space-y-1" style={{ minHeight: 64 }}>
                                       {hasStudents && !isOnTimeOff ? (
