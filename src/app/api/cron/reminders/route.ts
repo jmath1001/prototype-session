@@ -60,7 +60,7 @@ export async function GET() {
       for (const entry of session.slake_session_students as any[]) {
         // Skip if already sent, confirmed, or no-show
         if (entry.reminder_sent) continue;
-        if (entry.status === 'confirmed' || entry.status === 'no-show') continue;
+        // if (entry.status === 'confirmed' || entry.status === 'no-show') continue;
 
         if (!entry.slake_students) continue;
 
