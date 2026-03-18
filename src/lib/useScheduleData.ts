@@ -19,6 +19,12 @@ export type Student = {
   grade: string | null
   hoursLeft: number
   availabilityBlocks: string[]
+  email: string | null
+  phone: string | null
+  parent_name: string | null
+  parent_email: string | null
+  parent_phone: string | null
+  bluebook_url: string | null
 }
 
 export type SessionStudent = {
@@ -180,6 +186,12 @@ export function useScheduleData(weekStart: Date): ScheduleData {
           grade:              r.grade ?? null,
           hoursLeft:          r.hours_left,
           availabilityBlocks: r.availability_blocks ?? [],
+          email:              r.email ?? null,
+          phone:              r.phone ?? null,
+          parent_name:        r.parent_name ?? null,
+          parent_email:       r.parent_email ?? null,
+          parent_phone:       r.parent_phone ?? null,
+          bluebook_url:       r.bluebook_url ?? null,
         }))
 
         // Build a grade lookup map so we can enrich session students

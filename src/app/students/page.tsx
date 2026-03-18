@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Trash2, GraduationCap, Loader2, Save, X, Search, ChevronDown, ChevronUp, CalendarDays, PlusCircle } from 'lucide-react';
+import { Plus, Trash2, GraduationCap, Loader2, Save, X, Search, ChevronDown, ChevronUp, CalendarDays, PlusCircle, Mail, Phone, User } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { BookingForm, BookingToast } from '@/components/BookingForm';
 import {
@@ -21,13 +21,14 @@ const MAX_CAPACITY = 3;
 const isTutorAvailable = (tutor: any, dow: number, time: string) =>
   tutor.availability_blocks?.includes(`${dow}-${time}`);
 
-// ─── Session Badge ────────────────────────────────────────────────────────────
+const inputCls = "w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm text-[#1c1917] outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9] placeholder:text-[#c4bfba]";
 
 function SessionBadge({ session, isThisWeek }: { session: any; isThisWeek: boolean }) {
   const statusStyle: Record<string, { background: string; color: string }> = {
     present:   { background: '#dcfce7', color: '#15803d' },
     'no-show': { background: '#fee2e2', color: '#b91c1c' },
     scheduled: { background: '#ede9fe', color: '#6d28d9' },
+    confirmed: { background: '#dcfce7', color: '#15803d' },
   };
   const sc = statusStyle[session.status] ?? statusStyle.scheduled;
   const d = new Date(session.date + 'T00:00:00');
@@ -47,21 +48,15 @@ function SessionBadge({ session, isThisWeek }: { session: any; isThisWeek: boole
         <div>
           <div className="flex items-center gap-1.5">
             <p className="text-xs font-bold text-[#1c1917] leading-tight">{session.tutorName}</p>
-            {isThisWeek && (
-              <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-[#6d28d9] text-white uppercase">This week</span>
-            )}
+            {isThisWeek && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-[#6d28d9] text-white uppercase">This week</span>}
           </div>
           <p className="text-[10px] text-[#a8a29e]">{session.blockLabel} · {session.topic}</p>
         </div>
       </div>
-      <span className="text-[9px] font-black px-2 py-1 rounded-lg capitalize" style={sc}>
-        {session.status}
-      </span>
+      <span className="text-[9px] font-black px-2 py-1 rounded-lg capitalize" style={sc}>{session.status}</span>
     </div>
   );
 }
-
-// ─── Student Row ──────────────────────────────────────────────────────────────
 
 function StudentRow({
   student, onRefetch, tutors, allStudents, allSessions, allAvailableSeats, onBookingSuccess,
@@ -115,6 +110,7 @@ function StudentRow({
       parent_name: draft.parent_name || null,
       parent_email: draft.parent_email || null,
       parent_phone: draft.parent_phone || null,
+      bluebook_url: draft.bluebook_url || null,
     }).eq('id', student.id);
     if (!error) { onRefetch(); setIsEditing(false); }
     setSaving(false);
@@ -129,7 +125,7 @@ function StudentRow({
   const handleConfirmBooking = async (data: any) => {
     await bookStudent({
       tutorId: data.slot.tutor.id, date: data.slot.date, time: data.slot.time,
-      student: { id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null, hoursLeft: student.hours_left ?? 0, availabilityBlocks: student.availability_blocks ?? [] },
+      student: { id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null, hoursLeft: student.hours_left ?? 0, availabilityBlocks: student.availability_blocks ?? [], email: student.email ?? null, phone: student.phone ?? null, parent_name: student.parent_name ?? null, parent_email: student.parent_email ?? null, parent_phone: student.parent_phone ?? null, bluebook_url: student.bluebook_url ?? null },
       topic: data.topic, recurring: data.recurring, recurringWeeks: data.recurringWeeks,
     });
     setShowBooking(false);
@@ -141,30 +137,45 @@ function StudentRow({
     <div className="space-y-1">
       <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
       {isEditing ? (
-        <input type={type} value={draft[field] ?? ''}
-          onChange={e => setDraft({ ...draft, [field]: e.target.value })}
-          className="w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9]"
-          placeholder={label} />
+        <input type={type} value={draft[field] ?? ''} onChange={e => setDraft({ ...draft, [field]: e.target.value })}
+          className={inputCls} placeholder={label} />
       ) : (
         <p className="text-sm text-[#1c1917]">{value || <span className="text-[#c4bfba] italic text-xs">—</span>}</p>
       )}
     </div>
   );
 
+  const initials = student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const colors = ['#ede9fe', '#dbeafe', '#dcfce7', '#fef3c7', '#fce7f3', '#e0f2fe'];
+  const textColors = ['#6d28d9', '#1d4ed8', '#15803d', '#92400e', '#be185d', '#0369a1'];
+  const colorIdx = student.name.charCodeAt(0) % colors.length;
+
   return (
     <>
-      <div className={`bg-white rounded-2xl border-2 transition-all ${expanded ? 'border-[#c4b5fd]' : 'border-[#f0ece8] hover:border-[#e7e3dd]'} overflow-hidden`}>
-        {/* Main row */}
-        <div className="p-3.5 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#ede9fe] flex items-center justify-center text-sm font-black text-[#6d28d9] shrink-0">
-            {student.name.charAt(0).toUpperCase()}
+      <div className={`bg-white rounded-2xl border-2 transition-all ${expanded ? 'border-[#c4b5fd] shadow-lg shadow-violet-50' : 'border-[#f0ece8] hover:border-[#e7e3dd]'} overflow-hidden`}>
+        <div className="p-4 flex items-center gap-3">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0"
+            style={{ background: colors[colorIdx], color: textColors[colorIdx] }}>
+            {initials}
           </div>
+
+          {/* Info */}
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
-            <p className="font-bold text-[#1c1917] text-sm leading-tight truncate">{student.name}</p>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-black text-[#1c1917] text-sm leading-tight">{student.name}</p>
               {student.grade && (
                 <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-[#ede9fe] text-[#6d28d9] uppercase tracking-wider">Gr. {student.grade}</span>
               )}
+            </div>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {/* Contact preview */}
+              {(student.email || student.parent_email) && (
+                <span className="text-[10px] text-[#a8a29e] flex items-center gap-1">
+                  <Mail size={9} /> {student.parent_email || student.email}
+                </span>
+              )}
+              {/* Booking status */}
               {isBookedThisWeek ? (
                 <span className="text-[9px] font-bold text-[#15803d] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] inline-block" />
@@ -181,6 +192,8 @@ function StudentRow({
               )}
             </div>
           </div>
+
+          {/* Actions */}
           <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={() => setShowBooking(true)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white bg-[#6d28d9] hover:bg-[#5b21b6] transition-all active:scale-95">
@@ -214,10 +227,8 @@ function StudentRow({
           </div>
         </div>
 
-        {/* Expanded */}
         {expanded && (
           <div className="border-t border-[#f0ece8] bg-[#faf9f7]">
-            {/* Tabs */}
             <div className="flex border-b border-[#f0ece8] px-4 pt-2 gap-1">
               {(['sessions', 'contact'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
@@ -266,6 +277,23 @@ function StudentRow({
                     </div>
                   </div>
                   <div>
+                    <p className="text-[9px] font-black text-[#c4b5fd] uppercase tracking-widest mb-2">Bluebook</p>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">SharePoint URL</label>
+                      {isEditing ? (
+                        <input type="url" value={draft.bluebook_url ?? ''} onChange={e => setDraft({ ...draft, bluebook_url: e.target.value })}
+                          className={inputCls} placeholder="https://yourorg.sharepoint.com/..." />
+                      ) : student.bluebook_url ? (
+                        <a href={student.bluebook_url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f0fdf4] border border-[#bbf7d0] text-[#15803d] text-xs font-semibold hover:bg-[#dcfce7] transition-all">
+                          <span className="font-black">XL</span> Open Bluebook →
+                        </a>
+                      ) : (
+                        <p className="text-xs text-[#c4bfba] italic">No Bluebook linked — click Edit to add</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
                     <p className="text-[9px] font-black text-[#c4b5fd] uppercase tracking-widest mb-2">Parent / Guardian</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <Field label="Name" value={student.parent_name} field="parent_name" />
@@ -290,7 +318,6 @@ function StudentRow({
         )}
       </div>
 
-      {/* Booking modal — student is pre-selected via studentDatabase filtering */}
       {showBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(28,16,8,0.75)', backdropFilter: 'blur(8px)' }}>
           <BookingForm
@@ -307,8 +334,6 @@ function StudentRow({
     </>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StudentAdminPage() {
   const [students, setStudents] = useState<any[]>([]);
@@ -419,12 +444,12 @@ export default function StudentAdminPage() {
             </div>
             <div>
               <h1 className="text-sm font-black text-[#1c1917] leading-none">Student Directory</h1>
-              <p className="text-[9px] font-semibold uppercase tracking-widest text-[#6d28d9]">Slake</p>
+              <p className="text-[9px] font-semibold uppercase tracking-widest text-[#6d28d9]">C2 Southlake</p>
             </div>
           </div>
           <button onClick={() => setAdding(a => !a)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all active:scale-95"
-            style={{ background: '#1c1917' }}>
+            style={{ background: adding ? '#6d28d9' : '#1c1917' }}>
             {adding ? <X size={13} /> : <Plus size={13} />}
             {adding ? 'Cancel' : 'Add Student'}
           </button>
@@ -436,14 +461,19 @@ export default function StudentAdminPage() {
         {!loading && (
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Total', value: students.length, key: 'all', color: '#1c1917' },
-              { label: 'Booked this week', value: students.filter(s => bookedThisWeekIds.has(s.id)).length, key: 'booked', color: '#15803d' },
-              { label: 'Not booked', value: students.filter(s => !bookedThisWeekIds.has(s.id)).length, key: 'unbooked', color: '#dc2626' },
+              { label: 'Total Students', value: students.length, key: 'all', bg: 'white', color: '#1c1917', border: '#f0ece8' },
+              { label: 'Booked This Week', value: students.filter(s => bookedThisWeekIds.has(s.id)).length, key: 'booked', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+              { label: 'Not Booked', value: students.filter(s => !bookedThisWeekIds.has(s.id)).length, key: 'unbooked', bg: '#fff1f2', color: '#be123c', border: '#fecdd3' },
             ].map(stat => (
               <button key={stat.key} onClick={() => setFilter(f => f === stat.key ? 'all' : stat.key as any)}
-                className={`p-3 rounded-2xl border-2 text-left transition-all ${filter === stat.key ? 'border-[#6d28d9] bg-[#faf9ff]' : 'border-[#f0ece8] bg-white hover:border-[#e7e3dd]'}`}>
-                <p className="text-xl font-black leading-none" style={{ color: stat.color }}>{stat.value}</p>
-                <p className="text-[9px] font-bold text-[#a8a29e] uppercase tracking-wider mt-1">{stat.label}</p>
+                className="p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: stat.bg,
+                  borderColor: filter === stat.key ? stat.color : stat.border,
+                  boxShadow: filter === stat.key ? `0 0 0 3px ${stat.color}20` : 'none',
+                }}>
+                <p className="text-2xl font-black leading-none" style={{ color: stat.color }}>{stat.value}</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider mt-1.5" style={{ color: stat.color, opacity: 0.7 }}>{stat.label}</p>
               </button>
             ))}
           </div>
@@ -453,29 +483,28 @@ export default function StudentAdminPage() {
         <div className="relative">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a8a29e]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#e7e3dd] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#6d28d9]/20 focus:border-[#6d28d9] transition-all" />
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#e7e3dd] rounded-xl text-sm text-[#1c1917] outline-none focus:ring-2 focus:ring-[#6d28d9]/20 focus:border-[#6d28d9] transition-all placeholder:text-[#c4bfba]" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a8a29e] hover:text-[#1c1917]"><X size={13} /></button>}
         </div>
 
         {/* Add form */}
         {adding && (
           <div className="bg-white rounded-2xl border-2 border-[#6d28d9] overflow-hidden shadow-lg shadow-violet-100/50">
-            <div className="px-5 py-3.5 bg-[#faf9ff] border-b border-[#ede9fe]">
+            <div className="px-5 py-3.5 bg-[#faf9ff] border-b border-[#ede9fe] flex items-center justify-between">
               <p className="text-xs font-black text-[#6d28d9] uppercase tracking-widest">New Student</p>
+              <button onClick={() => setAdding(false)} className="text-[#a8a29e] hover:text-[#1c1917]"><X size={14} /></button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1 col-span-2 md:col-span-1">
                   <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">Name *</label>
                   <input value={newStudent.name} onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9]"
-                    placeholder="Full name" />
+                    className={inputCls} placeholder="Full name" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">Grade</label>
                   <input value={newStudent.grade} onChange={e => setNewStudent({ ...newStudent, grade: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9]"
-                    placeholder="1–12" />
+                    className={inputCls} placeholder="1–12" />
                 </div>
               </div>
               <div>
@@ -485,8 +514,7 @@ export default function StudentAdminPage() {
                     <div key={field} className="space-y-1">
                       <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
                       <input type={type} value={(newStudent as any)[field]} onChange={e => setNewStudent({ ...newStudent, [field]: e.target.value })}
-                        className="w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9]"
-                        placeholder={ph} />
+                        className={inputCls} placeholder={ph} />
                     </div>
                   ))}
                 </div>
@@ -498,8 +526,7 @@ export default function StudentAdminPage() {
                     <div key={field} className="space-y-1">
                       <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
                       <input type={type} value={(newStudent as any)[field]} onChange={e => setNewStudent({ ...newStudent, [field]: e.target.value })}
-                        className="w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6d28d9] border border-transparent focus:border-[#6d28d9]"
-                        placeholder={ph} />
+                        className={inputCls} placeholder={ph} />
                     </div>
                   ))}
                 </div>
@@ -540,7 +567,9 @@ export default function StudentAdminPage() {
           </div>
         ) : (
           <div className="text-center py-24 bg-white rounded-2xl border border-dashed border-[#e7e3dd]">
-            <p className="text-sm text-[#a8a29e] italic">No students found</p>
+            <GraduationCap size={28} className="mx-auto mb-3 text-[#d4cfc9]" />
+            <p className="text-sm font-bold text-[#a8a29e]">No students found</p>
+            {search && <p className="text-xs text-[#c4bfba] mt-1">Try a different search</p>}
           </div>
         )}
       </div>
