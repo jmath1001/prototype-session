@@ -211,17 +211,17 @@ export default function MasterDeployment() {
       {/* ── HEADER + NAV (merged) ── */}
       <div className="sticky top-[56px] z-30 border-b"
         style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)', borderColor: '#e5e7eb' }}>
-        <div className="max-w-[1600px] mx-auto px-3 md:px-6 h-14 flex items-center gap-2">
+        <div className="max-w-[1600px] mx-auto px-2 md:px-6 h-10 md:h-11 flex items-center gap-1.5 md:gap-2">
 
           {/* Week/Today toggle */}
           <div className="flex gap-0.5 p-0.5 rounded-lg shrink-0" style={{ background: '#f3f4f6' }}>
             <button onClick={() => setTodayView(false)}
-              className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
+              className="px-2 md:px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
               style={!todayView ? { background: 'white', color: '#111827', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { color: '#9ca3af' }}>
               Week
             </button>
             <button onClick={() => setTodayView(true)}
-              className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
+              className="px-2 md:px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all"
               style={todayView ? { background: '#dc2626', color: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' } : { color: '#9ca3af' }}>
               Today
             </button>
@@ -230,63 +230,56 @@ export default function MasterDeployment() {
           {/* Week navigator — only in week view */}
           {!todayView && (
             <>
-              <div className="w-px h-5 shrink-0" style={{ background: '#e5e7eb' }} />
-              <button onClick={goToPrevWeek} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
-                style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.color = '#111827'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#6b7280'; }}>
-                <ChevronLeft size={13} />
+              <div className="w-px h-5 shrink-0 hidden md:block" style={{ background: '#e5e7eb' }} />
+              <button onClick={goToPrevWeek} className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
+                style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}>
+                <ChevronLeft size={12} />
               </button>
-              <div className="text-center shrink-0">
-                <div className="text-xs font-bold leading-none" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>
-                  {formatWeekRange(weekStart)}
-                </div>
+              <div className="hidden sm:flex flex-col items-center shrink-0">
+                <div className="text-xs font-bold leading-none" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>{formatWeekRange(weekStart)}</div>
                 {isCurrentWeek && <div className="text-[8px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#dc2626' }}>This Week</div>}
               </div>
-              <button onClick={goToNextWeek} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
-                style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.color = '#111827'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#6b7280'; }}>
-                <ChevronRight size={13} />
+              <button onClick={goToNextWeek} className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center transition-all shrink-0"
+                style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}>
+                <ChevronRight size={12} />
               </button>
               {!isCurrentWeek && (
                 <button onClick={goToThisWeek}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shrink-0"
-                  style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}>
-                  <CalendarDays size={10} /> Now
+                  className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all shrink-0"
+                  style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+                  <CalendarDays size={9} />
+                  <span className="hidden sm:inline">Now</span>
                 </button>
               )}
             </>
           )}
 
           {/* Spacer */}
-          <div className="flex-1" />
+          <div className="flex-1 min-w-0" />
 
           {/* Tutor filter */}
           <div className="relative shrink-0">
             <select
               value={selectedTutorFilter ?? ''}
               onChange={e => setSelectedTutorFilter(e.target.value || null)}
-              className="appearance-none pl-3 pr-7 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider cursor-pointer"
+              className="appearance-none pl-2 pr-6 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider cursor-pointer max-w-[90px] md:max-w-[110px]"
               style={{
                 background: selectedTutorFilter ? '#fef2f2' : 'white',
                 border: `1px solid ${selectedTutorFilter ? '#fecaca' : '#e5e7eb'}`,
                 color: selectedTutorFilter ? '#dc2626' : '#6b7280',
                 outline: 'none', maxWidth: 110,
               }}>
-              <option value="">All Tutors</option>
-              {tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <option value="">All</option>
+              {tutors.map(t => <option key={t.id} value={t.id}>{t.name.split(' ')[0]}</option>)}
             </select>
-            <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+            <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: selectedTutorFilter ? '#dc2626' : '#9ca3af' }} />
           </div>
           {selectedTutorFilter && (
             <button onClick={() => setSelectedTutorFilter(null)}
-              className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+              className="w-5 h-5 md:w-6 md:h-6 rounded-md flex items-center justify-center shrink-0"
               style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
-              <X size={11} />
+              <X size={9} />
             </button>
           )}
 
@@ -294,21 +287,16 @@ export default function MasterDeployment() {
 
           {/* Actions */}
           <button onClick={() => setIsTutorModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0"
-            style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.color = '#111827'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#6b7280'; }}>
+            className="w-7 h-7 md:w-auto md:h-auto md:px-2.5 md:py-1.5 flex items-center justify-center md:gap-1 rounded-lg text-xs font-semibold transition-all shrink-0"
+            style={{ background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}>
             <PlusCircle size={12} />
             <span className="hidden md:inline">Tutors</span>
           </button>
           <button onClick={() => setIsEnrollModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 shrink-0"
-            style={{ background: '#dc2626' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
-            onMouseLeave={e => e.currentTarget.style.background = '#dc2626'}>
+            className="w-7 h-7 md:w-auto md:h-auto md:px-3 md:py-1.5 flex items-center justify-center md:gap-1 rounded-lg text-xs font-bold text-white transition-all active:scale-95 shrink-0"
+            style={{ background: '#dc2626' }}>
             <PlusCircle size={12} />
             <span className="hidden md:inline">Book</span>
-            <span className="md:hidden">+</span>
           </button>
         </div>
       </div>
@@ -327,7 +315,7 @@ export default function MasterDeployment() {
         const isWeekend = !ACTIVE_DAYS.includes(todayDow);
 
         return (
-          <div className="max-w-[1600px] mx-auto p-3 md:p-6">
+          <div className="max-w-[1600px] mx-auto p-2 md:p-6">
             {isWeekend ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
                 <p className="text-4xl">🎉</p>
@@ -336,7 +324,7 @@ export default function MasterDeployment() {
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-3 mb-5">
+                <div className="hidden md:flex items-center gap-3 mb-5">
                   <div>
                     <h2 className="text-3xl font-bold" style={{ color: '#c27d38', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
                     <p className="text-sm font-semibold" style={{ color: '#c27d38' }}>
@@ -344,15 +332,6 @@ export default function MasterDeployment() {
                     </p>
                   </div>
                   <div className="h-px flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #f5d08a, transparent)' }} />
-                  <div className="relative">
-                    <select value={selectedTutorFilter ?? ''} onChange={e => setSelectedTutorFilter(e.target.value || null)}
-                      className="appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider cursor-pointer outline-none"
-                      style={{ background: selectedTutorFilter ? '#fef3e2' : 'white', border: `1px solid ${selectedTutorFilter ? '#f5d08a' : '#ddd4c8'}`, color: selectedTutorFilter ? '#a06020' : '#7a6a5a' }}>
-                      <option value="">All Tutors</option>
-                      {tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                    <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9e8e7e' }} />
-                  </div>
                 </div>
                 {todayTutors.length === 0 ? (
                   <div className="rounded-xl p-8 text-center border border-dashed" style={{ borderColor: '#ddd4c8' }}>

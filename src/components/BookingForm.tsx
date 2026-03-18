@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, X, Repeat, Check, Clock, BookOpen, ChevronRight } from "lucide-react";
 
 import { formatTime } from '@/components/constants';
-import { SUBJECT_GROUPS } from '@/components/TutorManagementModal';
+
 
 export interface PrefilledSlot {
   tutor: any;
@@ -94,9 +94,13 @@ export function BookingForm({
       });
   }, [searchQuery, studentDatabase, assignedStudentIds]);
 
+  const catSeats = useMemo(() =>
+    allAvailableSeats.filter(s => s.tutor.cat === enrollCat),
+    [allAvailableSeats, enrollCat]);
+
   const filteredSeats = useMemo(() =>
-    !subjectFilter ? allAvailableSeats : allAvailableSeats.filter(s => s.tutor.subjects?.includes(subjectFilter)),
-    [subjectFilter, allAvailableSeats]);
+    !subjectFilter ? catSeats : catSeats.filter(s => s.tutor.subjects?.includes(subjectFilter)),
+    [subjectFilter, catSeats]);
 
   const slotsByDay = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -104,7 +108,15 @@ export function BookingForm({
     return groups;
   }, [filteredSeats]);
 
-  // Filter slots by student availability if they have blocks set
+  // Subjects available for current cat only
+  const catSubjects = useMemo(() => {
+    const s = new Set<string>();
+    catSeats.forEach(seat => seat.tutor.subjects?.forEach((subj: string) => s.add(subj)));
+    return Array.from(s).sort();
+  }, [catSeats]);
+
+  // Reset subject filter when cat changes
+  React.useEffect(() => { setSubjectFilter(null); }, [enrollCat]);
   const studentHasAvailability = selectedStudent?.availabilityBlocks?.length > 0;
   const availableSlotsByDay = useMemo(() => {
     if (!studentHasAvailability || showAllSlots) return slotsByDay;
@@ -296,7 +308,7 @@ export function BookingForm({
             <div className="px-6 py-2.5 flex gap-1.5 overflow-x-auto border-b border-[#f0ece8] no-scrollbar">
               <button onClick={() => setSubjectFilter(null)}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-all ${!subjectFilter ? 'bg-[#1c1917] text-white' : 'bg-[#f0ece8] text-[#78716c]'}`}>All</button>
-              {SUBJECT_GROUPS.flatMap(g => g.subjects).map(subj => (
+              {catSubjects.map(subj => (
                 <button key={subj} onClick={() => setSubjectFilter(subjectFilter === subj ? null : subj)}
                   className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0 transition-all ${subjectFilter === subj ? 'bg-[#6d28d9] text-white' : 'bg-[#f0ece8] text-[#78716c]'}`}>
                   {subj}
@@ -387,7 +399,7 @@ export function BookingForm({
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     <button onClick={() => setSubjectFilter(null)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 ${!subjectFilter ? 'bg-[#1c1917] text-white' : 'bg-[#f0ece8] text-[#78716c]'}`}>All</button>
-                    {SUBJECT_GROUPS.flatMap(g => g.subjects).map(subj => (
+                    {catSubjects.map(subj => (
                       <button key={subj} onClick={() => setSubjectFilter(subjectFilter === subj ? null : subj)}
                         className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0 ${subjectFilter === subj ? 'bg-[#6d28d9] text-white' : 'bg-[#f0ece8] text-[#78716c]'}`}>
                         {subj}
