@@ -1,4 +1,5 @@
-"use client"
+"use client";
+
 import { PlusCircle, Check } from 'lucide-react';
 import { updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
@@ -90,7 +91,7 @@ export function WeekView({
                           return (
                             <tr key={tutor.id} style={{ borderBottom: '1px solid #fee2e2' }}>
                               <td className="px-2 py-2 align-middle"
-                                style={{ background: '#fff5f5', borderRight: '2px solid #fca5a5', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                                style={{ background: '#fff5f5', borderRight: '2px solid #fca5a5', borderBottom: '1px solid #fca5a5', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                                     style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
@@ -115,8 +116,8 @@ export function WeekView({
                                 const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
                                 return (
                                   <td key={block.id} className="p-1.5 align-top"
-                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2' }}>
-                                    <div className="flex flex-col gap-1 min-h-[110px]">
+                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2', borderBottom: '1px solid #fee2e2' }}>
+                                    <div className="flex flex-col gap-1 h-full min-h-[110px]">
                                       {hasStudents && !isOnTimeOff ? (
                                         <>
                                           {session!.students.map((student: any) => (
@@ -168,16 +169,16 @@ export function WeekView({
                                         </>
                                       ) : isAvailable ? (
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                          className="w-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
-                                          style={{ minHeight: 64, background: 'transparent', border: '2px dashed #86efac' }}
+                                          className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
+                                          style={{ background: 'transparent', border: '2px dashed #86efac' }}
                                           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(134,239,172,0.08)'; e.currentTarget.style.borderColor = '#4ade80'; }}
                                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#86efac'; }}>
                                           <PlusCircle size={14} style={{ color: '#4ade80' }} />
                                           <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>Available</span>
                                         </div>
                                       ) : (
-                                        <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
-                                          style={{ minHeight: 64, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                        <div className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1"
+                                          style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
                                           {isOnTimeOff ? (
                                             <>
                                               <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
@@ -207,7 +208,7 @@ export function WeekView({
                     return (
                       <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 8px rgba(220,38,38,0.07)' }}>
                         <div className="p-2.5" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
-                          <p className="text-xs font-bold" style={{ color: '#1f2937', fontWeight: 700 }}>{tutor.name}</p>
+                          <p className="text-xs font-bold" style={{ color: 'white', fontWeight: 700 }}>{tutor.name}</p>
                         </div>
                         <div className="overflow-x-auto">
                           <div className="flex">
@@ -220,12 +221,12 @@ export function WeekView({
                               const isOutside = !isTutorAvailable(tutor, dow, block.time) || isOnTimeOff;
                               return (
                                 <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
-                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2' }}>
+                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1.5px solid #fee2e2' }}>
                                   <div className="text-center mb-1.5">
                                     <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626', fontWeight: 800 }}>{block.label}</div>
                                     <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
                                   </div>
-                                  <div className="space-y-1" style={{ minHeight: 64 }}>
+                                  <div className="space-y-1" style={{ minHeight: 110 }}>
                                     {hasStudents && !isOnTimeOff ? (
                                       <>
                                         {session!.students.map((student: any) => (
@@ -268,14 +269,14 @@ export function WeekView({
                                       </>
                                     ) : isAvailable ? (
                                       <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                        className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                        style={{ minHeight: 56, background: 'transparent', border: '2px dashed #86efac' }}>
+                                        className="w-full h-full min-min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                                        style={{ background: 'transparent', border: '2px dashed #86efac' }}>
                                         <PlusCircle size={14} style={{ color: '#4ade80' }} />
                                         <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#4ade80' }}>Available</span>
                                       </div>
                                     ) : (
-                                      <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
-                                        style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                      <div className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1"
+                                        style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
                                         {isOnTimeOff
                                           ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
                                           : <span className="text-[8px] font-semibold text-stone-300 uppercase tracking-wider">—</span>}
