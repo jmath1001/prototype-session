@@ -36,6 +36,7 @@ export type SessionStudent = {
   grade: string | null
   notes: string | null
   confirmationStatus: string | null
+  seriesId: string | null
 }
 
 export type Session = {
@@ -51,6 +52,23 @@ export type TimeOff = {
   tutorId: string
   date: string
   note: string
+}
+
+export type RecurringSeries = {
+  id: string
+  createdAt: string
+  studentId: string
+  studentName: string
+  tutorId: string
+  tutorName: string
+  dayOfWeek: number
+  time: string
+  topic: string
+  notes: string | null
+  startDate: string
+  endDate: string
+  totalWeeks: number
+  status: 'active' | 'completed' | 'cancelled'
 }
 
 export type ScheduleData = {
@@ -152,7 +170,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             .from('slake_sessions')
             .select(`
               id, session_date, tutor_id, time,
-              slake_session_students ( id, student_id, name, topic, status, notes, confirmation_status )
+              slake_session_students ( id, student_id, name, topic, status, notes, confirmation_status, series_id )
             `)
             .gte('session_date', from)
             .lte('session_date', to)
@@ -194,7 +212,6 @@ export function useScheduleData(weekStart: Date): ScheduleData {
           bluebook_url:       r.bluebook_url ?? null,
         }))
 
-        // Build a grade lookup map so we can enrich session students
         const gradeMap: Record<string, string | null> = {}
         students.forEach(s => { gradeMap[s.id] = s.grade })
 
@@ -212,6 +229,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             grade:              gradeMap[ss.student_id] ?? null,
             notes:              ss.notes ?? null,
             confirmationStatus: ss.confirmation_status ?? null,
+            seriesId:           ss.series_id ?? null,
           })),
         }))
 
@@ -266,12 +284,37 @@ export async function bookStudent({
   const weeks = recurring ? recurringWeeks : 1
   const MAX_CAPACITY = 3
 
+  let seriesId: string | null = null
+  if (recurring && recurringWeeks > 1) {
+    const endDate = new Date(date + 'T00:00:00')
+    endDate.setDate(endDate.getDate() + (recurringWeeks - 1) * 7)
+
+    const { data: series, error: seriesErr } = await supabase
+      .from('slake_recurring_series')
+      .insert({
+        student_id:  student.id,
+        tutor_id:    tutorId,
+        day_of_week: dayOfWeek(date),
+        time,
+        topic,
+        notes:       notes || null,
+        start_date:  date,
+        end_date:    toISODate(endDate),
+        total_weeks: recurringWeeks,
+        status:      'active',
+      })
+      .select('id')
+      .single()
+
+    if (seriesErr) throw seriesErr
+    seriesId = series.id
+  }
+
   for (let w = 0; w < weeks; w++) {
     const d = new Date(date + 'T00:00:00')
     d.setDate(d.getDate() + w * 7)
     const isoDate = toISODate(d)
 
-    // 1. CHECK FOR STUDENT DOUBLE-BOOKING
     const { data: sessionAtTime } = await supabase
       .from('slake_sessions')
       .select('id')
@@ -292,7 +335,6 @@ export async function bookStudent({
       }
     }
 
-    // 2. FIND OR CREATE SESSION & CHECK CAPACITY
     const { data: existing, error: fetchErr } = await supabase
       .from('slake_sessions')
       .select('id, slake_session_students(id)')
@@ -320,7 +362,6 @@ export async function bookStudent({
       sessionId = created.id
     }
 
-    // 3. FINAL ENROLLMENT
     const { error: enrollErr } = await supabase
       .from('slake_session_students')
       .insert({
@@ -330,6 +371,7 @@ export async function bookStudent({
         topic,
         notes:      notes || null,
         status:     'scheduled',
+        series_id:  seriesId,
       })
 
     if (enrollErr) throw enrollErr
@@ -381,6 +423,191 @@ export async function updateSessionNotes({
     .from('slake_session_students')
     .update({ notes })
     .eq('id', rowId)
+
+  if (error) throw error
+}
+
+// ── Recurring series helpers ──────────────────────────────────────────────────
+
+export async function fetchAllSeries(): Promise<RecurringSeries[]> {
+  const { data, error } = await supabase
+    .from('slake_recurring_series')
+    .select(`
+      id, created_at, student_id, tutor_id, day_of_week, time,
+      topic, notes, start_date, end_date, total_weeks, status,
+      slake_students ( name ),
+      slake_tutors ( name )
+    `)
+    .order('start_date', { ascending: false })
+
+  if (error) throw error
+
+  return (data ?? []).map((r: any) => ({
+    id:          r.id,
+    createdAt:   r.created_at,
+    studentId:   r.student_id,
+    studentName: r.slake_students?.name ?? 'Unknown',
+    tutorId:     r.tutor_id,
+    tutorName:   r.slake_tutors?.name ?? 'Unknown',
+    dayOfWeek:   r.day_of_week,
+    time:        r.time,
+    topic:       r.topic,
+    notes:       r.notes ?? null,
+    startDate:   r.start_date,
+    endDate:     r.end_date,
+    totalWeeks:  r.total_weeks,
+    status:      r.status,
+  }))
+}
+
+export async function fetchSeriesSessions(seriesId: string) {
+  const { data, error } = await supabase
+    .from('slake_session_students')
+    .select(`
+      id, status, notes,
+      slake_sessions ( id, session_date, time, tutor_id )
+    `)
+    .eq('series_id', seriesId)
+    .order('slake_sessions(session_date)')
+
+  if (error) throw error
+  return data ?? []
+}
+
+export async function cancelSeries(seriesId: string): Promise<void> {
+  const today = toISODate(new Date())
+
+  const { data: futureSessions, error: fetchErr } = await supabase
+    .from('slake_session_students')
+    .select(`id, slake_sessions!inner ( session_date )`) // Use !inner join
+    .eq('series_id', seriesId)
+
+  if (fetchErr) throw fetchErr
+
+  // CORRECTED: Safe access to joined session_date
+  const futureRowIds = (futureSessions ?? [])
+    .filter((r: any) => {
+        const session = Array.isArray(r.slake_sessions) ? r.slake_sessions[0] : r.slake_sessions;
+        return session?.session_date >= today;
+    })
+    .map((r: any) => r.id)
+
+  if (futureRowIds.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from('slake_session_students')
+      .delete()
+      .in('id', futureRowIds)
+
+    if (deleteErr) throw deleteErr
+  }
+
+  const { error: updateErr } = await supabase
+    .from('slake_recurring_series')
+    .update({ status: 'cancelled' })
+    .eq('id', seriesId)
+
+  if (updateErr) throw updateErr
+}
+
+export async function rescheduleSeries({
+  seriesId,
+  newTutorId,
+  newTime,
+  student,
+  topic,
+}: {
+  seriesId: string
+  newTutorId: string
+  newTime: string
+  student: Student
+  topic: string
+}): Promise<void> {
+  const today = toISODate(new Date())
+  const MAX_CAPACITY = 3
+
+  const { data: futureSessions, error: fetchErr } = await supabase
+    .from('slake_session_students')
+    .select(`id, slake_sessions!inner ( id, session_date )`)
+    .eq('series_id', seriesId)
+
+  if (fetchErr) throw fetchErr
+
+  // CORRECTED: Map the rows while checking the joined date property correctly
+  const futureRows = (futureSessions ?? []).filter((r: any) => {
+    const session = Array.isArray(r.slake_sessions) ? r.slake_sessions[0] : r.slake_sessions;
+    return session?.session_date >= today;
+  })
+
+  if (futureRows.length > 0) {
+    const { error: deleteErr } = await supabase
+      .from('slake_session_students')
+      .delete()
+      .in('id', futureRows.map((r: any) => r.id))
+
+    if (deleteErr) throw deleteErr
+  }
+
+  for (const row of futureRows) {
+    // CORRECTED: Extract session_date safely
+    const session = Array.isArray(row.slake_sessions) ? row.slake_sessions[0] : row.slake_sessions;
+    const isoDate: string = session?.session_date;
+    if (!isoDate) continue
+
+    const { data: existing } = await supabase
+      .from('slake_sessions')
+      .select('id, slake_session_students(id)')
+      .eq('session_date', isoDate)
+      .eq('tutor_id', newTutorId)
+      .eq('time', newTime)
+      .maybeSingle()
+
+    let sessionId: string
+
+    if (existing) {
+      if (existing.slake_session_students && existing.slake_session_students.length >= MAX_CAPACITY) {
+        throw new Error(`Session is full on ${isoDate} — cannot reschedule to this slot`)
+      }
+      sessionId = existing.id
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from('slake_sessions')
+        .insert({ session_date: isoDate, tutor_id: newTutorId, time: newTime })
+        .select('id')
+        .single()
+      if (createErr) throw createErr
+      sessionId = created.id
+    }
+
+    const { error: enrollErr } = await supabase
+      .from('slake_session_students')
+      .insert({
+        session_id: sessionId,
+        student_id: student.id,
+        name:       student.name,
+        topic,
+        status:     'scheduled',
+        series_id:  seriesId,
+      })
+
+    if (enrollErr) throw enrollErr
+  }
+
+  const { error: updateErr } = await supabase
+    .from('slake_recurring_series')
+    .update({ tutor_id: newTutorId, time: newTime, topic })
+    .eq('id', seriesId)
+
+  if (updateErr) throw updateErr
+}
+
+export async function markCompletedSeries(): Promise<void> {
+  const today = toISODate(new Date())
+
+  const { error } = await supabase
+    .from('slake_recurring_series')
+    .update({ status: 'completed' })
+    .eq('status', 'active')
+    .lt('end_date', today)
 
   if (error) throw error
 }
