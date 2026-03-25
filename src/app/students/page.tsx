@@ -21,7 +21,7 @@ const MAX_CAPACITY = 3;
 const isTutorAvailable = (tutor: any, dow: number, time: string) =>
   tutor.availability_blocks?.includes(`${dow}-${time}`);
 
-const inputCls = "w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm text-[#1c1917] outline-none focus:ring-2 focus:ring-[#dc2626] border border-transparent focus:border-[#dc2626] placeholder:text-[#c4bfba]";
+const inputCls = "w-full px-3 py-2 bg-[#f0ece8]/50 rounded-lg text-sm text-black outline-none focus:ring-2 focus:ring-[#dc2626] border border-transparent focus:border-[#dc2626] placeholder:text-[#c4bfba]";
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   present:   { bg: '#dcfce7', color: '#15803d', label: 'Present' },
@@ -67,6 +67,32 @@ function SessionRow({ session, isPast }: { session: any; isPast: boolean }) {
   );
 }
 
+// Field lifted OUTSIDE StudentRow so it never gets recreated on re-render,
+// which was causing inputs to unmount/remount and lose focus after every keystroke.
+function Field({
+  label, value, field, type = 'text', isEditing, draft, onChange,
+}: {
+  label: string; value: string; field: string; type?: string;
+  isEditing: boolean; draft: any; onChange: (field: string, value: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
+      {isEditing ? (
+        <input
+          type={type}
+          value={draft[field] ?? ''}
+          onChange={e => onChange(field, e.target.value)}
+          className={inputCls}
+          placeholder={label}
+        />
+      ) : (
+        <p className="text-sm text-black">{value || <span className="text-[#c4bfba] italic text-xs">—</span>}</p>
+      )}
+    </div>
+  );
+}
+
 function StudentRow({
   student, onRefetch, tutors, allSessions, allAvailableSeats, onBookingSuccess,
 }: {
@@ -86,6 +112,11 @@ function StudentRow({
   const weekStart = getWeekStart(getCentralTimeNow());
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
   const weekEndStr = toISODate(weekEnd);
+
+  // Stable setter so Field's onChange never changes identity
+  const handleDraftChange = useCallback((field: string, value: string) => {
+    setDraft((prev: any) => ({ ...prev, [field]: value }));
+  }, []);
 
   const allStudentSessions = useMemo(() =>
     allSessions
@@ -143,18 +174,6 @@ function StudentRow({
     onRefetch();
     onBookingSuccess(data);
   };
-
-  const Field = ({ label, value, field, type = 'text' }: { label: string; value: string; field: string; type?: string }) => (
-    <div className="space-y-1">
-      <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
-      {isEditing ? (
-        <input type={type} value={draft[field] ?? ''} onChange={e => setDraft({ ...draft, [field]: e.target.value })}
-          className={inputCls} placeholder={label} />
-      ) : (
-        <p className="text-sm text-[#1c1917]">{value || <span className="text-[#c4bfba] italic text-xs">—</span>}</p>
-      )}
-    </div>
-  );
 
   const avatarColor = AVATAR_COLORS[student.name.charCodeAt(0) % AVATAR_COLORS.length];
   const initials = student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -305,23 +324,23 @@ function StudentRow({
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: '#dc2626' }}>Student</p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      <Field label="Email" value={student.email} field="email" type="email" />
-                      <Field label="Phone" value={student.phone} field="phone" type="tel" />
-                      <Field label="Grade" value={student.grade} field="grade" />
+                      <Field label="Email" value={student.email} field="email" type="email" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
+                      <Field label="Phone" value={student.phone} field="phone" type="tel" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
+                      <Field label="Grade" value={student.grade} field="grade" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
                     </div>
                   </div>
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: '#dc2626' }}>Parent / Guardian</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <Field label="Name" value={student.parent_name} field="parent_name" />
-                      <Field label="Email" value={student.parent_email} field="parent_email" type="email" />
-                      <Field label="Phone" value={student.parent_phone} field="parent_phone" type="tel" />
+                      <Field label="Name" value={student.parent_name} field="parent_name" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
+                      <Field label="Email" value={student.parent_email} field="parent_email" type="email" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
+                      <Field label="Phone" value={student.parent_phone} field="parent_phone" type="tel" isEditing={isEditing} draft={draft} onChange={handleDraftChange} />
                     </div>
                   </div>
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: '#dc2626' }}>Bluebook</p>
                     {isEditing ? (
-                      <input type="url" value={draft.bluebook_url ?? ''} onChange={e => setDraft({ ...draft, bluebook_url: e.target.value })}
+                      <input type="url" value={draft.bluebook_url ?? ''} onChange={e => handleDraftChange('bluebook_url', e.target.value)}
                         className={inputCls} placeholder="https://yourorg.sharepoint.com/..." />
                     ) : student.bluebook_url ? (
                       <a href={student.bluebook_url} target="_blank" rel="noopener noreferrer"
@@ -505,7 +524,7 @@ export default function StudentAdminPage() {
         <div className="relative">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a8a29e]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#e7e3dd] rounded-xl text-sm text-[#1c1917] outline-none focus:ring-2 focus:border-[#dc2626] transition-all placeholder:text-[#c4bfba]" />
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#e7e3dd] rounded-xl text-sm text-black outline-none focus:ring-2 focus:border-[#dc2626] transition-all placeholder:text-[#c4bfba]" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a8a29e]"><X size={13} /></button>}
         </div>
 

@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { MAX_CAPACITY, getSessionsForDay, type SessionBlock } from '@/components/constants';
@@ -36,18 +36,14 @@ export default function MasterDeployment() {
   const [bookingToast, setBookingToast] = useState<BookingConfirmData | null>(null);
   const [isTutorModalOpen, setIsTutorModalOpen] = useState(false);
   const [selectedTutorFilter, setSelectedTutorFilter] = useState<string | null>(null);
-  const [localNotes, setLocalNotes] = useState<string>('');
-  const [notesSaving, setNotesSaving] = useState(false);
-  const [notesSaved, setNotesSaved] = useState(false);
   const [todayView, setTodayView] = useState(true);
+  const [modalTab, setModalTab] = useState<'session' | 'notes'>('session');
 
   // Lock page scroll when in today view (fixed layout), restore for week view
   useEffect(() => {
     document.body.style.overflow = todayView ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [todayView]);
-
-  const [modalTab, setModalTab] = useState<'session' | 'notes' | 'contact'>('session');
 
   const tutorPaletteMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -109,10 +105,23 @@ export default function MasterDeployment() {
 
   const setSelectedSessionWithNotes = (s: any) => {
     setSelectedSession(s);
-    setLocalNotes(s?.activeStudent?.notes ?? '');
-    setNotesSaved(false);
     setModalTab('session');
   };
+
+  // Optimistic update: patch selectedSession in-place so the modal reflects
+  // changes immediately without waiting for refetch to complete.
+  const patchSelectedSession = useCallback((patch: Record<string, any>) => {
+    setSelectedSession((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        activeStudent: {
+          ...prev.activeStudent,
+          ...patch,
+        },
+      };
+    });
+  }, []);
 
   const closeAllModals = () => { setIsEnrollModalOpen(false); setGridSlotToBook(null); };
 
@@ -196,6 +205,7 @@ export default function MasterDeployment() {
       <AttendanceModal
         selectedSession={selectedSession}
         setSelectedSession={setSelectedSession}
+        patchSelectedSession={patchSelectedSession}
         modalTab={modalTab}
         setModalTab={setModalTab}
         tutors={tutors}
