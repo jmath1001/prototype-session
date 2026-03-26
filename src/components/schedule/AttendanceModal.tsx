@@ -1,18 +1,18 @@
 "use client"
-import { X, UserX, CheckCircle2, CircleOff, Clock, Mail, Phone, ExternalLink, User, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { X, UserX, CheckCircle2, Clock, Mail, Phone, ExternalLink, User, ChevronDown, ChevronUp, FileText, Save, Loader2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import {
   bookStudent,
   removeStudentFromSession,
   updateAttendance,
   updateConfirmationStatus,
+  updateSessionNotes,
   formatDate,
   dayOfWeek,
   type Tutor,
 } from '@/lib/useScheduleData';
 import { MAX_CAPACITY } from '@/components/constants';
 import { isTutorAvailable } from './scheduleUtils';
-import { NotesEditor } from './NotesEditor';
 
 interface AttendanceModalProps {
   selectedSession: any;
@@ -42,11 +42,13 @@ export function AttendanceModal({
   const s = selectedSession;
   const student = s.activeStudent;
 
-  // Read directly from selectedSession — kept fresh by patchSelectedSession
   const currentStatus = student.status;
   const currentConf = student.confirmationStatus ?? null;
 
   const [contactExpanded, setContactExpanded] = useState(false);
+  const [notesDraft, setNotesDraft] = useState<string>(student.notes ?? '');
+  const [notesEditing, setNotesEditing] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
 
   const sessionDow = dayOfWeek(s.date);
   const sessionTime = s.time ?? s.block?.time;
@@ -64,28 +66,42 @@ export function AttendanceModal({
   });
 
   const hasContactInfo = studentRecord?.email || studentRecord?.phone ||
-    studentRecord?.parent_name || studentRecord?.parent_email || studentRecord?.parent_phone;
+    studentRecord?.parent_name || studentRecord?.parent_email || studentRecord?.parent_phone ||
+    studentRecord?.bluebook_url;
 
   const handleAttendance = async (status: 'scheduled' | 'present' | 'no-show') => {
-    patchSelectedSession({ status }); // optimistic — instant visual update
+    patchSelectedSession({ status });
     try {
       await updateAttendance({ sessionId: s.id, studentId: student.id, status });
       refetch();
     } catch (err) {
-      patchSelectedSession({ status: currentStatus }); // revert on error
+      patchSelectedSession({ status: currentStatus });
       console.error(err);
     }
   };
 
-  const handleConfirmation = async (status: 'confirmed' | 'unconfirmed' | null) => {
-    patchSelectedSession({ confirmationStatus: status }); // optimistic — instant visual update
+  const handleConfirmation = async (status: 'confirmed' | null) => {
+    patchSelectedSession({ confirmationStatus: status });
     try {
       await updateConfirmationStatus({ rowId: student.rowId, status });
       refetch();
     } catch (err) {
-      patchSelectedSession({ confirmationStatus: currentConf }); // revert on error
+      patchSelectedSession({ confirmationStatus: currentConf });
       console.error(err);
     }
+  };
+
+  const handleSaveNotes = async () => {
+    setNotesSaving(true);
+    try {
+      await updateSessionNotes({ rowId: student.rowId, notes: notesDraft });
+      patchSelectedSession({ notes: notesDraft }); // instant modal update
+      refetch();
+      setNotesEditing(false);
+    } catch (err) {
+      console.error(err);
+    }
+    setNotesSaving(false);
   };
 
   const handleRemove = async () => {
@@ -113,98 +129,104 @@ export function AttendanceModal({
     }
   };
 
-  const ModalInner = () => (
-    <div className="flex flex-col h-full overflow-hidden">
+  // Confirmation: just confirmed vs not confirmed
+  const isConfirmed = currentConf === 'confirmed';
 
-      {/* HEADER */}
-      <div className="shrink-0 px-5 pt-5 pb-4 border-b border-stone-100">
+  const ModalInner = () => (
+    <div className="flex flex-col h-full overflow-hidden bg-white">
+
+      {/* ── HEADER ── */}
+      <div className="shrink-0 px-6 pt-5 pb-4" style={{ background: '#1c1917' }}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-base font-black text-amber-700 shrink-0">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg font-black shrink-0"
+              style={{ background: '#dc2626', color: 'white' }}>
               {student.name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="text-[15px] font-black text-stone-900 leading-tight truncate">{student.name}</p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                {student.grade && <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Gr.{student.grade}</span>}
-                {student.grade && <span className="text-stone-200">·</span>}
-                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">{student.topic}</span>
+              <p className="text-base font-black text-white leading-tight truncate">{student.name}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {student.grade && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)' }}>
+                    Gr.{student.grade}
+                  </span>
+                )}
+                <span className="text-[11px] font-semibold" style={{ color: '#dc2626' }}>{student.topic}</span>
               </div>
             </div>
           </div>
           <button onClick={() => setSelectedSession(null)}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400 transition-colors shrink-0 mt-0.5">
-            <X size={15} />
+            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0 mt-0.5"
+            style={{ background: 'rgba(255,255,255,0.1)', color: '#a8a29e' }}>
+            <X size={14} />
           </button>
         </div>
+
+        {/* Session strip */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-stone-900 text-white uppercase tracking-wider">{s.dayName}</span>
-          <span className="text-[11px] text-stone-400 font-medium">{formatDate(s.date)}</span>
-          <span className="text-stone-200">·</span>
-          <span className="text-[11px] text-stone-500">{s.block?.label ?? sessionTime}</span>
-          <span className="text-stone-200">·</span>
-          <span className="text-[11px] font-bold text-amber-700">{s.tutorName}</span>
+          <span className="text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
+            style={{ background: '#dc2626', color: 'white' }}>{s.dayName}</span>
+          <span className="text-[11px] font-medium" style={{ color: '#a8a29e' }}>{formatDate(s.date)}</span>
+          <span style={{ color: '#44403c' }}>·</span>
+          <span className="text-[11px]" style={{ color: '#78716c' }}>{s.block?.label ?? sessionTime}</span>
+          <span style={{ color: '#44403c' }}>·</span>
+          <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>{s.tutorName}</span>
         </div>
       </div>
 
-      {/* TABS */}
-      <div className="shrink-0 flex gap-0 px-5 border-b border-stone-100 bg-white">
+      {/* ── TABS ── */}
+      <div className="shrink-0 flex border-b px-6" style={{ borderColor: '#f0ece8', background: 'white' }}>
         {([
           { key: 'session', label: 'Session' },
           { key: 'notes', label: 'Notes' },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setModalTab(t.key)}
-            className="px-1 mr-5 py-3 text-[11px] font-black uppercase tracking-widest border-b-2 -mb-px transition-colors"
+            className="mr-6 py-3 text-[11px] font-black uppercase tracking-widest border-b-2 -mb-px transition-colors"
             style={modalTab === t.key
-              ? { color: '#b45309', borderColor: '#b45309' }
+              ? { color: '#dc2626', borderColor: '#dc2626' }
               : { color: '#a8a29e', borderColor: 'transparent' }}>
             {t.label}
+            {t.key === 'notes' && student.notes && (
+              <span className="ml-1.5 w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#dc2626' }} />
+            )}
           </button>
         ))}
       </div>
 
-      {/* BODY */}
-      <div className="overflow-y-auto flex-1">
+      {/* ── BODY ── */}
+      <div className="overflow-y-auto flex-1" style={{ background: '#fafafa' }}>
 
+        {/* SESSION TAB */}
         {modalTab === 'session' && (
-          <div className="p-5 space-y-5">
+          <div className="p-6 space-y-6">
 
-            {/* CONFIRMATION */}
+            {/* CONFIRMATION — two big toggle buttons */}
             <div>
-              <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-2.5">Confirmation</p>
-              <div className="grid grid-cols-3 gap-2">
+              <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>Confirmation</p>
+              <div className="grid grid-cols-2 gap-2.5">
                 {([
-                  { status: 'confirmed' as const, label: 'Confirmed', icon: <CheckCircle2 size={14} />, active: { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' } },
-                  { status: 'unconfirmed' as const, label: 'No Response', icon: <CircleOff size={14} />, active: { bg: '#fef2f2', border: '#dc2626', text: '#b91c1c' } },
-                  { status: null, label: 'Pending', icon: <Clock size={14} />, active: { bg: '#f5f5f4', border: '#78716c', text: '#44403c' } },
+                  {
+                    status: 'confirmed' as const,
+                    label: 'Confirmed',
+                    icon: <CheckCircle2 size={16} />,
+                    active: { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' },
+                  },
+                  {
+                    status: null,
+                    label: 'Not Yet',
+                    icon: <Clock size={16} />,
+                    active: { bg: '#fff1f2', border: '#dc2626', text: '#991b1b' },
+                  },
                 ]).map(({ status, label, icon, active }) => {
                   const isActive = currentConf === status;
                   return (
                     <button key={String(status)} onClick={() => handleConfirmation(status)}
-                      className="py-3 flex flex-col items-center gap-1.5 rounded-xl border-2 font-black text-[9px] uppercase tracking-wider transition-all active:scale-95"
-                      style={isActive ? { background: active.bg, borderColor: active.border, color: active.text } : { background: 'white', borderColor: '#e7e3dd', color: '#a8a29e' }}>
+                      className="py-3.5 flex flex-col items-center gap-2 rounded-xl border-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-[0.97]"
+                      style={isActive
+                        ? { background: active.bg, borderColor: active.border, color: active.text }
+                        : { background: 'white', borderColor: '#e7e3dd', color: '#c4bfba' }}>
                       {icon}
-                      <span className="leading-tight text-center">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ATTENDANCE */}
-            <div>
-              <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-2.5">Attendance</p>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { status: 'present' as const, label: 'Present', active: { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' } },
-                  { status: 'no-show' as const, label: 'No-show', active: { bg: '#fef2f2', border: '#dc2626', text: '#b91c1c' } },
-                  { status: 'scheduled' as const, label: 'Scheduled', active: { bg: '#fffbeb', border: '#f59e0b', text: '#b45309' } },
-                ]).map(({ status, label, active }) => {
-                  const isActive = currentStatus === status;
-                  return (
-                    <button key={status} onClick={() => handleAttendance(status)}
-                      className="py-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 border-2"
-                      style={isActive ? { background: active.bg, borderColor: active.border, color: active.text } : { background: 'white', borderColor: '#e7e3dd', color: '#a8a29e' }}>
                       {label}
                     </button>
                   );
@@ -212,90 +234,141 @@ export function AttendanceModal({
               </div>
             </div>
 
-            {/* CONTACT */}
+            {/* ATTENDANCE — three buttons */}
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>Attendance</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { status: 'present' as const, label: 'Present', active: { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' } },
+                  { status: 'no-show' as const, label: 'No-show', active: { bg: '#fef2f2', border: '#dc2626', text: '#b91c1c' } },
+                  { status: 'scheduled' as const, label: 'Scheduled', active: { bg: '#fff1f2', border: '#dc2626', text: '#991b1b' } },
+                ]).map(({ status, label, active }) => {
+                  const isActive = currentStatus === status;
+                  return (
+                    <button key={status} onClick={() => handleAttendance(status)}
+                      className="py-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all active:scale-[0.97] border-2"
+                      style={isActive
+                        ? { background: active.bg, borderColor: active.border, color: active.text }
+                        : { background: 'white', borderColor: '#e7e3dd', color: '#c4bfba' }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* CONTACT — collapsible, full width */}
             {hasContactInfo && (
-              <div>
+              <div className="rounded-xl overflow-hidden border-2" style={{ borderColor: '#f0ece8' }}>
                 <button onClick={() => setContactExpanded(prev => !prev)}
-                  className="flex items-center justify-between w-full mb-2.5 group">
-                  <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest">Contact Info</p>
-                  <span className="text-stone-300 group-hover:text-stone-400 transition-colors">
-                    {contactExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  className="flex items-center justify-between w-full px-4 py-3 transition-colors"
+                  style={{ background: contactExpanded ? '#f5f5f4' : 'white' }}>
+                  <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#78716c' }}>Contact Info</p>
+                  <span style={{ color: '#a8a29e' }}>
+                    {contactExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </span>
                 </button>
+
+                {/* Collapsed preview */}
                 {!contactExpanded && (
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="px-4 pb-3 pt-1 flex items-center gap-2 flex-wrap bg-white">
                     {studentRecord?.email && (
-                      <a href={`mailto:${studentRecord.email}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                        <Mail size={10} className="text-stone-400" />
-                        <span className="text-[10px] text-stone-500 max-w-[140px] truncate">{studentRecord.email}</span>
+                      <a href={`mailto:${studentRecord.email}`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-medium"
+                        style={{ background: '#f7f4ef', color: '#78716c' }}>
+                        <Mail size={10} />
+                        <span className="max-w-[150px] truncate">{studentRecord.email}</span>
                       </a>
                     )}
                     {studentRecord?.phone && (
-                      <a href={`tel:${studentRecord.phone}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                        <Phone size={10} className="text-stone-400" />
-                        <span className="text-[10px] text-stone-500">{studentRecord.phone}</span>
+                      <a href={`tel:${studentRecord.phone}`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-medium"
+                        style={{ background: '#f7f4ef', color: '#78716c' }}>
+                        <Phone size={10} />
+                        {studentRecord.phone}
                       </a>
                     )}
                     {!studentRecord?.email && !studentRecord?.phone && studentRecord?.parent_email && (
-                      <a href={`mailto:${studentRecord.parent_email}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                        <Mail size={10} className="text-stone-400" />
-                        <span className="text-[10px] text-stone-500 max-w-[140px] truncate">{studentRecord.parent_email}</span>
+                      <a href={`mailto:${studentRecord.parent_email}`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-medium"
+                        style={{ background: '#f7f4ef', color: '#78716c' }}>
+                        <Mail size={10} />
+                        <span className="max-w-[150px] truncate">{studentRecord.parent_email}</span>
                       </a>
                     )}
                   </div>
                 )}
+
+                {/* Expanded */}
                 {contactExpanded && (
-                  <div className="space-y-3">
+                  <div className="px-4 pb-4 pt-2 space-y-4 bg-white">
+                    {/* Bluebook — full width */}
                     {studentRecord?.bluebook_url && (
                       <a href={studentRecord.bluebook_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white text-[9px] font-black shrink-0">XL</div>
+                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border transition-all"
+                        style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] font-black shrink-0"
+                          style={{ background: '#16a34a' }}>XL</div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-black text-emerald-700">Bluebook</p>
-                          <p className="text-[9px] text-emerald-500">Open in SharePoint</p>
+                          <p className="text-[12px] font-black" style={{ color: '#15803d' }}>Bluebook</p>
+                          <p className="text-[10px]" style={{ color: '#16a34a' }}>Open in SharePoint →</p>
                         </div>
-                        <ExternalLink size={11} className="text-emerald-400 shrink-0" />
+                        <ExternalLink size={12} style={{ color: '#16a34a' }} className="shrink-0" />
                       </a>
                     )}
+
                     {(studentRecord?.email || studentRecord?.phone) && (
                       <div>
-                        <p className="text-[9px] font-semibold text-stone-300 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><User size={9}/> Student</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: '#a8a29e' }}>
+                          <User size={9} /> Student
+                        </p>
                         <div className="space-y-1.5">
                           {studentRecord?.email && (
-                            <a href={`mailto:${studentRecord.email}`} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                              <Mail size={11} className="text-stone-400 shrink-0"/>
-                              <span className="text-[11px] text-stone-600 truncate">{studentRecord.email}</span>
+                            <a href={`mailto:${studentRecord.email}`}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all"
+                              style={{ background: '#f7f4ef' }}>
+                              <Mail size={12} style={{ color: '#a8a29e' }} className="shrink-0" />
+                              <span className="text-[12px] truncate" style={{ color: '#1c1917' }}>{studentRecord.email}</span>
                             </a>
                           )}
                           {studentRecord?.phone && (
-                            <a href={`tel:${studentRecord.phone}`} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                              <Phone size={11} className="text-stone-400 shrink-0"/>
-                              <span className="text-[11px] text-stone-600">{studentRecord.phone}</span>
+                            <a href={`tel:${studentRecord.phone}`}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all"
+                              style={{ background: '#f7f4ef' }}>
+                              <Phone size={12} style={{ color: '#a8a29e' }} className="shrink-0" />
+                              <span className="text-[12px]" style={{ color: '#1c1917' }}>{studentRecord.phone}</span>
                             </a>
                           )}
                         </div>
                       </div>
                     )}
+
                     {(studentRecord?.parent_name || studentRecord?.parent_email || studentRecord?.parent_phone) && (
                       <div>
-                        <p className="text-[9px] font-semibold text-stone-300 uppercase tracking-widest mb-1.5">Parent / Guardian</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: '#a8a29e' }}>
+                          Parent / Guardian
+                        </p>
                         <div className="space-y-1.5">
                           {studentRecord?.parent_name && (
-                            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-stone-50">
-                              <User size={11} className="text-stone-400 shrink-0"/>
-                              <span className="text-[11px] text-stone-600">{studentRecord.parent_name}</span>
+                            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: '#f7f4ef' }}>
+                              <User size={12} style={{ color: '#a8a29e' }} className="shrink-0" />
+                              <span className="text-[12px]" style={{ color: '#1c1917' }}>{studentRecord.parent_name}</span>
                             </div>
                           )}
                           {studentRecord?.parent_email && (
-                            <a href={`mailto:${studentRecord.parent_email}`} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                              <Mail size={11} className="text-stone-400 shrink-0"/>
-                              <span className="text-[11px] text-stone-600 truncate">{studentRecord.parent_email}</span>
+                            <a href={`mailto:${studentRecord.parent_email}`}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all"
+                              style={{ background: '#f7f4ef' }}>
+                              <Mail size={12} style={{ color: '#a8a29e' }} className="shrink-0" />
+                              <span className="text-[12px] truncate" style={{ color: '#1c1917' }}>{studentRecord.parent_email}</span>
                             </a>
                           )}
                           {studentRecord?.parent_phone && (
-                            <a href={`tel:${studentRecord.parent_phone}`} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-stone-50 hover:bg-stone-100 transition-all">
-                              <Phone size={11} className="text-stone-400 shrink-0"/>
-                              <span className="text-[11px] text-stone-600">{studentRecord.parent_phone}</span>
+                            <a href={`tel:${studentRecord.parent_phone}`}
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all"
+                              style={{ background: '#f7f4ef' }}>
+                              <Phone size={12} style={{ color: '#a8a29e' }} className="shrink-0" />
+                              <span className="text-[12px]" style={{ color: '#1c1917' }}>{studentRecord.parent_phone}</span>
                             </a>
                           )}
                         </div>
@@ -309,22 +382,28 @@ export function AttendanceModal({
             {/* REASSIGN */}
             {altTutors.length > 0 && (
               <div>
-                <p className="text-[9px] font-black text-stone-400 uppercase tracking-widest mb-2.5">Reassign to</p>
+                <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>Reassign to</p>
                 <div className="space-y-2">
                   {altTutors.map(t => {
                     const altSession = sessions.find(ss => ss.date === s.date && ss.tutorId === t.id && ss.time === sessionTime);
                     const spotsUsed = altSession ? altSession.students.length : 0;
                     return (
-                      <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-stone-100 hover:border-amber-200 hover:bg-amber-50/40 transition-all">
+                      <div key={t.id}
+                        className="flex items-center justify-between p-3 rounded-xl border-2 transition-all"
+                        style={{ borderColor: '#f0ece8', background: 'white' }}>
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-xs font-black text-amber-700">{t.name.charAt(0)}</div>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black"
+                            style={{ background: '#fff1f2', color: '#dc2626' }}>
+                            {t.name.charAt(0)}
+                          </div>
                           <div>
-                            <p className="text-xs font-bold text-stone-800">{t.name}</p>
-                            <p className="text-[9px] text-stone-400 uppercase tracking-wide">{spotsUsed}/{MAX_CAPACITY} spots</p>
+                            <p className="text-xs font-bold" style={{ color: '#1c1917' }}>{t.name}</p>
+                            <p className="text-[9px] uppercase tracking-wide" style={{ color: '#a8a29e' }}>{spotsUsed}/{MAX_CAPACITY} spots</p>
                           </div>
                         </div>
                         <button onClick={() => handleReassign(t)}
-                          className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white bg-stone-800 hover:bg-stone-900 transition-all active:scale-95">
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95"
+                          style={{ background: '#1c1917' }}>
                           Move
                         </button>
                       </div>
@@ -336,15 +415,72 @@ export function AttendanceModal({
 
             {/* REMOVE */}
             <button onClick={handleRemove}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border border-dashed border-red-200 text-red-400 hover:bg-red-50 hover:border-red-300 hover:text-red-500 transition-all">
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border border-dashed transition-all"
+              style={{ borderColor: '#fca5a5', color: '#ef4444' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff1f2'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
               <UserX size={12} strokeWidth={2} /> Remove from Session
             </button>
           </div>
         )}
 
+        {/* NOTES TAB — inline edit/save, no external component */}
         {modalTab === 'notes' && (
-          <div className="p-5">
-            <NotesEditor rowId={student.rowId} initialNotes={student.notes ?? ''} onSaved={refetch} />
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#a8a29e' }}>Session Notes</p>
+              <div className="flex items-center gap-2">
+                {notesEditing ? (
+                  <>
+                    <button onClick={() => { setNotesDraft(student.notes ?? ''); setNotesEditing(false); }}
+                      className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                      style={{ color: '#78716c', background: '#f5f5f4' }}>
+                      Cancel
+                    </button>
+                    <button onClick={handleSaveNotes} disabled={notesSaving}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-white transition-all disabled:opacity-50"
+                      style={{ background: '#1c1917' }}>
+                      {notesSaving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                      Save
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setNotesEditing(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                    style={{ color: '#dc2626', background: '#fff1f2' }}>
+                    <FileText size={10} /> Edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {notesEditing ? (
+              <textarea
+                value={notesDraft}
+                onChange={e => setNotesDraft(e.target.value)}
+                placeholder="Add notes about this session..."
+                autoFocus
+                className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none border-2 transition-all"
+                style={{
+                  minHeight: 180,
+                  background: 'white',
+                  borderColor: '#dc2626',
+                  color: '#1c1917',
+                  fontFamily: 'inherit',
+                }}
+              />
+            ) : (
+              <div
+                className="w-full rounded-xl px-4 py-3 min-h-[120px] cursor-pointer transition-all"
+                style={{ background: 'white', border: '2px solid #f0ece8' }}
+                onClick={() => setNotesEditing(true)}>
+                {student.notes ? (
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: '#1c1917' }}>{student.notes}</p>
+                ) : (
+                  <p className="text-sm italic" style={{ color: '#c4bfba' }}>No notes yet — click to add</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -352,17 +488,20 @@ export function AttendanceModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50" style={{ background: 'rgba(28,16,8,0.65)', backdropFilter: 'blur(6px)' }}>
-      <div className="hidden md:flex items-center justify-center h-full p-4">
-        <div className="w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-stone-200/60" style={{ maxHeight: 'min(640px, 90vh)' }}>
+    <div className="fixed inset-0 z-50" style={{ background: 'rgba(14,10,6,0.72)', backdropFilter: 'blur(6px)' }}>
+      {/* Desktop — wider modal */}
+      <div className="hidden md:flex items-center justify-center h-full p-6">
+        <div className="w-full bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+          style={{ maxWidth: 480, maxHeight: 'min(680px, 92vh)', border: '1px solid rgba(255,255,255,0.08)' }}>
           <ModalInner />
         </div>
       </div>
+      {/* Mobile — taller bottom sheet */}
       <div className="md:hidden flex flex-col h-full">
         <div className="flex-1" onClick={() => setSelectedSession(null)} />
-        <div className="bg-white rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: '88vh' }}>
-          <div className="flex justify-center pt-2.5 pb-1 shrink-0">
-            <div className="w-9 h-1 rounded-full bg-stone-200" />
+        <div className="bg-white rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: '92vh' }}>
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full" style={{ background: '#e7e3dd' }} />
           </div>
           <ModalInner />
         </div>

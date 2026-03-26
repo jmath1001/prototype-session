@@ -1,5 +1,6 @@
 "use client"
-import { PlusCircle, Check, Clock } from 'lucide-react';
+import { useState } from 'react'; // Added useState
+import { PlusCircle, Check, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
@@ -29,10 +30,17 @@ export function TodayView({
   handleGridSlotClick,
   refetch,
 }: TodayViewProps) {
-  const todayIso = toISODate(new Date());
+  // Use state to track the selected date, defaulting to today
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const todayIso = toISODate(selectedDate);
   const todayDow = dayOfWeek(todayIso);
   const dayIdx = ACTIVE_DAYS.indexOf(todayDow);
-  const dayLabel = DAY_NAMES[dayIdx] ?? 'Today';
+  
+  // Update logic to reflect the selected date's name
+  const isActuallyToday = toISODate(new Date()) === todayIso;
+  const dayLabel = isActuallyToday ? (DAY_NAMES[dayIdx] ?? 'Today') : DAY_NAMES[dayIdx] ?? 'Selected Day';
+  
   const daySessions = getSessionsForDay(todayDow);
   const todayTutors = tutors.filter(t =>
     t.availability.includes(todayDow) &&
@@ -40,7 +48,7 @@ export function TodayView({
   );
   const isWeekend = !ACTIVE_DAYS.includes(todayDow);
 
-  // Collect all pending students for today
+  // Collect all pending students for the selected date
   const pendingStudents = sessions
     .filter(s => s.date === todayIso)
     .flatMap(s => s.students
@@ -57,10 +65,20 @@ export function TodayView({
   if (isWeekend) {
     return (
       <div className="max-w-[1600px] mx-auto p-2 md:p-6">
+        {/* Date Selector for Weekend view */}
+        <div className="flex justify-end mb-4">
+          <input 
+            type="date" 
+            value={todayIso}
+            onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
+            className="text-xs font-bold border rounded-lg px-2 py-1 outline-none"
+            style={{ borderColor: '#fca5a5', color: '#dc2626' }}
+          />
+        </div>
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <p className="text-4xl">🎉</p>
-          <p className="text-lg font-bold" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions today</p>
-          <p className="text-xs" style={{ color: '#9ca3af' }}>Enjoy your day off</p>
+          <p className="text-lg font-bold" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions for this day</p>
+          <p className="text-xs" style={{ color: '#9ca3af' }}>Enjoy the day off</p>
         </div>
       </div>
     );
@@ -68,311 +86,330 @@ export function TodayView({
 
   return (
     <div style={{ position: 'fixed', top: 108, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fafafa' }}>
-    <div style={{ maxWidth: 1600, width: '100%', margin: '0 auto', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ maxWidth: 1600, width: '100%', margin: '0 auto', padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
-      {/* Day header */}
-      <div className="hidden md:flex items-center gap-3 mb-4 shrink-0">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#dc2626', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
-          <p className="text-xs font-semibold" style={{ color: '#f87171' }}>
-            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </p>
+        {/* Day header */}
+        <div className="hidden md:flex items-center gap-3 mb-4 shrink-0">
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold" style={{ color: '#dc2626', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
+              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>
+                {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+            
+            {/* Date Picker Input */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-white" style={{ borderColor: '#fca5a5' }}>
+              <CalendarIcon size={14} style={{ color: '#f87171' }} />
+              <input 
+                type="date" 
+                value={todayIso}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    // T00:00:00 prevents timezone shift issues
+                    setSelectedDate(new Date(e.target.value + 'T00:00:00'));
+                  }
+                }}
+                className="text-xs font-bold outline-none bg-transparent"
+                style={{ color: '#dc2626', cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+          <div className="h-px flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #fca5a5, transparent)' }} />
         </div>
-        <div className="h-px flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #fca5a5, transparent)' }} />
-      </div>
 
-      {todayTutors.length === 0 ? (
-        <div className="rounded-xl p-8 text-center border border-dashed" style={{ borderColor: '#fca5a5' }}>
-          <p className="text-sm italic" style={{ color: '#f87171' }}>No tutors available today</p>
-        </div>
-      ) : (
-        /* Main layout: grid + pending panel side by side */
-        <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
+        {todayTutors.length === 0 ? (
+          <div className="rounded-xl p-8 text-center border border-dashed" style={{ borderColor: '#fca5a5' }}>
+            <p className="text-sm italic" style={{ color: '#f87171' }}>No tutors available for the selected day</p>
+          </div>
+        ) : (
+          /* Main layout: grid + pending panel side by side */
+          <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
 
-          {/* Grid */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {/* Grid */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-            {/* Desktop table */}
-            <div className="hidden md:block rounded-xl" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 12px rgba(220,38,38,0.07)', flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <div style={{ minWidth: 'max-content', width: '100%' }}>
-                <table className="border-collapse w-full">
-                  <thead>
-                    <tr style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
-                      <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider"
-                        style={{ color: 'rgba(255,255,255,0.85)', borderRight: '1px solid rgba(255,255,255,0.15)', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#dc2626' }}>
-                        Instructor
-                      </th>
-                      {daySessions.map(block => (
-                        <th key={block.id} className="px-4 py-2.5 text-center" style={{ borderRight: '1px solid rgba(255,255,255,0.15)', minWidth: 200, position: 'sticky', top: 0, zIndex: 3, background: '#dc2626' }}>
-                          <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.85)' }}>{block.label}</div>
-                          <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{block.display}</div>
+              {/* Desktop table */}
+              <div className="hidden md:block rounded-xl" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 12px rgba(220,38,38,0.07)', flex: 1, minHeight: 0, overflow: 'auto' }}>
+                <div style={{ minWidth: 'max-content', width: '100%' }}>
+                  <table className="border-collapse w-full">
+                    <thead>
+                      <tr style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
+                        <th className="px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider"
+                          style={{ color: 'rgba(255,255,255,0.85)', borderRight: '1px solid rgba(255,255,255,0.15)', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#dc2626' }}>
+                          Instructor
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {todayTutors.map(tutor => {
-                      const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
-                      const isOnTimeOff = timeOff.some(t => t.tutorId === tutor.id && t.date === todayIso);
-                      return (
-                        <tr key={tutor.id} style={{ borderBottom: '1px solid #fee2e2' }}>
-                          <td className="px-3 py-3 align-middle"
-                            style={{ background: '#fff1f1', borderRight: '2px solid #fca5a5', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                                style={{ background: palette.bg, color: palette.text, border: `1.5px solid ${palette.border}` }}>
-                                {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        {daySessions.map(block => (
+                          <th key={block.id} className="px-4 py-2.5 text-center" style={{ borderRight: '1px solid rgba(255,255,255,0.15)', minWidth: 200, position: 'sticky', top: 0, zIndex: 3, background: '#dc2626' }}>
+                            <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.85)' }}>{block.label}</div>
+                            <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{block.display}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {todayTutors.map(tutor => {
+                        const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
+                        const isOnTimeOff = timeOff.some(t => t.tutorId === tutor.id && t.date === todayIso);
+                        return (
+                          <tr key={tutor.id} style={{ borderBottom: '1px solid #fee2e2' }}>
+                            <td className="px-3 py-3 align-middle"
+                              style={{ background: '#fff1f1', borderRight: '2px solid #fca5a5', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                  style={{ background: palette.bg, color: palette.text, border: `1.5px solid ${palette.border}` }}>
+                                  {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold leading-tight" style={{ color: '#1f2937', fontWeight: 700 }}>{tutor.name}</p>
+                                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block"
+                                    style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
+                                    {tutor.cat === 'math' ? 'Math' : 'English'}
+                                  </span>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-bold leading-tight" style={{ color: '#1f2937', fontWeight: 700 }}>{tutor.name}</p>
-                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block"
-                                  style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
-                                  {tutor.cat === 'math' ? 'Math' : 'English'}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
+                            </td>
+                            {daySessions.map(block => {
+                              const session = sessions.find(s => s.date === todayIso && s.tutorId === tutor.id && s.time === block.time);
+                              const hasStudents = session && session.students.length > 0;
+                              const isAvailable = isTutorAvailable(tutor, todayDow, block.time) && !hasStudents && !isOnTimeOff;
+                              const isFull = hasStudents && session!.students.length >= MAX_CAPACITY;
+                              const isOutside = !isTutorAvailable(tutor, todayDow, block.time) || isOnTimeOff;
+                              const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === todayIso)?.note : null;
+                              return (
+                                <td key={block.id} className="p-2 align-top"
+                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2', minWidth: 200 }}>
+                                  <div className="flex flex-col gap-1.5 min-h-[100px]">
+                                    {hasStudents && !isOnTimeOff ? (
+                                      <>
+                                        {session!.students.map((student: any) => (
+                                          <div key={student.rowId || student.id}
+                                            className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
+                                            style={student.status === 'no-show'
+                                              ? { background: 'transparent', border: '1.5px solid #e5e7eb', opacity: 0.45 }
+                                              : student.status === 'present'
+                                                ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
+                                                : { background: palette.bg, border: `1.5px solid ${palette.border}` }}
+                                            onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                            <div className="flex justify-between items-start mb-1">
+                                              <p className="text-sm font-bold leading-tight" style={{ color: '#111827' }}>{student.name}</p>
+                                              <div className="flex items-center gap-1">
+                                                {student.confirmationStatus === 'confirmed' && <span style={{ color: '#15803d', fontSize: 10 }}>✓</span>}
+                                                {student.confirmationStatus === 'cancelled' && <span style={{ color: '#dc2626', fontSize: 10 }}>✕</span>}
+                                                {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#6d28d9', fontSize: 10 }}>↗</span>}
+                                                <button onClick={async e => {
+                                                  e.stopPropagation();
+                                                  const next = student.status === 'present' ? 'scheduled' : 'present';
+                                                  await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                                  refetch();
+                                                }}
+                                                  className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all"
+                                                  style={student.status === 'present'
+                                                    ? { background: '#059669', border: '1.5px solid #059669' }
+                                                    : { background: 'white', border: '1.5px solid #fca5a5' }}>
+                                                  {student.status === 'present' && <Check size={11} strokeWidth={3} color="white" />}
+                                                </button>
+                                              </div>
+                                            </div>
+                                            <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
+                                            {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>Grade {student.grade}</p>}
+                                            {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#9ca3af' }}>📝 {student.notes}</p>}
+                                          </div>
+                                        ))}
+                                        {!isFull && (
+                                          <button onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
+                                            className="py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all"
+                                            style={{ background: 'transparent', border: '1.5px dashed #fca5a5', color: '#f87171' }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#dc2626'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#fca5a5'; }}>
+                                            + ADD ({MAX_CAPACITY - session!.students.length})
+                                          </button>
+                                        )}
+                                      </>
+                                    ) : isAvailable ? (
+                                      <div onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
+                                        className="flex-1 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
+                                        style={{ minHeight: 100, background: 'transparent', border: '2px dashed #86efac' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(134,239,172,0.08)'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                        <PlusCircle size={14} style={{ color: '#4ade80' }} />
+                                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>Available</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex-1 rounded-xl flex flex-col items-center justify-center gap-1"
+                                        style={{ minHeight: 100, background: 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' }}>
+                                        {isOnTimeOff ? (
+                                          <>
+                                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
+                                            {timeOffNote && <span className="text-[9px] font-medium text-center px-2" style={{ color: '#f87171' }}>{timeOffNote}</span>}
+                                          </>
+                                        ) : (
+                                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#fca5a5' }}>—</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile remains functional as it uses todayIso/todayDow */}
+              <div className="md:hidden space-y-2 overflow-y-auto flex-1 min-h-0">
+                {todayTutors.map(tutor => {
+                  const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
+                  const isOnTimeOff = timeOff.some(t => t.tutorId === tutor.id && t.date === todayIso);
+                  return (
+                    <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 8px rgba(220,38,38,0.07)' }}>
+                      <div className="p-2.5" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
+                        <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>{tutor.name}</p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <div className="flex">
                           {daySessions.map(block => {
                             const session = sessions.find(s => s.date === todayIso && s.tutorId === tutor.id && s.time === block.time);
                             const hasStudents = session && session.students.length > 0;
                             const isAvailable = isTutorAvailable(tutor, todayDow, block.time) && !hasStudents && !isOnTimeOff;
                             const isFull = hasStudents && session!.students.length >= MAX_CAPACITY;
                             const isOutside = !isTutorAvailable(tutor, todayDow, block.time) || isOnTimeOff;
-                            const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === todayIso)?.note : null;
                             return (
-                              <td key={block.id} className="p-2 align-top"
-                                style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2', minWidth: 200 }}>
-                                <div className="flex flex-col gap-1.5 min-h-[100px]">
+                              <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
+                                style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2' }}>
+                                <div className="text-center mb-1.5">
+                                  <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626', fontWeight: 800 }}>{block.label}</div>
+                                  <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
+                                </div>
+                                <div className="space-y-1" style={{ minHeight: 64 }}>
                                   {hasStudents && !isOnTimeOff ? (
                                     <>
                                       {session!.students.map((student: any) => (
                                         <div key={student.rowId || student.id}
-                                          className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
+                                          className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                           style={student.status === 'no-show'
-                                            ? { background: 'transparent', border: '1.5px solid #e5e7eb', opacity: 0.45 }
+                                            ? { background: 'transparent', border: '1.5px solid #e5e7eb', opacity: 0.4 }
                                             : student.status === 'present'
                                               ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                              : { background: palette.bg, border: `1.5px solid ${palette.border}` }}
-                                          onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
-                                          <div className="flex justify-between items-start mb-1">
-                                            <p className="text-sm font-bold leading-tight" style={{ color: '#111827' }}>{student.name}</p>
-                                            <div className="flex items-center gap-1">
-                                              {student.confirmationStatus === 'confirmed' && <span style={{ color: '#15803d', fontSize: 10 }}>✓</span>}
-                                              {student.confirmationStatus === 'cancelled' && <span style={{ color: '#dc2626', fontSize: 10 }}>✕</span>}
-                                              {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#6d28d9', fontSize: 10 }}>↗</span>}
-                                              <button onClick={async e => {
-                                                e.stopPropagation();
-                                                const next = student.status === 'present' ? 'scheduled' : 'present';
-                                                await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
-                                                refetch();
-                                              }}
-                                                className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all"
-                                                style={student.status === 'present'
-                                                  ? { background: '#059669', border: '1.5px solid #059669' }
-                                                  : { background: 'white', border: '1.5px solid #fca5a5' }}>
-                                                {student.status === 'present' && <Check size={11} strokeWidth={3} color="white" />}
-                                              </button>
-                                            </div>
+                                              : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
+                                          <button
+                                            onClick={async e => {
+                                              e.stopPropagation();
+                                              const next = student.status === 'present' ? 'scheduled' : 'present';
+                                              await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
+                                              refetch();
+                                            }}
+                                            className="shrink-0 w-3 h-3 rounded flex items-center justify-center"
+                                            style={student.status === 'present'
+                                              ? { background: '#059669', border: '1.5px solid #059669' }
+                                              : { background: 'white', border: '1.5px solid #fca5a5' }}>
+                                            {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
+                                          </button>
+                                          <div className="flex-1 min-w-0 cursor-pointer"
+                                            onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                            <p className="text-[10px] font-bold leading-none truncate" style={{ color: '#111827' }}>{student.name}</p>
+                                            <p className="text-[8px] leading-none mt-0.5 truncate" style={{ color: palette.tag }}>
+                                              {student.topic}{student.grade ? ` · Gr.${student.grade}` : ''}
+                                            </p>
                                           </div>
-                                          <p className="text-[10px] font-semibold uppercase tracking-tight" style={{ color: palette.tag }}>{student.topic}</p>
-                                          {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>Grade {student.grade}</p>}
-                                          {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#9ca3af' }}>📝 {student.notes}</p>}
                                         </div>
                                       ))}
                                       {!isFull && (
                                         <button onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
-                                          className="py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all"
-                                          style={{ background: 'transparent', border: '1.5px dashed #fca5a5', color: '#f87171' }}
-                                          onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#dc2626'; }}
-                                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#fca5a5'; }}>
-                                          + ADD ({MAX_CAPACITY - session!.students.length})
+                                          className="w-full py-1 rounded-lg text-[7px] font-bold uppercase transition-all"
+                                          style={{ background: 'transparent', border: '1.5px dashed #fca5a5', color: '#f87171' }}>
+                                          + ADD
                                         </button>
                                       )}
                                     </>
                                   ) : isAvailable ? (
                                     <div onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
-                                      className="flex-1 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
-                                      style={{ minHeight: 100, background: 'transparent', border: '2px dashed #86efac' }}
-                                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(134,239,172,0.08)'; e.currentTarget.style.borderColor = '#4ade80'; }}
-                                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#86efac'; }}>
-                                      <PlusCircle size={14} style={{ color: '#4ade80' }} />
-                                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>Available</span>
+                                      className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                                      style={{ minHeight: 56, background: 'transparent', border: '2px dashed #86efac' }}>
+                                      <PlusCircle size={12} style={{ color: '#4ade80' }} />
+                                      <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#4ade80' }}>Available</span>
                                     </div>
                                   ) : (
-                                    <div className="flex-1 rounded-xl flex flex-col items-center justify-center gap-1"
-                                      style={{ minHeight: 100, background: 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' }}>
-                                      {isOnTimeOff ? (
-                                        <>
-                                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
-                                          {timeOffNote && <span className="text-[9px] font-medium text-center px-2" style={{ color: '#f87171' }}>{timeOffNote}</span>}
-                                        </>
-                                      ) : (
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#fca5a5' }}>—</span>
-                                      )}
+                                    <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
+                                      style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' }}>
+                                      {isOnTimeOff
+                                        ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
+                                        : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#fca5a5' }}>—</span>}
                                     </div>
                                   )}
                                 </div>
-                              </td>
+                              </div>
                             );
                           })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Mobile */}
-            <div className="md:hidden space-y-2 overflow-y-auto flex-1 min-h-0">
-              {todayTutors.map(tutor => {
-                const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
-                const isOnTimeOff = timeOff.some(t => t.tutorId === tutor.id && t.date === todayIso);
-                return (
-                  <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 8px rgba(220,38,38,0.07)' }}>
-                    <div className="p-2.5" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
-                      <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>{tutor.name}</p>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <div className="flex">
-                        {daySessions.map(block => {
-                          const session = sessions.find(s => s.date === todayIso && s.tutorId === tutor.id && s.time === block.time);
-                          const hasStudents = session && session.students.length > 0;
-                          const isAvailable = isTutorAvailable(tutor, todayDow, block.time) && !hasStudents && !isOnTimeOff;
-                          const isFull = hasStudents && session!.students.length >= MAX_CAPACITY;
-                          const isOutside = !isTutorAvailable(tutor, todayDow, block.time) || isOnTimeOff;
-                          return (
-                            <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
-                              style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2' }}>
-                              <div className="text-center mb-1.5">
-                                <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626', fontWeight: 800 }}>{block.label}</div>
-                                <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
-                              </div>
-                              <div className="space-y-1" style={{ minHeight: 64 }}>
-                                {hasStudents && !isOnTimeOff ? (
-                                  <>
-                                    {session!.students.map((student: any) => (
-                                      <div key={student.rowId || student.id}
-                                        className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
-                                        style={student.status === 'no-show'
-                                          ? { background: 'transparent', border: '1.5px solid #e5e7eb', opacity: 0.4 }
-                                          : student.status === 'present'
-                                            ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                            : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
-                                        <button
-                                          onClick={async e => {
-                                            e.stopPropagation();
-                                            const next = student.status === 'present' ? 'scheduled' : 'present';
-                                            await updateAttendance({ sessionId: session.id, studentId: student.id, status: next });
-                                            refetch();
-                                          }}
-                                          className="shrink-0 w-3 h-3 rounded flex items-center justify-center"
-                                          style={student.status === 'present'
-                                            ? { background: '#059669', border: '1.5px solid #059669' }
-                                            : { background: 'white', border: '1.5px solid #fca5a5' }}>
-                                          {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
-                                        </button>
-                                        <div className="flex-1 min-w-0 cursor-pointer"
-                                          onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
-                                          <p className="text-[10px] font-bold leading-none truncate" style={{ color: '#111827' }}>{student.name}</p>
-                                          <p className="text-[8px] leading-none mt-0.5 truncate" style={{ color: palette.tag }}>
-                                            {student.topic}{student.grade ? ` · Gr.${student.grade}` : ''}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {!isFull && (
-                                      <button onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
-                                        className="w-full py-1 rounded-lg text-[7px] font-bold uppercase transition-all"
-                                        style={{ background: 'transparent', border: '1.5px dashed #fca5a5', color: '#f87171' }}>
-                                        + ADD
-                                      </button>
-                                    )}
-                                  </>
-                                ) : isAvailable ? (
-                                  <div onClick={() => handleGridSlotClick(tutor, todayIso, dayLabel, block)}
-                                    className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                    style={{ minHeight: 56, background: 'transparent', border: '2px dashed #86efac' }}>
-                                    <PlusCircle size={12} style={{ color: '#4ade80' }} />
-                                    <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#4ade80' }}>Available</span>
-                                  </div>
-                                ) : (
-                                  <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
-                                    style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' }}>
-                                    {isOnTimeOff
-                                      ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
-                                      : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#fca5a5' }}>—</span>}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+            {/* ── PENDING PANEL ── */}
+            <div className="hidden md:flex flex-col shrink-0" style={{ width: 220, minHeight: 0 }}>
+              <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 12px rgba(220,38,38,0.07)', flex: 1, minHeight: 0 }}>
+                {/* Panel header */}
+                <div className="px-3 py-2.5 shrink-0" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white">Needs Confirmation</p>
+                    {pendingStudents.length > 0 && (
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.25)', color: 'white' }}>
+                        {pendingStudents.length}
+                      </span>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
 
-          {/* ── PENDING PANEL ── */}
-          <div className="hidden md:flex flex-col shrink-0" style={{ width: 220, minHeight: 0 }}>
-            <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 12px rgba(220,38,38,0.07)', flex: 1, minHeight: 0 }}>
-              {/* Panel header */}
-              <div className="px-3 py-2.5 shrink-0" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white">Needs Confirmation</p>
-                  {pendingStudents.length > 0 && (
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.25)', color: 'white' }}>
-                      {pendingStudents.length}
-                    </span>
+                {/* Panel body */}
+                <div className="overflow-y-auto flex-1 p-2">
+                  {pendingStudents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: '#dcfce7' }}>
+                        <Check size={14} style={{ color: '#16a34a' }} />
+                      </div>
+                      <p className="text-[10px] font-semibold text-center" style={{ color: '#9ca3af' }}>All confirmed</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {pendingStudents.map((student: any, idx: number) => (
+                        <div key={`${student.rowId || student.id}-${idx}`}
+                          className="p-2.5 rounded-lg cursor-pointer transition-all hover:shadow-sm"
+                          style={{ background: '#fff5f5', border: '1px solid #fecaca' }}
+                          onClick={() => setSelectedSessionWithNotes({
+                            ...student.session,
+                            activeStudent: student,
+                            dayName: dayLabel,
+                            date: todayIso,
+                            tutorName: student.tutorName,
+                            block: daySessions.find(b => b.time === student.sessionTime),
+                          })}>
+                          <p className="text-xs font-bold leading-tight" style={{ color: '#111827' }}>{student.name}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Clock size={9} style={{ color: '#f87171' }} />
+                            <span className="text-[9px] font-semibold" style={{ color: '#f87171' }}>
+                              {daySessions.find(b => b.time === student.sessionTime)?.label ?? student.sessionTime}
+                            </span>
+                          </div>
+                          <p className="text-[9px] mt-0.5 truncate" style={{ color: '#9ca3af' }}>{student.tutorName}</p>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
-
-              {/* Panel body */}
-              <div className="overflow-y-auto flex-1 p-2">
-                {pendingStudents.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: '#dcfce7' }}>
-                      <Check size={14} style={{ color: '#16a34a' }} />
-                    </div>
-                    <p className="text-[10px] font-semibold text-center" style={{ color: '#9ca3af' }}>All confirmed</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {pendingStudents.map((student: any, idx: number) => (
-                      <div key={`${student.rowId || student.id}-${idx}`}
-                        className="p-2.5 rounded-lg cursor-pointer transition-all hover:shadow-sm"
-                        style={{ background: '#fff5f5', border: '1px solid #fecaca' }}
-                        onClick={() => setSelectedSessionWithNotes({
-                          ...student.session,
-                          activeStudent: student,
-                          dayName: dayLabel,
-                          date: todayIso,
-                          tutorName: student.tutorName,
-                          block: daySessions.find(b => b.time === student.sessionTime),
-                        })}>
-                        <p className="text-xs font-bold leading-tight" style={{ color: '#111827' }}>{student.name}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock size={9} style={{ color: '#f87171' }} />
-                          <span className="text-[9px] font-semibold" style={{ color: '#f87171' }}>
-                            {daySessions.find(b => b.time === student.sessionTime)?.label ?? student.sessionTime}
-                          </span>
-                        </div>
-                        <p className="text-[9px] mt-0.5 truncate" style={{ color: '#9ca3af' }}>{student.tutorName}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
 
-        </div>
-      )}
-    </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

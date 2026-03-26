@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Trash2, GraduationCap, Loader2, Save, X, Search, ChevronDown, ChevronUp, CalendarDays, PlusCircle, Mail, Phone, ExternalLink, Clock } from 'lucide-react';
+import { Plus, Trash2, GraduationCap, Loader2, Save, X, Search, ChevronDown, ChevronUp, CalendarDays, PlusCircle, Mail, Phone, ExternalLink, Clock, BarChart2, TrendingUp, TrendingDown, AlertTriangle, Users, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { BookingForm, BookingToast } from '@/components/BookingForm';
 import {
@@ -40,6 +40,228 @@ const AVATAR_COLORS = [
   { bg: '#fce7f3', color: '#db2777' },
 ];
 
+// ── Mini sparkline bar ────────────────────────────────────────────────────────
+function MiniBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-[#f0ece8] overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[10px] font-bold tabular-nums w-8 text-right" style={{ color }}>{pct}%</span>
+    </div>
+  );
+}
+
+// ── Metrics Panel ─────────────────────────────────────────────────────────────
+function MetricsPanel({ students, allSessions, tutors }: { students: any[]; allSessions: any[]; tutors: any[] }) {
+  const [open, setOpen] = useState(false);
+
+  const metrics = useMemo(() => {
+    const today = toISODate(getCentralTimeNow());
+    const weekStart = getWeekStart(getCentralTimeNow());
+    const weekEnd = toISODate(new Date(weekStart.getTime() + 6 * 86400000));
+
+    // Flatten all session-student records
+    const allRecords = allSessions.flatMap(s =>
+      s.students.map((st: any) => ({ ...st, date: s.date, tutorId: s.tutorId, isPast: s.date < today }))
+    );
+    const pastRecords = allRecords.filter(r => r.isPast);
+    const present = pastRecords.filter(r => r.status === 'present' || r.status === 'confirmed');
+    const noShow = pastRecords.filter(r => r.status === 'no-show');
+    const unmarked = pastRecords.filter(r => r.status === 'scheduled');
+
+    const attendanceRate = pastRecords.length > 0 ? present.length / pastRecords.length : null;
+    const noShowRate = pastRecords.length > 0 ? noShow.length / pastRecords.length : null;
+    const unmarkedRate = pastRecords.length > 0 ? unmarked.length / pastRecords.length : null;
+
+    // This week booking coverage
+    const weekSessions = allSessions.filter(s => s.date >= today && s.date <= weekEnd);
+    const bookedThisWeek = new Set(weekSessions.flatMap(s => s.students.map((st: any) => st.id)));
+    const bookingCoverage = students.length > 0 ? bookedThisWeek.size / students.length : null;
+
+    // No-show risk: students with >40% no-show rate (min 3 past sessions)
+    const atRisk = students.filter(student => {
+      const recs = pastRecords.filter(r => r.id === student.id);
+      if (recs.length < 3) return false;
+      const ns = recs.filter(r => r.status === 'no-show').length;
+      return ns / recs.length > 0.4;
+    });
+
+    // Per-student attendance breakdown (for leaderboard)
+    const studentStats = students.map(student => {
+      const recs = pastRecords.filter(r => r.id === student.id);
+      const pres = recs.filter(r => r.status === 'present' || r.status === 'confirmed').length;
+      const ns = recs.filter(r => r.status === 'no-show').length;
+      return { ...student, total: recs.length, present: pres, noShow: ns, rate: recs.length > 0 ? pres / recs.length : null };
+    }).filter(s => s.total > 0).sort((a, b) => (a.rate ?? 0) - (b.rate ?? 0));
+
+    // Tutor load this week
+    const tutorLoad = tutors.map(tutor => {
+      const sessions = weekSessions.filter(s => s.tutorId === tutor.id);
+      const studentCount = sessions.reduce((acc, s) => acc + s.students.length, 0);
+      return { ...tutor, studentCount, sessionCount: sessions.length };
+    }).filter(t => t.sessionCount > 0).sort((a, b) => b.studentCount - a.studentCount);
+
+    // Day-of-week breakdown for no-shows
+    const dowNoShows = [1,2,3,4,6].map(dow => {
+      const recs = pastRecords.filter(r => {
+        const d = dayOfWeek(r.date);
+        return d === dow;
+      });
+      const ns = recs.filter(r => r.status === 'no-show').length;
+      return { dow, label: ['','Mon','Tue','Wed','Thu','','Sat'][dow], total: recs.length, noShow: ns };
+    });
+
+    return {
+      totalPast: pastRecords.length, present: present.length, noShow: noShow.length, unmarked: unmarked.length,
+      attendanceRate, noShowRate, unmarkedRate, bookingCoverage,
+      bookedCount: bookedThisWeek.size, atRisk, studentStats, tutorLoad, dowNoShows,
+    };
+  }, [students, allSessions, tutors]);
+
+  const fmtPct = (v: number | null) => v === null ? '—' : `${Math.round(v * 100)}%`;
+  const scoreColor = (rate: number | null) => {
+    if (rate === null) return '#9ca3af';
+    if (rate >= 0.8) return '#15803d';
+    if (rate >= 0.6) return '#d97706';
+    return '#dc2626';
+  };
+
+  return (
+    <div className="rounded-2xl border-2 overflow-hidden transition-all" style={{ borderColor: open ? '#dc2626' : '#f0ece8', background: 'white' }}>
+      {/* Toggle header */}
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 transition-all"
+        style={{ background: open ? '#fff5f5' : 'white' }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: open ? '#dc2626' : '#f0ece8' }}>
+            <BarChart2 size={13} style={{ color: open ? 'white' : '#a8a29e' }} />
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-black text-[#1c1917] leading-none">Attendance Metrics</p>
+            <p className="text-[9px] text-[#a8a29e] mt-0.5">
+              {metrics.totalPast > 0
+                ? `${metrics.totalPast} past sessions · ${fmtPct(metrics.attendanceRate)} attendance · ${fmtPct(metrics.noShowRate)} no-show`
+                : 'No past session data yet'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {metrics.atRisk.length > 0 && (
+            <span className="flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-lg" style={{ background: '#fff1f2', color: '#dc2626' }}>
+              <AlertTriangle size={9} /> {metrics.atRisk.length} at risk
+            </span>
+          )}
+          {open ? <ChevronUp size={14} className="text-[#a8a29e]" /> : <ChevronDown size={14} className="text-[#a8a29e]" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-[#f0ece8]">
+
+          {/* Top KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#f0ece8]">
+            {[
+              { label: 'Attendance Rate', value: fmtPct(metrics.attendanceRate), sub: `${metrics.present} of ${metrics.totalPast} sessions`, color: scoreColor(metrics.attendanceRate), icon: <CheckCircle2 size={13}/> },
+              { label: 'No-show Rate', value: fmtPct(metrics.noShowRate), sub: `${metrics.noShow} no-shows`, color: metrics.noShowRate !== null && metrics.noShowRate > 0.2 ? '#dc2626' : '#15803d', icon: <TrendingDown size={13}/> },
+              { label: 'This Week Booked', value: fmtPct(metrics.bookingCoverage), sub: `${metrics.bookedCount} of ${students.length} students`, color: scoreColor(metrics.bookingCoverage), icon: <CalendarDays size={13}/> },
+              { label: 'Unmarked Past', value: fmtPct(metrics.unmarkedRate), sub: `${metrics.unmarked} sessions`, color: metrics.unmarkedRate !== null && metrics.unmarkedRate > 0.1 ? '#d97706' : '#15803d', icon: <Clock size={13}/> },
+            ].map(kpi => (
+              <div key={kpi.label} className="px-5 py-4">
+                <div className="flex items-center gap-1.5 mb-1" style={{ color: '#a8a29e' }}>
+                  {kpi.icon}
+                  <p className="text-[9px] font-black uppercase tracking-widest">{kpi.label}</p>
+                </div>
+                <p className="text-2xl font-black leading-none" style={{ color: kpi.color }}>{kpi.value}</p>
+                <p className="text-[10px] mt-1" style={{ color: '#a8a29e' }}>{kpi.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-3 divide-x divide-[#f0ece8] border-t border-[#f0ece8]">
+
+            {/* Day-of-week breakdown */}
+            <div className="p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>No-shows by Day</p>
+              <div className="space-y-2.5">
+                {metrics.dowNoShows.filter(d => d.total > 0).map(d => (
+                  <div key={d.dow}>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-[10px] font-bold text-[#1c1917]">{d.label}</span>
+                      <span className="text-[10px] text-[#a8a29e]">{d.noShow}/{d.total}</span>
+                    </div>
+                    <MiniBar value={d.noShow} max={d.total} color={d.total > 0 && d.noShow / d.total > 0.25 ? '#dc2626' : '#f87171'} />
+                  </div>
+                ))}
+                {metrics.dowNoShows.every(d => d.total === 0) && (
+                  <p className="text-xs text-[#c4bfba] italic">No past data</p>
+                )}
+              </div>
+            </div>
+
+            {/* At-risk / worst attendance students */}
+            <div className="p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>
+                {metrics.atRisk.length > 0 ? 'At-Risk Students' : 'Lowest Attendance'}
+              </p>
+              <div className="space-y-2">
+                {(metrics.atRisk.length > 0 ? metrics.atRisk : metrics.studentStats.slice(0, 5)).map((s: any) => (
+                  <div key={s.id} className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0"
+                      style={{ background: AVATAR_COLORS[s.name.charCodeAt(0) % AVATAR_COLORS.length].bg, color: AVATAR_COLORS[s.name.charCodeAt(0) % AVATAR_COLORS.length].color }}>
+                      {s.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-[#1c1917] truncate">{s.name}</p>
+                      <MiniBar value={s.present} max={s.total} color={scoreColor(s.rate)} />
+                    </div>
+                    <span className="text-[10px] font-black shrink-0" style={{ color: scoreColor(s.rate) }}>
+                      {fmtPct(s.rate)}
+                    </span>
+                  </div>
+                ))}
+                {metrics.studentStats.length === 0 && (
+                  <p className="text-xs text-[#c4bfba] italic">No past data</p>
+                )}
+              </div>
+            </div>
+
+            {/* Tutor load this week */}
+            <div className="p-5">
+              <p className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: '#a8a29e' }}>Tutor Load This Week</p>
+              <div className="space-y-2">
+                {metrics.tutorLoad.length > 0 ? metrics.tutorLoad.map((t: any) => (
+                  <div key={t.id} className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black shrink-0 bg-[#fff1f2] text-[#dc2626]">
+                      {t.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-[#1c1917] truncate">{t.name}</p>
+                      <MiniBar value={t.studentCount} max={Math.max(...metrics.tutorLoad.map((x: any) => x.studentCount), 1)} color="#dc2626" />
+                    </div>
+                    <span className="text-[10px] font-black text-[#a8a29e] shrink-0">{t.studentCount} students</span>
+                  </div>
+                )) : (
+                  <p className="text-xs text-[#c4bfba] italic">No sessions this week</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer note */}
+          <div className="px-5 py-3 border-t border-[#f0ece8]" style={{ background: '#fafafa' }}>
+            <p className="text-[9px] text-[#c4bfba]">
+              At-risk = students with &gt;40% no-show rate over 3+ sessions · Attendance excludes sessions not yet marked · Data pulls from all loaded sessions
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SessionRow ────────────────────────────────────────────────────────────────
 function SessionRow({ session, isPast }: { session: any; isPast: boolean }) {
   const rawStatus = isPast && session.status === 'scheduled' ? 'unknown' : session.status;
   const sc = STATUS_STYLE[rawStatus] ?? STATUS_STYLE.unknown;
@@ -67,8 +289,7 @@ function SessionRow({ session, isPast }: { session: any; isPast: boolean }) {
   );
 }
 
-// Field lifted OUTSIDE StudentRow so it never gets recreated on re-render,
-// which was causing inputs to unmount/remount and lose focus after every keystroke.
+// ── Field (lifted outside StudentRow to prevent focus loss) ───────────────────
 function Field({
   label, value, field, type = 'text', isEditing, draft, onChange,
 }: {
@@ -79,13 +300,8 @@ function Field({
     <div className="space-y-1">
       <label className="text-[9px] font-black text-[#a8a29e] uppercase tracking-widest">{label}</label>
       {isEditing ? (
-        <input
-          type={type}
-          value={draft[field] ?? ''}
-          onChange={e => onChange(field, e.target.value)}
-          className={inputCls}
-          placeholder={label}
-        />
+        <input type={type} value={draft[field] ?? ''} onChange={e => onChange(field, e.target.value)}
+          className={inputCls} placeholder={label} />
       ) : (
         <p className="text-sm text-black">{value || <span className="text-[#c4bfba] italic text-xs">—</span>}</p>
       )}
@@ -93,6 +309,7 @@ function Field({
   );
 }
 
+// ── StudentRow ────────────────────────────────────────────────────────────────
 function StudentRow({
   student, onRefetch, tutors, allSessions, allAvailableSeats, onBookingSuccess,
 }: {
@@ -113,7 +330,6 @@ function StudentRow({
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
   const weekEndStr = toISODate(weekEnd);
 
-  // Stable setter so Field's onChange never changes identity
   const handleDraftChange = useCallback((field: string, value: string) => {
     setDraft((prev: any) => ({ ...prev, [field]: value }));
   }, []);
@@ -143,6 +359,8 @@ function StudentRow({
   const thisWeekSessions = upcomingSessions.filter(s => s.date <= weekEndStr);
   const isBookedThisWeek = thisWeekSessions.length > 0;
   const presentCount = pastSessions.filter(s => s.status === 'present' || s.status === 'confirmed').length;
+  const noShowCount = pastSessions.filter(s => s.status === 'no-show').length;
+  const attendanceRate = pastSessions.length > 0 ? presentCount / pastSessions.length : null;
 
   const handleUpdate = async () => {
     setSaving(true);
@@ -177,11 +395,11 @@ function StudentRow({
 
   const avatarColor = AVATAR_COLORS[student.name.charCodeAt(0) % AVATAR_COLORS.length];
   const initials = student.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const rateColor = attendanceRate === null ? '#9ca3af' : attendanceRate >= 0.8 ? '#15803d' : attendanceRate >= 0.6 ? '#d97706' : '#dc2626';
 
   return (
     <>
       <div className={`bg-white rounded-2xl border-2 transition-all overflow-hidden ${expanded ? 'border-[#dc2626] shadow-md' : 'border-[#f0ece8] hover:border-[#fecaca]'}`}>
-        {/* Main card */}
         <div className="p-4 flex items-start gap-3">
           {/* Avatar */}
           <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black shrink-0"
@@ -189,7 +407,7 @@ function StudentRow({
             {initials}
           </div>
 
-          {/* Info — clickable to expand */}
+          {/* Info */}
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-black text-[#1c1917] text-sm leading-tight">{student.name}</p>
@@ -199,26 +417,25 @@ function StudentRow({
               )}
               {isBookedThisWeek ? (
                 <span className="text-[9px] font-bold text-[#15803d] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] inline-block" />
-                  Booked
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] inline-block" />Booked
                 </span>
               ) : (
                 <span className="text-[9px] font-bold text-[#ef4444] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] inline-block" />
-                  Not booked
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] inline-block" />Not booked
                 </span>
               )}
             </div>
-            {/* Stats row */}
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               {(student.parent_email || student.email) && (
                 <span className="text-[10px] text-[#a8a29e] flex items-center gap-1 truncate max-w-[180px]">
                   <Mail size={9} className="shrink-0" />{student.parent_email || student.email}
                 </span>
               )}
+              {/* Inline attendance mini-stat */}
               {pastSessions.length > 0 && (
-                <span className="text-[10px] text-[#a8a29e] flex items-center gap-1">
-                  <Clock size={9} /> {presentCount}/{pastSessions.length} attended
+                <span className="text-[10px] flex items-center gap-1 font-bold" style={{ color: rateColor }}>
+                  {attendanceRate !== null ? `${Math.round(attendanceRate * 100)}%` : '—'} attendance
+                  {noShowCount > 0 && <span className="font-normal text-[#a8a29e]">· {noShowCount} no-show{noShowCount !== 1 ? 's' : ''}</span>}
                 </span>
               )}
               {upcomingSessions.length > 0 && (
@@ -227,7 +444,6 @@ function StudentRow({
                 </span>
               )}
             </div>
-            {/* Next session preview */}
             {upcomingSessions[0] && (
               <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg w-fit"
                 style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
@@ -293,6 +509,21 @@ function StudentRow({
             <div className="p-4">
               {tab === 'sessions' && (
                 <div className="space-y-4">
+                  {/* Per-student mini metrics */}
+                  {pastSessions.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 pb-2 border-b border-[#f0ece8]">
+                      {[
+                        { label: 'Attended', value: presentCount, color: '#15803d', bg: '#f0fdf4' },
+                        { label: 'No-show', value: noShowCount, color: '#dc2626', bg: '#fff1f2' },
+                        { label: 'Rate', value: attendanceRate !== null ? `${Math.round(attendanceRate * 100)}%` : '—', color: rateColor, bg: '#f7f4ef' },
+                      ].map(m => (
+                        <div key={m.label} className="rounded-xl px-3 py-2.5 text-center" style={{ background: m.bg }}>
+                          <p className="text-base font-black leading-none" style={{ color: m.color }}>{m.value}</p>
+                          <p className="text-[9px] font-bold uppercase tracking-wider mt-1" style={{ color: m.color, opacity: 0.7 }}>{m.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {upcomingSessions.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>Upcoming ({upcomingSessions.length})</p>
@@ -379,6 +610,7 @@ function StudentRow({
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function StudentAdminPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [tutors, setTutors] = useState<any[]>([]);
@@ -509,8 +741,7 @@ export default function StudentAdminPage() {
               <button key={stat.key} onClick={() => setFilter(f => f === stat.key ? 'all' : stat.key as any)}
                 className="p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{
-                  background: stat.bg,
-                  borderColor: filter === stat.key ? stat.color : stat.border,
+                  background: stat.bg, borderColor: filter === stat.key ? stat.color : stat.border,
                   boxShadow: filter === stat.key ? `0 0 0 3px ${stat.color}20` : 'none',
                 }}>
                 <p className="text-2xl font-black leading-none" style={{ color: stat.color }}>{stat.value}</p>
@@ -519,6 +750,9 @@ export default function StudentAdminPage() {
             ))}
           </div>
         )}
+
+        {/* Metrics panel */}
+        {!loading && <MetricsPanel students={students} allSessions={allSessions} tutors={tutors} />}
 
         {/* Search */}
         <div className="relative">
