@@ -61,26 +61,26 @@ export function WeekView({
             </div>
 
             {activeTutors.length === 0 ? (
-              <div className="rounded-xl p-6 text-center border border-dashed" style={{ borderColor: '#fca5a5' }}>
-                <p className="text-xs font-medium italic" style={{ color: '#f87171' }}>No tutors available</p>
+              <div className="rounded-xl p-6 text-center border border-dashed" style={{ borderColor: '#e5e7eb' }}>
+                <p className="text-xs font-medium italic" style={{ color: '#9ca3af' }}>No tutors available</p>
               </div>
             ) : (
               <>
                 {/* Desktop Table */}
                 <div className="hidden md:block rounded-xl overflow-hidden"
-                  style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 12px rgba(220,38,38,0.07)' }}>
+                  style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
                   <div className="overflow-x-auto">
                     <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}>
                       <thead>
-                        <tr style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
+                        <tr style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
                           <th className="px-2 py-2 text-left text-xs font-bold uppercase tracking-wider"
-                            style={{ color: 'rgba(255,255,255,0.85)', borderRight: '1px solid rgba(255,255,255,0.15)', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#dc2626' }}>
+                            style={{ color: 'rgba(255,255,255,0.5)', borderRight: '1px solid rgba(255,255,255,0.08)', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#1f2937' }}>
                             Instructor
                           </th>
                           {daySessions.map(block => (
-                            <th key={block.id} className="px-3 py-2 text-center" style={{ color: 'rgba(255,255,255,0.7)', borderRight: '1px solid rgba(255,255,255,0.15)', minWidth: 160, position: 'sticky', top: 0, background: '#dc2626', zIndex: 3 }}>
-                              <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.85)' }}>{block.label}</div>
-                              <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{block.display}</div>
+                            <th key={block.id} className="px-3 py-2 text-center" style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 160, position: 'sticky', top: 0, background: '#1f2937', zIndex: 3 }}>
+                              <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.9)' }}>{block.label}</div>
+                              <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{block.display}</div>
                             </th>
                           ))}
                         </tr>
@@ -89,9 +89,9 @@ export function WeekView({
                         {activeTutors.map(tutor => {
                           const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                           return (
-                            <tr key={tutor.id} style={{ borderBottom: '1px solid #fee2e2' }}>
+                            <tr key={tutor.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                               <td className="px-2 py-2 align-middle"
-                                style={{ background: '#fff5f5', borderRight: '2px solid #fca5a5', borderBottom: '1px solid #fca5a5', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                                style={{ background: '#f0f2f5', borderRight: '1px solid #d1d5db', borderBottom: '1px solid #e5e7eb', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                                     style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
@@ -116,7 +116,7 @@ export function WeekView({
                                 const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
                                 return (
                                   <td key={block.id} className="p-1.5 align-top"
-                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1px solid #fee2e2', borderBottom: '1px solid #fee2e2' }}>
+                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #e9ebee, #e9ebee 4px, #dfe2e6 4px, #dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb' }}>
                                     <div className="flex flex-col gap-1 h-full min-h-[110px]">
                                       {hasStudents && !isOnTimeOff ? (
                                         <>
@@ -124,7 +124,7 @@ export function WeekView({
                                             <div key={student.rowId || student.id}
                                               className="group relative p-2 rounded-lg transition-all hover:shadow-md cursor-pointer"
                                               style={student.status === 'no-show'
-                                                ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.45 }
+                                                ? { background: 'transparent', border: '1.5px solid #d1d5db', opacity: 0.45 }
                                                 : student.status === 'present'
                                                   ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
                                                   : { background: palette.bg, border: `1.5px solid ${palette.border}` }}
@@ -145,7 +145,7 @@ export function WeekView({
                                                     className="shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
                                                     style={student.status === 'present'
                                                       ? { background: '#059669', border: '1.5px solid #059669' }
-                                                      : { background: 'white', border: '1.5px solid #fca5a5' }}>
+                                                      : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                                     {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
                                                   </button>
                                                 </div>
@@ -160,9 +160,9 @@ export function WeekView({
                                           {!isFull && (
                                             <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                               className="mt-auto py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
-                                              style={{ background: 'transparent', border: '1.5px dashed #c8b89a', color: '#9e8e7e' }}
-                                              onMouseEnter={e => { e.currentTarget.style.background = '#2d2318'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#2d2318'; }}
-                                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9e8e7e'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                              style={{ background: 'transparent', border: '1.5px dashed #d1d5db', color: '#9ca3af' }}
+                                              onMouseEnter={e => { e.currentTarget.style.background = '#1f2937'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#1f2937'; }}
+                                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#d1d5db'; }}>
                                               + ADD ({MAX_CAPACITY - session!.students.length})
                                             </button>
                                           )}
@@ -170,22 +170,22 @@ export function WeekView({
                                       ) : isAvailable ? (
                                         <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                           className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
-                                          style={{ background: 'transparent', border: '2px dashed #86efac' }}
-                                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(134,239,172,0.08)'; e.currentTarget.style.borderColor = '#4ade80'; }}
-                                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#86efac'; }}>
-                                          <PlusCircle size={14} style={{ color: '#4ade80' }} />
-                                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#4ade80' }}>Available</span>
+                                          style={{ background: '#eaf7ef', border: '2px dashed #86efac' }}
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#d4f2e3'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = '#eaf7ef'; e.currentTarget.style.borderColor = '#86efac'; }}>
+                                          <PlusCircle size={14} style={{ color: '#22c55e' }} />
+                                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#22c55e' }}>Available</span>
                                         </div>
                                       ) : (
                                         <div className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1"
-                                          style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                          style={{ background: 'repeating-linear-gradient(45deg, #e9ebee, #e9ebee 4px, #dfe2e6 4px, #dfe2e6 8px)' }}>
                                           {isOnTimeOff ? (
                                             <>
                                               <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
-                                              {timeOffNote && <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#f87171' }}>{timeOffNote}</span>}
+                                              {timeOffNote && <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#9ca3af' }}>{timeOffNote}</span>}
                                             </>
                                           ) : (
-                                            <span style={{ color: '#fca5a5' }} className="text-[9px] font-semibold uppercase tracking-wider">—</span>
+                                            <span style={{ color: '#d1d5db' }} className="text-[9px] font-semibold uppercase tracking-wider">—</span>
                                           )}
                                         </div>
                                       )}
@@ -206,8 +206,8 @@ export function WeekView({
                   {activeTutors.map(tutor => {
                     const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                     return (
-                      <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #fca5a5', boxShadow: '0 2px 8px rgba(220,38,38,0.07)' }}>
-                        <div className="p-2.5" style={{ background: '#dc2626', borderBottom: '1px solid #b91c1c' }}>
+                      <div key={tutor.id} className="rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+                        <div className="p-2.5" style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
                           <p className="text-xs font-bold" style={{ color: 'white', fontWeight: 700 }}>{tutor.name}</p>
                         </div>
                         <div className="overflow-x-auto">
@@ -221,9 +221,9 @@ export function WeekView({
                               const isOutside = !isTutorAvailable(tutor, dow, block.time) || isOnTimeOff;
                               return (
                                 <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
-                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #fff5f5, #fff5f5 4px, #fee2e2 4px, #fee2e2 8px)' : 'white', borderRight: '1.5px solid #fee2e2' }}>
+                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg, #e9ebee, #e9ebee 4px, #dfe2e6 4px, #dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb' }}>
                                   <div className="text-center mb-1.5">
-                                    <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#dc2626', fontWeight: 800 }}>{block.label}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#374151', fontWeight: 800 }}>{block.label}</div>
                                     <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
                                   </div>
                                   <div className="space-y-1" style={{ minHeight: 110 }}>
@@ -233,7 +233,7 @@ export function WeekView({
                                           <div key={student.rowId || student.id}
                                             className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                             style={student.status === 'no-show'
-                                              ? { background: 'transparent', border: '1.5px solid #ddd4c8', opacity: 0.4 }
+                                              ? { background: 'transparent', border: '1.5px solid #d1d5db', opacity: 0.4 }
                                               : student.status === 'present'
                                                 ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
                                                 : { background: palette.bg, border: `1.5px solid ${palette.border}` }}>
@@ -247,7 +247,7 @@ export function WeekView({
                                               className="shrink-0 w-3 h-3 rounded flex items-center justify-center"
                                               style={student.status === 'present'
                                                 ? { background: '#059669', border: '1.5px solid #059669' }
-                                                : { background: 'white', border: '1.5px solid #fca5a5' }}>
+                                                : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                               {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
                                             </button>
                                             <div className="flex-1 min-w-0 cursor-pointer"
@@ -262,24 +262,24 @@ export function WeekView({
                                         {!isFull && (
                                           <button onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
                                             className="w-full py-1 rounded-lg text-[7px] font-bold uppercase transition-all"
-                                            style={{ background: 'transparent', border: '1.5px dashed #fca5a5', color: '#f87171' }}>
+                                            style={{ background: 'transparent', border: '1.5px dashed #d1d5db', color: '#9ca3af' }}>
                                             + ADD
                                           </button>
                                         )}
                                       </>
                                     ) : isAvailable ? (
                                       <div onClick={() => handleGridSlotClick(tutor, isoDate, dayLabel, block)}
-                                        className="w-full h-full min-min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                        style={{ background: 'transparent', border: '2px dashed #86efac' }}>
-                                        <PlusCircle size={14} style={{ color: '#4ade80' }} />
-                                        <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#4ade80' }}>Available</span>
+                                        className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                                        style={{ background: '#eaf7ef', border: '2px dashed #86efac' }}>
+                                        <PlusCircle size={14} style={{ color: '#22c55e' }} />
+                                        <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#22c55e' }}>Available</span>
                                       </div>
                                     ) : (
                                       <div className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1"
-                                        style={{ background: 'repeating-linear-gradient(45deg, #f7f2eb, #f7f2eb 4px, #f0e8d8 4px, #f0e8d8 8px)' }}>
+                                        style={{ background: 'repeating-linear-gradient(45deg, #e9ebee, #e9ebee 4px, #dfe2e6 4px, #dfe2e6 8px)' }}>
                                         {isOnTimeOff
                                           ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
-                                          : <span className="text-[8px] font-semibold text-stone-300 uppercase tracking-wider">—</span>}
+                                          : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#d1d5db' }}>—</span>}
                                       </div>
                                     )}
                                   </div>
