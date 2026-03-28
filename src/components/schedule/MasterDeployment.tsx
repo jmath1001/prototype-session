@@ -173,19 +173,32 @@ export default function MasterDeployment() {
         onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
       />
 
-      {todayView && (
-        <TodayView
-          tutors={tutors}
-          sessions={sessions}
-          timeOff={timeOff}
-          students={students}
-          selectedTutorFilter={selectedTutorFilter}
-          tutorPaletteMap={tutorPaletteMap}
-          setSelectedSessionWithNotes={setSelectedSessionWithNotes}
-          handleGridSlotClick={handleGridSlotClick}
-          refetch={refetch}
-        />
-      )}
+
+{todayView && (
+  <TodayView
+    tutors={tutors}
+    sessions={sessions}
+    timeOff={timeOff}
+    students={students}
+    selectedTutorFilter={selectedTutorFilter}
+    tutorPaletteMap={tutorPaletteMap}
+    setSelectedSessionWithNotes={setSelectedSessionWithNotes}
+    handleGridSlotClick={handleGridSlotClick}
+    refetch={refetch}
+    onInlineBook={async ({ tutorId, date, time, student, topic }) => {
+      await bookStudent({
+        tutorId,
+        date,
+        time,
+        student,
+        topic,
+        notes: '',
+        recurring: false,
+        recurringWeeks: 1,
+      });
+    }}
+  />
+)}
 
       {!todayView && (
         <WeekView
