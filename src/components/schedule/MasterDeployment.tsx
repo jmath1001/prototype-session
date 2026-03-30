@@ -25,8 +25,6 @@ import { WeekView } from './WeekView';
 import { AttendanceModal } from './AttendanceModal';
 
 export default function MasterDeployment() {
-  // todayDate drives TodayView's date picker; weekStart is always derived from
-  // it so useScheduleData always fetches the right week's sessions.
   const [todayDate, setTodayDate] = useState<Date>(() => getCentralTimeNow());
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(getCentralTimeNow()));
 
@@ -43,16 +41,11 @@ export default function MasterDeployment() {
   const [todayView, setTodayView] = useState(true);
   const [modalTab, setModalTab] = useState<'session' | 'notes'>('session');
 
-  // When TodayView's date picker changes, keep weekStart in sync so the
-  // data hook fetches sessions for the correct week.
   const handleTodayDateChange = useCallback((date: Date) => {
     setTodayDate(date);
     setWeekStart(getWeekStart(date));
   }, []);
 
-  // Lock page scroll when in today view (fixed layout), restore for week view.
-  // Also pin body background to #fafafa so no dark-mode black shows through
-  // behind the fixed TodayView container.
   useEffect(() => {
     if (todayView) {
       document.body.style.overflow = 'hidden';
@@ -94,6 +87,8 @@ export default function MasterDeployment() {
         const isoDate = toISODate(date);
         const dow = dayOfWeek(isoDate);
         if (!tutor.availability.includes(dow)) return;
+        // ── Skip if tutor is on time off for this date ──
+        if (timeOff.some(t => t.tutorId === tutor.id && t.date === isoDate)) return;
         getSessionsForDay(dow).forEach(block => {
           if (!isTutorAvailable(tutor, dow, block.time)) return;
           const session = sessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
@@ -105,7 +100,7 @@ export default function MasterDeployment() {
       });
     });
     return seats.sort((a, b) => { const dd = a.date.localeCompare(b.date); return dd !== 0 ? dd : a.time.localeCompare(b.time); });
-  }, [enrollCat, tutors, sessions, activeDates]);
+  }, [enrollCat, tutors, sessions, activeDates, timeOff]);
 
   const handleGridSlotClick = (tutor: Tutor, date: string, dayName: string, block: SessionBlock) => {
     setGridSlotToBook({ tutor, dayNum: dayOfWeek(date), dayName, time: block.time, date, block } as any);
@@ -134,8 +129,6 @@ export default function MasterDeployment() {
     setModalTab('session');
   };
 
-  // Optimistic update: patch selectedSession in-place so the modal reflects
-  // changes immediately without waiting for refetch to complete.
   const patchSelectedSession = useCallback((patch: Record<string, any>) => {
     setSelectedSession((prev: any) => {
       if (!prev) return prev;
@@ -203,14 +196,8 @@ export default function MasterDeployment() {
           onDateChange={handleTodayDateChange}
           onInlineBook={async ({ tutorId, date, time, student, topic }) => {
             await bookStudent({
-              tutorId,
-              date,
-              time,
-              student,
-              topic,
-              notes: '',
-              recurring: false,
-              recurringWeeks: 1,
+              tutorId, date, time, student, topic,
+              notes: '', recurring: false, recurringWeeks: 1,
             });
           }}
         />
@@ -230,20 +217,13 @@ export default function MasterDeployment() {
           refetch={refetch}
           onInlineBook={async ({ tutorId, date, time, student, topic }) => {
             await bookStudent({
-              tutorId,
-              date,
-              time,
-              student,
-              topic,
-              notes: '',
-              recurring: false,
-              recurringWeeks: 1,
+              tutorId, date, time, student, topic,
+              notes: '', recurring: false, recurringWeeks: 1,
             });
           }}
         />
       )}
 
-      {/* Booking modals */}
       {isEnrollModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(20,14,8,0.75)', backdropFilter: 'blur(8px)' }}>
           <BookingForm prefilledSlot={null} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} />
