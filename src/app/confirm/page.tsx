@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { logEvent } from '@/lib/analytics';
 
 function ConfirmContent() {
   const searchParams = useSearchParams();

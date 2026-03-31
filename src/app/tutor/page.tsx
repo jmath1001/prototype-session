@@ -465,14 +465,15 @@ export default function TutorManagementPage() {
       phone: updated.phone || null,
     }).eq('id', updated.id);
     if (error) setError(error.message);
-    else fetchAll();
+    else { fetchAll(); logEvent('tutor_edited', { tutorName: updated.name }); }
+
   };
 
   const handleDelete = async (id: string) => {
     setError(null);
     const { error } = await supabase.from('slake_tutors').delete().eq('id', id);
     if (error) setError(error.message);
-    else fetchAll();
+    else { fetchAll(); logEvent('tutor_deleted', {}); }
   };
 
   const handleAdd = async () => {
