@@ -152,7 +152,8 @@ function AvailabilityGrid({ blocks, onChange }: { blocks: string[]; onChange: (b
 function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
   tutor: TutorWithContact; timeOffList: TimeOff[]; onRefetch: () => void;
 }) {
-  const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,12 +161,27 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
   const tutorTimeOff = timeOffList.filter(t => t.tutor_id === tutor.id).sort((a, b) => a.date.localeCompare(b.date));
 
   const handleAdd = async () => {
-    if (!date) return;
+    if (!startDate) return;
     setSaving(true); setError(null);
-    const { error } = await supabase.from('slake_tutor_time_off').insert({ tutor_id: tutor.id, date, note });
+    
+    // Calculate dates between start and end inclusive
+    const datesToInsert = [];
+    const current = new Date(startDate + 'T00:00:00');
+    const end = endDate ? new Date(endDate + 'T00:00:00') : current;
+    
+    while (current <= end) {
+      datesToInsert.push({ 
+        tutor_id: tutor.id, 
+        date: current.toISOString().split('T')[0], 
+        note 
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    const { error } = await supabase.from('slake_tutor_time_off').insert(datesToInsert);
     setSaving(false);
     if (error) setError(error.message);
-    else { setDate(''); setNote(''); onRefetch(); }
+    else { setStartDate(''); setEndDate(''); setNote(''); onRefetch(); }
   };
 
   const handleDelete = async (id: string) => {
@@ -175,21 +191,27 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 items-end">
-        <div className="flex-1">
-          <Field label="Date">
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+        <div>
+          <Field label="Start Date">
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm border border-[#e7e3dd] bg-white text-[#1c1917] focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#ede9fe] transition-all" />
           </Field>
         </div>
-        <div className="flex-[2]">
-          <Field label="Reason (optional)">
-            <Input value={note} onChange={setNote} placeholder="e.g. Sick, vacation, personal" />
+        <div>
+          <Field label="End Date (Optional)">
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate}
+              className="w-full px-3 py-2.5 rounded-xl text-sm border border-[#e7e3dd] bg-white text-[#1c1917] focus:outline-none focus:border-[#6d28d9] focus:ring-2 focus:ring-[#ede9fe] transition-all" />
           </Field>
         </div>
-        <button onClick={handleAdd} disabled={!date || saving}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 mb-0.5"
-          style={{ background: date ? '#6d28d9' : '#f0ece8', color: date ? 'white' : '#c4b9b2', cursor: date ? 'pointer' : 'not-allowed' }}>
+        <div>
+          <Field label="Reason">
+            <Input value={note} onChange={setNote} placeholder="e.g. Vacation" />
+          </Field>
+        </div>
+        <button onClick={handleAdd} disabled={!startDate || saving}
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 mb-0.5"
+          style={{ background: startDate ? '#6d28d9' : '#f0ece8', color: startDate ? 'white' : '#c4b9b2', cursor: startDate ? 'pointer' : 'not-allowed' }}>
           <Plus size={13} /> Add
         </button>
       </div>
@@ -218,7 +240,7 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
               </div>
               <button onClick={() => handleDelete(entry.id)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-[#c4b9b2] hover:text-red-500 hover:bg-red-50 transition-all">
-                <X size={13} />
+                <Trash2 size={13} />
               </button>
             </div>
           ))}
@@ -302,6 +324,20 @@ function TutorRow({ tutor, timeOffList, onSave, onDelete, onRefetch }: {
               Unsaved
             </span>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              confirmDelete ? onDelete(tutor.id) : setConfirmDelete(true);
+            }}
+            onBlur={() => setConfirmDelete(false)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+            style={{ 
+              color: confirmDelete ? '#dc2626' : '#c4b9b2', 
+              background: confirmDelete ? '#fef2f2' : 'transparent',
+              border: confirmDelete ? '1px solid #fecaca' : 'none'
+            }}>
+            <Trash2 size={14} />
+          </button>
           {expanded
             ? <ChevronUp size={14} className="text-[#a8a29e]" />
             : <ChevronDown size={14} className="text-[#a8a29e]" />}
@@ -388,15 +424,7 @@ function TutorRow({ tutor, timeOffList, onSave, onDelete, onRefetch }: {
                 />
 
                 {/* Footer actions */}
-                <div className="flex justify-between items-center pt-2 border-t border-[#f0ece8]">
-                  <button
-                    onClick={() => confirmDelete ? onDelete(tutor.id) : setConfirmDelete(true)}
-                    onBlur={() => setConfirmDelete(false)}
-                    className="flex items-center gap-1.5 text-xs font-semibold transition-colors px-3 py-2 rounded-lg"
-                    style={{ color: confirmDelete ? '#dc2626' : '#c4b9b2', background: confirmDelete ? '#fef2f2' : 'transparent' }}>
-                    <Trash2 size={12} />
-                    {confirmDelete ? 'Confirm delete?' : 'Delete tutor'}
-                  </button>
+                <div className="flex justify-end items-center pt-2 border-t border-[#f0ece8]">
                   <button
                     disabled={!dirty || saving}
                     onClick={async () => { setSaving(true); await onSave(draft); setSaving(false); }}
