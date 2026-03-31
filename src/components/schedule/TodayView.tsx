@@ -575,21 +575,38 @@ export function TodayView({
   // ─────────────────────────────────────────────────────────────────────────
 
   if (isWeekend) {
-    return (
-      <div className="max-w-[1600px] mx-auto p-2 md:p-6" style={{ background: '#fafafa', minHeight: '100%' }}>
-        <div className="flex justify-end mb-4">
-          <input type="date" value={todayIso} onChange={handleDateChange}
-            className="text-xs font-bold border rounded-lg px-2 py-1 outline-none"
-            style={{ borderColor: '#d1d5db', color: '#374151' }} />
-        </div>
-        <div className="flex flex-col items-center justify-center py-24 gap-3">
-          <p className="text-4xl">🎉</p>
-          <p className="text-lg font-bold" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions for this day</p>
-          <p className="text-xs" style={{ color: '#9ca3af' }}>Enjoy the day off</p>
+  return (
+    <div className="max-w-[1600px] mx-auto p-2 md:p-6" style={{ background: '#fafafa', minHeight: '100%' }}>
+      <div className="flex justify-end mb-4">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { const d = new Date(todayIso + 'T00:00:00'); d.setDate(d.getDate() - 1); onDateChange(d); }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#f3f4f6]"
+            style={{ border: '1px solid #e5e7eb', color: '#1f2937', fontSize: 18, lineHeight: 1 }}>
+            {'<'}
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-white" style={{ borderColor: '#e5e7eb' }}>
+            <CalendarIcon size={14} style={{ color: '#9ca3af' }} />
+            <input type="date" value={todayIso} onChange={handleDateChange}
+              className="text-xs font-bold outline-none bg-transparent"
+              style={{ color: '#374151', cursor: 'pointer' }} />
+          </div>
+          <button
+            onClick={() => { const d = new Date(todayIso + 'T00:00:00'); d.setDate(d.getDate() + 1); onDateChange(d); }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#f3f4f6]"
+            style={{ border: '1px solid #e5e7eb', color: '#1f2937', fontSize: 18, lineHeight: 1 }}>
+            {'>'}
+          </button>
         </div>
       </div>
-    );
-  }
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <p className="text-4xl">🎉</p>
+        <p className="text-lg font-bold" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions for this day</p>
+        <p className="text-xs" style={{ color: '#9ca3af' }}>Enjoy the day off</p>
+      </div>
+    </div>
+  );
+}
 
   // ─────────────────────────────────────────────────────────────────────────
   // Main render
@@ -608,12 +625,26 @@ export function TodayView({
                 {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-white" style={{ borderColor: '#e5e7eb' }}>
-              <CalendarIcon size={14} style={{ color: '#9ca3af' }} />
-              <input type="date" value={todayIso} onChange={handleDateChange}
-                className="text-xs font-bold outline-none bg-transparent"
-                style={{ color: '#374151', cursor: 'pointer' }} />
-            </div>
+            <div className="flex items-center gap-1">
+  <button
+    onClick={() => { const d = new Date(todayIso + 'T00:00:00'); d.setDate(d.getDate() - 1); onDateChange(d); setForms({}); }}
+    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#f3f3f6]"
+    style={{ border: '1px solid #e5e7eb', color: '#1f2937'  }}>
+    ‹
+  </button>
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-white" style={{ borderColor: '#e5e7eb' }}>
+    <CalendarIcon size={14} style={{ color: '#9ca3af' }} />
+    <input type="date" value={todayIso} onChange={handleDateChange}
+      className="text-xs font-bold outline-none bg-transparent"
+      style={{ color: '#374151', cursor: 'pointer' }} />
+  </div>
+  <button
+    onClick={() => { const d = new Date(todayIso + 'T00:00:00'); d.setDate(d.getDate() + 1); onDateChange(d); setForms({}); }}
+    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:bg-[#f3f4f6]"
+    style={{ border: '1px solid #e5e7eb', color: '#1f2937'  }}>
+    ›
+  </button>
+</div>
           </div>
           <div className="h-px flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #e5e7eb, transparent)' }} />
         </div>
