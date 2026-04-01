@@ -88,7 +88,6 @@ export default function MasterDeployment() {
         const isoDate = toISODate(date);
         const dow = dayOfWeek(isoDate);
         if (!tutor.availability.includes(dow)) return;
-        // ── Skip if tutor is on time off for this date ──
         if (timeOff.some(t => t.tutorId === tutor.id && t.date === isoDate)) return;
         getSessionsForDay(dow).forEach(block => {
           if (!isTutorAvailable(tutor, dow, block.time)) return;
@@ -119,12 +118,12 @@ export default function MasterDeployment() {
       setIsEnrollModalOpen(false);
       setGridSlotToBook(null);
       logEvent('session_booked', {
-  studentName: data.student.name,
-  tutorName: data.slot.tutor.name,
-  date: (data.slot as any).date,
-  recurring: data.recurring,
-  source: gridSlotToBook ? 'grid_slot' : 'booking_form',
-});
+        studentName: data.student.name,
+        tutorName: data.slot.tutor.name,
+        date: (data.slot as any).date,
+        recurring: data.recurring,
+        source: gridSlotToBook ? 'grid_slot' : 'booking_form',
+      });
       setTimeout(() => setBookingToast(null), 4000);
     } catch (err: any) {
       alert(err.message || "Something went wrong with the booking.");
@@ -140,17 +139,18 @@ export default function MasterDeployment() {
   const patchSelectedSession = useCallback((patch: Record<string, any>) => {
     setSelectedSession((prev: any) => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        activeStudent: {
-          ...prev.activeStudent,
-          ...patch,
-        },
-      };
+      return { ...prev, activeStudent: { ...prev.activeStudent, ...patch } };
     });
   }, []);
 
   const closeAllModals = () => { setIsEnrollModalOpen(false); setGridSlotToBook(null); };
+
+  const handleInlineBook = async ({ tutorId, date, time, student, topic, recurring, recurringWeeks }: {
+    tutorId: string; date: string; time: string; student: any; topic: string;
+    recurring: boolean; recurringWeeks: number;
+  }) => {
+    await bookStudent({ tutorId, date, time, student, topic, notes: '', recurring, recurringWeeks });
+  };
 
   if (loading) return (
     <div className="w-full min-h-screen flex items-center justify-center" style={{ background: '#fafafa' }}>
@@ -202,12 +202,7 @@ export default function MasterDeployment() {
           refetch={refetch}
           selectedDate={todayDate}
           onDateChange={handleTodayDateChange}
-          onInlineBook={async ({ tutorId, date, time, student, topic }) => {
-            await bookStudent({
-              tutorId, date, time, student, topic,
-              notes: '', recurring: false, recurringWeeks: 1,
-            });
-          }}
+          onInlineBook={handleInlineBook}
         />
       )}
 
@@ -223,12 +218,7 @@ export default function MasterDeployment() {
           setSelectedSessionWithNotes={setSelectedSessionWithNotes}
           handleGridSlotClick={handleGridSlotClick}
           refetch={refetch}
-          onInlineBook={async ({ tutorId, date, time, student, topic }) => {
-            await bookStudent({
-              tutorId, date, time, student, topic,
-              notes: '', recurring: false, recurringWeeks: 1,
-            });
-          }}
+          onInlineBook={handleInlineBook}
         />
       )}
 

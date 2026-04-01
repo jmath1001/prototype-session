@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, Check, X, Loader2 } from 'lucide-react';
+import { PlusCircle, Check, X, Loader2, RotateCcw } from 'lucide-react';
 import { updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
@@ -16,6 +16,8 @@ interface InlineForm {
   query: string;
   student: any | null;
   topic: string;
+  recurring: boolean;
+  recurringWeeks: number;
   saving: boolean;
   error: string | null;
 }
@@ -24,6 +26,8 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   query: '',
   student: null,
   topic: tutor.cat === 'math' ? 'Math' : 'English',
+  recurring: false,
+  recurringWeeks: 4,
   saving: false,
   error: null,
 });
@@ -46,22 +50,15 @@ interface WeekViewProps {
     time: string;
     student: any;
     topic: string;
+    recurring: boolean;
+    recurringWeeks: number;
   }) => Promise<void>;
   refetch: () => void;
 }
 
 export function WeekView({
-  activeDates,
-  tutors,
-  sessions,
-  timeOff,
-  students,
-  selectedTutorFilter,
-  tutorPaletteMap,
-  setSelectedSessionWithNotes,
-  handleGridSlotClick,
-  onInlineBook,
-  refetch,
+  activeDates, tutors, sessions, timeOff, students, selectedTutorFilter,
+  tutorPaletteMap, setSelectedSessionWithNotes, handleGridSlotClick, onInlineBook, refetch,
 }: WeekViewProps) {
   const [forms, setForms]               = useState<Record<string, InlineForm>>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -86,17 +83,20 @@ export function WeekView({
     return students.filter(s => s.name?.toLowerCase().includes(q)).slice(0, 7);
   };
 
-  const topicsFor = (tutor: Tutor) =>
-    tutor.cat === 'math' ? MATH_TOPICS : ENG_TOPICS;
+  const topicsFor = (tutor: Tutor) => tutor.cat === 'math' ? MATH_TOPICS : ENG_TOPICS;
 
   const handleSave = async (key: string, tutor: Tutor, date: string, block: any) => {
     const form = forms[key];
     if (!form?.student || !form.topic) return;
     patchForm(key, { saving: true, error: null });
     try {
-      await onInlineBook({ tutorId: tutor.id, date, time: block.time, student: form.student, topic: form.topic });
+      await onInlineBook({
+        tutorId: tutor.id, date, time: block.time,
+        student: form.student, topic: form.topic,
+        recurring: form.recurring, recurringWeeks: form.recurringWeeks,
+      });
       closeForm(key);
-      logEvent('session_booked', { studentName: form.student.name, date, recurring: false, source: 'inline_week' });
+      logEvent('session_booked', { studentName: form.student.name, date, recurring: form.recurring, recurringWeeks: form.recurringWeeks, source: 'inline_week' });
       refetch();
     } catch (err: any) {
       patchForm(key, { saving: false, error: err?.message || 'Booking failed — please try again.' });
@@ -170,11 +170,32 @@ export function WeekView({
           {topics.map(t => <option key={t} value={t}>{t}</option>)}
           <option value="Other">Other</option>
         </select>
+
+        {/* Recurring toggle — only addition to original */}
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => patchForm(key, { recurring: !form.recurring })}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
+            style={{ background: form.recurring ? '#ede9fe' : '#f3f4f6', color: form.recurring ? '#7c3aed' : '#9ca3af', border: `1px solid ${form.recurring ? '#c4b5fd' : '#e5e7eb'}` }}>
+            <RotateCcw size={8} />
+            {form.recurring ? 'Recurring' : 'Once'}
+          </button>
+          {form.recurring && (
+            <select value={form.recurringWeeks} onChange={e => patchForm(key, { recurringWeeks: Number(e.target.value) })}
+              className="flex-1 text-[9px] font-bold rounded-lg px-2 py-1 outline-none"
+              style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#374151' }}>
+              <option value={2}>2 weeks</option>
+              <option value={4}>4 weeks</option>
+              <option value={8}>8 weeks</option>
+              <option value={12}>12 weeks</option>
+            </select>
+          )}
+        </div>
+
         {form.error && <p className="text-[9px] font-semibold" style={{ color: '#dc2626' }}>{form.error}</p>}
         <button onClick={() => handleSave(key, tutor, date, block)} disabled={!canSave}
           className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
           style={{ background: canSave ? '#6366f1' : '#e5e7eb', color: canSave ? 'white' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed' }}>
-          {form.saving ? <><Loader2 size={10} className="animate-spin" /> Saving…</> : 'Book'}
+          {form.saving ? <><Loader2 size={10} className="animate-spin" /> Saving…</> : form.recurring ? `Book ${form.recurringWeeks}wk` : 'Book'}
         </button>
       </div>
     );
@@ -250,7 +271,6 @@ export function WeekView({
               </div>
             ) : (
               <>
-                {/* Desktop table */}
                 <div className="hidden md:block rounded-xl overflow-hidden"
                   style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
                   <div className="overflow-x-auto">
@@ -305,8 +325,6 @@ export function WeekView({
                                   <td key={block.id} className="p-2 align-top"
                                     style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', minWidth: 200 }}>
                                     <div className="flex flex-col gap-1.5 h-full min-h-[100px]">
-
-                                      {/* Booked students — same card style as TodayView */}
                                       {hasStudents && !isOnTimeOff && session!.students.map((student: any) => (
                                         <div key={student.rowId || student.id}
                                           className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
@@ -348,7 +366,6 @@ export function WeekView({
                                           {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#9ca3af' }}>📝 {student.notes}</p>}
                                         </div>
                                       ))}
-
                                       {hasStudents && !isOnTimeOff && !isFull && renderAddMore(tutor, isoDate, block, session, palette)}
                                       {isAvail && renderAvailableSlot(tutor, isoDate, block, palette)}
                                       {isOutside && (
@@ -395,7 +412,6 @@ export function WeekView({
                               const isFull      = hasStudents && session!.students.length >= MAX_CAPACITY;
                               const isOutside   = !isTutorAvailable(tutor, dow, block.time) || isOnTimeOff;
                               const isAvail     = !isOutside && !hasStudents;
-
                               return (
                                 <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
                                   style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb' }}>
