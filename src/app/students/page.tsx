@@ -215,7 +215,7 @@ function MetricsPanel({ students, allSessions, tutors }: { students: any[]; allS
         <div className="flex items-center gap-3">
           <BarChart2 size={15} style={{ color: open ? '#dc2626' : '#94a3b8', flexShrink: 0 }} />
           <div>
-            <p className="text-[13px] font-black text-[#0f172a]">Pilot Metrics</p>
+            <p className="text-[13px] font-black text-[#0f172a]">Metrics</p>
             <p className="text-[10px] text-[#94a3b8] mt-0.5">
               {m.total > 0
                 ? `${m.total} sessions logged · ${pct(m.attendanceRate)} attended · ${pct(m.noShowRate)} no-show`
