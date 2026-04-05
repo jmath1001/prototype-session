@@ -33,6 +33,7 @@ export interface BookingFormProps {
   setEnrollCat: (c: string) => void;
   allAvailableSeats: any[];
   studentDatabase: any[];
+  initialStudentId?: string | null;
   sessions?: any[];
 }
 
@@ -63,7 +64,7 @@ function StudentRow({ student, selected, onSelect, isUnassigned }: {
 
 export function BookingForm({
   prefilledSlot, onConfirm, onCancel, enrollCat, setEnrollCat,
-  allAvailableSeats, studentDatabase, sessions = [],
+  allAvailableSeats, studentDatabase, sessions = [], initialStudentId = null,
 }: BookingFormProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -144,6 +145,14 @@ export function BookingForm({
   }, [slotsByDay, selectedStudent, studentHasAvailability, showAllSlots]);
 
   const selectStudent = (student: any) => { setSelectedStudent(student); setTopic(''); setNotes(''); setShowAllSlots(false); };
+
+  // If parent passes an initial student id (AI flow), auto-select that student
+  React.useEffect(() => {
+    if (initialStudentId) {
+      const s = studentDatabase.find(st => st.id === initialStudentId)
+      if (s) selectStudent(s)
+    }
+  }, [initialStudentId, studentDatabase]);
   const canConfirm = selectedStudent && (selectedSlot || prefilledSlot) && topic.trim() !== '';
 
   const SlotPanel = () => (

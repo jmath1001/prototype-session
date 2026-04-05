@@ -32,9 +32,16 @@ export default function MasterDeployment() {
 
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
   const { tutors, students, sessions, timeOff, loading, error, refetch } = useScheduleData(weekStart);
+  const nextWeekStart = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    return d;
+  }, [weekStart]);
+  const { sessions: nextWeekSessions } = useScheduleData(nextWeekStart);
 
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [aiPrefilledStudentId, setAiPrefilledStudentId] = useState<string | null>(null);
   const [gridSlotToBook, setGridSlotToBook] = useState<PrefilledSlot | null>(null);
   const [enrollCat, setEnrollCat] = useState('math');
   const [bookingToast, setBookingToast] = useState<BookingConfirmData | null>(null);
@@ -136,12 +143,21 @@ export default function MasterDeployment() {
   const handleAIBookingAction = useCallback(({
     studentId, slotDate, slotTime, tutorId, topic,
   }: {
-    studentId: string
-    slotDate: string
-    slotTime: string
-    tutorId: string
-    topic: string
+    studentId?: string
+    slotDate?: string
+    slotTime?: string
+    tutorId?: string
+    topic?: string
   }) => {
+    // If AI only provided a studentId (no slot info), open the booking modal preselected to that student
+    if (studentId && !slotDate && !slotTime && !tutorId) {
+      setAiPrefilledStudentId(studentId)
+      setIsEnrollModalOpen(true)
+      logEvent('ai_booking_initiated', { studentId })
+      return
+    }
+
+    if (!slotDate || !slotTime || !tutorId) return
     const tutor = tutors.find(t => t.id === tutorId)
     if (!tutor) return
     const dow = dayOfWeek(slotDate)
@@ -151,6 +167,8 @@ export default function MasterDeployment() {
     setGridSlotToBook({ tutor, dayNum: dow, dayName, time: slotTime, date: slotDate, block } as any)
     // Pre-select student cat so the right tab is shown in BookingForm
     setEnrollCat(tutor.cat)
+    setAiPrefilledStudentId(studentId ?? null)
+    setIsEnrollModalOpen(true)
     logEvent('ai_booking_initiated', { studentId, tutorId, slotDate, slotTime, topic })
   }, [tutors])
 
@@ -172,7 +190,7 @@ export default function MasterDeployment() {
     });
   }, []);
 
-  const closeAllModals = () => { setIsEnrollModalOpen(false); setGridSlotToBook(null); };
+  const closeAllModals = () => { setIsEnrollModalOpen(false); setGridSlotToBook(null); setAiPrefilledStudentId(null); };
 
   if (loading) return (
     <div className="w-full min-h-screen flex items-center justify-center" style={{ background: '#fafafa' }}>
@@ -211,13 +229,15 @@ export default function MasterDeployment() {
         onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
         // ── CommandBar sits inside ScheduleNav as a button in the header ──
         commandBarSlot={
-          <CommandBar
-            sessions={sessions}
-            students={students}
-            tutors={tutors}
-            onBookingAction={handleAIBookingAction}
-            allAvailableSeats={allAvailableSeats}
-          />
+            <CommandBar
+              sessions={[...sessions, ...(nextWeekSessions ?? [])]}
+              students={students}
+              tutors={tutors}
+              onBookingAction={handleAIBookingAction}
+              allAvailableSeats={allAvailableSeats}
+              weekStart={toISODate(weekStart)}
+              nextWeekStart={toISODate(nextWeekStart)}
+            />
         }
       />
 
@@ -266,12 +286,12 @@ export default function MasterDeployment() {
 
       {isEnrollModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(20,14,8,0.75)', backdropFilter: 'blur(8px)' }}>
-          <BookingForm prefilledSlot={null} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} />
+          <BookingForm prefilledSlot={null} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} initialStudentId={aiPrefilledStudentId} sessions={sessions} />
         </div>
       )}
       {gridSlotToBook && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(20,14,8,0.75)', backdropFilter: 'blur(8px)' }}>
-          <BookingForm prefilledSlot={gridSlotToBook} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} />
+          <BookingForm prefilledSlot={gridSlotToBook} onConfirm={handleConfirmBooking} onCancel={closeAllModals} enrollCat={enrollCat} setEnrollCat={setEnrollCat} allAvailableSeats={allAvailableSeats} studentDatabase={students} initialStudentId={aiPrefilledStudentId} sessions={sessions} />
         </div>
       )}
 

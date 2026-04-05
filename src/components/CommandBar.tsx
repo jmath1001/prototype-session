@@ -9,12 +9,14 @@ interface CommandBarProps {
   tutors: any[]
   allAvailableSeats: any[]
   onBookingAction: (params: {
-    studentId: string
-    slotDate: string
-    slotTime: string
-    tutorId: string
-    topic: string
+    studentId?: string
+    slotDate?: string
+    slotTime?: string
+    tutorId?: string
+    topic?: string
   }) => void
+  weekStart?: string
+  nextWeekStart?: string
 }
 
 type Result =
@@ -31,7 +33,7 @@ const SUGGESTIONS = [
   'Find best-fit tutor for Chemistry',
 ]
 
-export function CommandBar({ sessions, students, tutors, allAvailableSeats, onBookingAction }: CommandBarProps) {
+export function CommandBar({ sessions = [], students = [], tutors = [], allAvailableSeats = [], onBookingAction, weekStart, nextWeekStart }: CommandBarProps) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
@@ -71,10 +73,37 @@ export function CommandBar({ sessions, students, tutors, allAvailableSeats, onBo
       })),
     }))
 
+    // Build a mapping from studentId -> sessions they're in (helps the model answer who is booked where)
+    const studentSessionMap: Record<string, Array<any>> = {}
+    compactSessions.forEach(sess => {
+      (sess.students || []).forEach((st: any) => {
+        if (!studentSessionMap[st.id]) studentSessionMap[st.id] = []
+        studentSessionMap[st.id].push({ sessionId: sess.id, date: sess.date, time: sess.time, tutorId: sess.tutorId, tutorName: sess.tutorName })
+      })
+    })
+
+    const weekStartIso = weekStart ?? toISODate(new Date())
+    const nextWeekStartIso = nextWeekStart ?? (() => { const d = new Date(); d.setDate(new Date().getDate() + 7); return toISODate(d) })()
+
+    const weekEndIso = (() => { const d = new Date(weekStartIso + 'T00:00:00'); d.setDate(d.getDate() + 6); return toISODate(d) })()
+    const nextWeekEndIso = (() => { const d = new Date(nextWeekStartIso + 'T00:00:00'); d.setDate(d.getDate() + 6); return toISODate(d) })()
+
+    const inRange = (date: string, start: string, end: string) => date >= start && date <= end
+
+    const upcomingThisWeek = compactSessions.filter(s => inRange(s.date, weekStartIso, weekEndIso))
+    const upcomingNextWeek = compactSessions.filter(s => inRange(s.date, nextWeekStartIso, nextWeekEndIso))
+
     return {
       today,
       pastSessions: compactSessions.filter(s => s.date < today),
       upcomingSessions: compactSessions.filter(s => s.date >= today),
+      weekStart: weekStartIso,
+      weekEnd: weekEndIso,
+      nextWeekStart: nextWeekStartIso,
+      nextWeekEnd: nextWeekEndIso,
+      upcomingSessionsThisWeek: upcomingThisWeek,
+      upcomingSessionsNextWeek: upcomingNextWeek,
+      studentSessionMap,
       availableSeats: allAvailableSeats.map(s => ({
         tutor: { name: s.tutor.name, subjects: s.tutor.subjects, id: s.tutor.id },
         dayName: s.dayName,
@@ -131,11 +160,12 @@ export function CommandBar({ sessions, students, tutors, allAvailableSeats, onBo
   const handleSlotClick = (slot: any) => {
     setResult(null)
     setQuery('')
-    onBookingAction({ studentId: '', slotDate: slot.date, slotTime: slot.time, tutorId: slot.tutor.id, topic: '' })
+    onBookingAction({ studentId: '', slotDate: slot.date, slotTime: slot.time, tutorId: slot.tutor?.id ?? '', topic: '' })
   }
 
+  const safeAllSeats = allAvailableSeats ?? []
   const matchedSlots = result?.type === 'slots'
-    ? (result.slotIndices ?? []).map((i: number) => allAvailableSeats[i]).filter(Boolean)
+    ? (result.slotIndices ?? []).map((i: number) => safeAllSeats[i]).filter(Boolean)
     : []
 
   const showDropdown = !!(result || loading || (isFocused && !query));
@@ -216,7 +246,7 @@ export function CommandBar({ sessions, students, tutors, allAvailableSeats, onBo
             flexDirection: 'column'
           }}
         >
-          <div style={{ overflowY: 'auto', flex: 1 }}>
+          <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, paddingRight: 6 }}>
             {/* Suggestion View */}
             {isFocused && !query && !result && !loading && (
               <div style={{ padding: '20px' }}>
@@ -245,17 +275,41 @@ export function CommandBar({ sessions, students, tutors, allAvailableSeats, onBo
               </div>
             )}
 
-            {/* List Results */}
+            {/* List Results (vertical, compact cards) */}
             {result?.type === 'list' && (
-              <div style={{ padding: '24px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', marginBottom: '12px' }}>{result.title}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {result.items.map((item, i) => (
-                    <div key={i} style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '13px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }} />
-                      {item}
-                    </div>
-                  ))}
+              <div style={{ padding: '18px 20px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#5b6bff', textTransform: 'uppercase', marginBottom: 10 }}>{result.title}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {result.items.map((item, i) => {
+                    const matches = students.filter(s => item.toLowerCase().includes(s.name.toLowerCase()))
+                    const primaryMatch = matches.length === 1 ? matches[0] : null
+                    if (primaryMatch) {
+                      return (
+                        <div key={i} style={{ padding: 12, background: '#fff', border: '1px solid rgba(15,23,42,0.04)', borderRadius: 10, boxShadow: '0 6px 18px rgba(12,20,32,0.03)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#3b82f6', fontSize: 13 }}>{primaryMatch.name.charAt(0)}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{primaryMatch.name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{primaryMatch.subject ?? ''} · Grade {primaryMatch.grade ?? 'N/A'}</div>
+                            <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#334155' }}>
+                              {primaryMatch.email && <div><strong style={{ fontWeight: 700, color: '#0f172a' }}>Email:</strong> <span style={{ color: '#64748b' }}>{primaryMatch.email}</span></div>}
+                              {primaryMatch.phone && <div><strong style={{ fontWeight: 700, color: '#0f172a' }}>Phone:</strong> <span style={{ color: '#64748b' }}>{primaryMatch.phone}</span></div>}
+                              {primaryMatch.parent_phone && <div><strong style={{ fontWeight: 700, color: '#0f172a' }}>Parent:</strong> <span style={{ color: '#64748b' }}>{primaryMatch.parent_phone}</span></div>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button onClick={() => { setResult(null); setQuery(''); onBookingAction({ studentId: primaryMatch.id }) }} style={{ padding: '8px 10px', borderRadius: 8, border: 'none', background: '#0f172a', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>Book</button>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={i} style={{ padding: 12, background: '#fff', border: '1px solid rgba(15,23,42,0.04)', borderRadius: 10, fontSize: 13, color: '#0f172a' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{item}</div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>{result.title}</div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
