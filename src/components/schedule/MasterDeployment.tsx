@@ -239,6 +239,7 @@ export default function MasterDeployment() {
               tutors={tutors}
               onBookingAction={handleAIBookingAction}
               onOpenProposal={openPreview}
+              onOpenAttendanceModal={(session) => setSelectedSession(session)}
               allAvailableSeats={allAvailableSeats}
               weekStart={toISODate(weekStart)}
               nextWeekStart={toISODate(nextWeekStart)}

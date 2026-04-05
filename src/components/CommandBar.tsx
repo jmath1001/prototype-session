@@ -16,6 +16,7 @@ interface CommandBarProps {
     topic?: string
   }) => void
   onOpenProposal?: (proposal: any) => void
+  onOpenAttendanceModal?: (session: any) => void
   weekStart?: string
   nextWeekStart?: string
 }
@@ -35,7 +36,7 @@ const SUGGESTIONS = [
   'Find best-fit tutor for Chemistry',
 ]
 
-export function CommandBar({ sessions = [], students = [], tutors = [], allAvailableSeats = [], onBookingAction, onOpenProposal, weekStart, nextWeekStart }: CommandBarProps) {
+export function CommandBar({ sessions = [], students = [], tutors = [], allAvailableSeats = [], onBookingAction, onOpenProposal, onOpenAttendanceModal, weekStart, nextWeekStart }: CommandBarProps) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
@@ -110,7 +111,10 @@ export function CommandBar({ sessions = [], students = [], tutors = [], allAvail
         subject: s.subject,
         grade: s.grade,
         hoursLeft: s.hoursLeft,
+        email: s.email,
+        phone: s.phone,
         parent_name: s.parent_name,
+        parent_email: s.parent_email,
         parent_phone: s.parent_phone,
       })),
     }
@@ -338,6 +342,41 @@ export function CommandBar({ sessions = [], students = [], tutors = [], allAvail
                             style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: '#4338ca', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 11, flexShrink: 0 }}>
                             Book
                           </button>
+                        </div>
+                      )
+                    }
+
+                    // Check if this is a session item (contains date/time/tutor pattern)
+                    const sessionMatch = item.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}(?:am|pm)?)\s*-\s*([^:]+):\s*(.+)$/i)
+                    if (sessionMatch) {
+                      const [, date, time, tutorName, studentInfo] = sessionMatch
+                      const isPastSession = date < toISODate(new Date())
+                      
+                      return (
+                        <div key={i} style={{ padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 6, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#92400e', fontSize: 11, flexShrink: 0 }}>
+                            <Calendar size={16} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>{date} {time} - {tutorName}</div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{studentInfo}</div>
+                          </div>
+                          {isPastSession && onOpenAttendanceModal && (
+                            <button 
+                              onClick={() => { 
+                                // Find the actual session object
+                                const session = sessions.find(s => s.date === date && s.time === time && tutors.find(t => t.name === tutorName)?.id === s.tutorId)
+                                if (session) {
+                                  setResult(null)
+                                  setQuery('')
+                                  onOpenAttendanceModal(session)
+                                }
+                              }}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: '#059669', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: 11, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <CheckCircle2 size={12} />
+                              Attendance
+                            </button>
+                          )}
                         </div>
                       )
                     }
