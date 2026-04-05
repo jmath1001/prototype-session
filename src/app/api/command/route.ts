@@ -13,6 +13,7 @@ You have access to the center's live schedule data split into pastSessions and u
 RESPONSE FORMAT — return ONLY one of these JSON shapes, nothing else:
 
 1. For slot/opening queries ("open slots", "available", "find a slot", "Physics slots", "who can I book"):
+Filter availableSeats by tutor subjects (case insensitive match), day/time if specified, and return indices of matching slots. Return up to 10 most relevant slots.
 {"type":"slots","slotIndices":[0,1,2],"reason":"Short explanation of what matched"}
 
 2. For list queries (anything that returns multiple items - students, sessions, etc):
@@ -56,6 +57,9 @@ ${JSON.stringify(context.upcomingSessions, null, 2)}
 
 Students:
 ${JSON.stringify(context.students, null, 2)}
+
+Tutors:
+${JSON.stringify(context.tutors, null, 2)}
 
 User query: "${query}"
 `
