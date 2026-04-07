@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, Check, X, Loader2, Trash2 } from 'lucide-react';
-import { updateAttendance, removeStudentFromSession, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
+import { PlusCircle, Check, X, Loader2 } from 'lucide-react';
+import { updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, TUTOR_PALETTES } from './scheduleConstants';
@@ -47,6 +47,9 @@ interface WeekViewProps {
     student: any;
     topic: string;
   }) => Promise<void>;
+  bulkRemoveMode: boolean;
+  selectedRemovals: Record<string, { sessionId: string; studentId: string; name: string }>;
+  setSelectedRemovals: (value: Record<string, { sessionId: string; studentId: string; name: string }> | ((prev: Record<string, { sessionId: string; studentId: string; name: string }>) => Record<string, { sessionId: string; studentId: string; name: string }>)) => void;
   refetch: () => void;
 }
 
@@ -61,13 +64,13 @@ export function WeekView({
   setSelectedSessionWithNotes,
   handleGridSlotClick,
   onInlineBook,
+  bulkRemoveMode,
+  selectedRemovals,
+  setSelectedRemovals,
   refetch,
 }: WeekViewProps) {
   const [forms, setForms]               = useState<Record<string, InlineForm>>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [bulkRemoveMode, setBulkRemoveMode] = useState(false);
-  const [selectedRemovals, setSelectedRemovals] = useState<Record<string, { sessionId: string; studentId: string; name: string }>>({});
-  const [isRemoving, setIsRemoving] = useState(false);
 
   const selectionKey = (sessionId: string, studentId: string) => `${sessionId}|${studentId}`;
   const toggleRemovalSelection = (sessionId: string, studentId: string, name: string) => {
@@ -126,26 +129,6 @@ export function WeekView({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const handleBulkRemove = async () => {
-    if (!selectedCount) return;
-    if (!window.confirm(`Remove ${selectedCount} selected booking${selectedCount === 1 ? '' : 's'}?`)) return;
-    setIsRemoving(true);
-    try {
-      await Promise.all(Object.values(selectedRemovals).map(item =>
-        removeStudentFromSession({ sessionId: item.sessionId, studentId: item.studentId })
-      ));
-      clearSelection();
-      setBulkRemoveMode(false);
-      refetch();
-      logEvent('bulk_remove_sessions', { count: selectedCount, source: 'week_view' });
-    } catch (err: any) {
-      console.error('Bulk removal failed', err);
-      alert(err?.message || 'Bulk removal failed. Please try again.');
-    } finally {
-      setIsRemoving(false);
-    }
-  };
 
   useEffect(() => {
     if (!bulkRemoveMode) clearSelection();
@@ -251,29 +234,6 @@ export function WeekView({
 
   return (
     <div className="max-w-[1600px] mx-auto p-3 md:p-6 space-y-10 md:space-y-14">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Weekly Schedule</p>
-          <p className="text-xs text-slate-500">Select multiple student slots and remove them in one action.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setBulkRemoveMode(prev => !prev)}
-            className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-semibold transition"
-            style={{ background: bulkRemoveMode ? '#4338ca' : 'white', color: bulkRemoveMode ? 'white' : '#334155', border: '1px solid #e2e8f0' }}
-          >
-            {bulkRemoveMode ? 'Exit remove mode' : 'Bulk remove'}
-          </button>
-          <button
-            onClick={handleBulkRemove}
-            disabled={!selectedCount || isRemoving || !bulkRemoveMode}
-            className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-semibold transition"
-            style={{ background: selectedCount && bulkRemoveMode ? '#dc2626' : '#f3f4f6', color: selectedCount && bulkRemoveMode ? 'white' : '#9ca3af', border: '1px solid #e5e7eb', cursor: selectedCount && bulkRemoveMode ? 'pointer' : 'not-allowed' }}
-          >
-            <Trash2 size={14} /> {isRemoving ? 'Removing…' : `Remove ${selectedCount || 0}`}
-          </button>
-        </div>
-      </div>
       {bulkRemoveMode && (
         <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-700">
           {selectedCount > 0

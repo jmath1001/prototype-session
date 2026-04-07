@@ -6,6 +6,7 @@ import { MAX_CAPACITY, getSessionsForDay, type SessionBlock } from '@/components
 import {
   useScheduleData,
   bookStudent,
+  removeStudentFromSession,
   getWeekStart,
   getWeekDates,
   toISODate,
@@ -54,6 +55,9 @@ export default function MasterDeployment() {
   const [selectedTutorFilter, setSelectedTutorFilter] = useState<string | null>(null);
   const [todayView, setTodayView] = useState(true);
   const [modalTab, setModalTab] = useState<'session' | 'notes'>('session');
+  const [bulkRemoveMode, setBulkRemoveMode] = useState(false);
+  const [selectedRemovals, setSelectedRemovals] = useState<Record<string, { sessionId: string; studentId: string; name: string }>>({});
+  const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 
   const handleTodayDateChange = useCallback((date: Date) => {
     setTodayDate(date);
@@ -113,6 +117,31 @@ export default function MasterDeployment() {
     weekDates.filter(d => ACTIVE_DAYS.includes(dayOfWeek(toISODate(d)))),
     [weekDates]
   );
+  const selectedBulkCount = useMemo(() => Object.keys(selectedRemovals).length, [selectedRemovals]);
+
+  useEffect(() => {
+    if (!bulkRemoveMode) setSelectedRemovals({});
+  }, [bulkRemoveMode]);
+
+  const handleBulkRemove = useCallback(async () => {
+    if (!selectedBulkCount) return;
+    if (!window.confirm(`Remove ${selectedBulkCount} selected booking${selectedBulkCount === 1 ? '' : 's'}?`)) return;
+    setIsBulkRemoving(true);
+    try {
+      await Promise.all(Object.values(selectedRemovals).map(item =>
+        removeStudentFromSession({ sessionId: item.sessionId, studentId: item.studentId })
+      ));
+      setSelectedRemovals({});
+      setBulkRemoveMode(false);
+      refetch();
+      logEvent('bulk_remove_sessions', { count: selectedBulkCount, source: 'schedule_nav' });
+    } catch (err: any) {
+      console.error('Bulk removal failed', err);
+      alert(err?.message || 'Bulk removal failed. Please try again.');
+    } finally {
+      setIsBulkRemoving(false);
+    }
+  }, [selectedBulkCount, selectedRemovals, refetch]);
 
   // Filtered by enrollCat — for BookingForm
   const allAvailableSeats = useMemo(() => {
@@ -278,6 +307,12 @@ export default function MasterDeployment() {
         setSelectedTutorFilter={setSelectedTutorFilter}
         onOpenTutorModal={() => setIsTutorModalOpen(true)}
         onOpenEnrollModal={() => setIsEnrollModalOpen(true)}
+        bulkRemoveMode={bulkRemoveMode}
+        selectedBulkCount={selectedBulkCount}
+        isBulkRemoving={isBulkRemoving}
+        onToggleBulkRemoveMode={() => setBulkRemoveMode(prev => !prev)}
+        onBulkRemove={handleBulkRemove}
+        onClearBulkSelection={() => setSelectedRemovals({})}
         commandBarSlot={
           <>
             <CommandBar
@@ -334,6 +369,9 @@ export default function MasterDeployment() {
           setSelectedSessionWithNotes={setSelectedSessionWithNotes}
           handleGridSlotClick={handleGridSlotClick}
           refetch={refetch}
+          bulkRemoveMode={bulkRemoveMode}
+          selectedRemovals={selectedRemovals}
+          setSelectedRemovals={setSelectedRemovals}
           onInlineBook={async ({ tutorId, date, time, student, topic }) => {
             await bookStudent({ tutorId, date, time, student, topic, notes: '', recurring: false, recurringWeeks: 1 });
           }}
