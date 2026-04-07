@@ -209,11 +209,11 @@ export function WeekView({
     return (
       <div onClick={() => openForm(tutor, date, block.time)}
         className="w-full h-full min-h-[100px] rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
-        style={{ background: '#eaf7ef', border: '2px dashed #86efac' }}
-        onMouseEnter={e => { e.currentTarget.style.background = '#d4f2e3'; e.currentTarget.style.borderColor = '#4ade80'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = '#eaf7ef'; e.currentTarget.style.borderColor = '#86efac'; }}>
-        <PlusCircle size={14} style={{ color: '#22c55e' }} />
-        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#22c55e' }}>Available</span>
+        style={{ background: '#eff6ff', border: '2px dashed #60a5fa' }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#2563eb'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#60a5fa'; }}>
+        <PlusCircle size={14} style={{ color: '#2563eb' }} />
+        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#2563eb' }}>Available</span>
       </div>
     );
   };
@@ -275,7 +275,7 @@ export function WeekView({
               <>
                 {/* Desktop table */}
                 <div className="hidden md:block rounded-xl overflow-hidden"
-                  style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
+                  style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
                   <div className="overflow-x-auto">
                     <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}>
                       <thead>
@@ -299,7 +299,7 @@ export function WeekView({
                           return (
                             <tr key={tutor.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                               <td className="px-2 py-2 align-middle"
-                                style={{ background: '#f0f2f5', borderRight: '1px solid #d1d5db', borderBottom: '1px solid #e5e7eb', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                                style={{ background: '#e2e8f0', borderRight: '1px solid #94a3b8', borderBottom: '1px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
                                     style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
@@ -326,7 +326,7 @@ export function WeekView({
 
                                 return (
                                   <td key={block.id} className="p-2 align-top"
-                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', minWidth: 200 }}>
+                                    style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #cbd5e1', minWidth: 200 }}>
                                     <div className="flex flex-col gap-1.5 h-full min-h-[100px]">
 
                                       {/* Booked students — same card style as TodayView */}
@@ -337,9 +337,9 @@ export function WeekView({
                                           <div key={student.rowId || student.id}
                                             className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
                                             style={
-                                              student.status === 'no-show'  ? { background: 'transparent', border: '1.5px solid #d1d5db', opacity: 0.45 }
-                                              : student.status === 'present' ? { background: '#edfaf3',     border: '1.5px solid #6ee7b7' }
-                                              :                               { background: palette.bg,      border: `1.5px solid ${palette.border}` }
+                                              student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                              : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                              :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
                                             }
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -454,10 +454,10 @@ export function WeekView({
                                               className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                               style={{
                                                 ...(student.status === 'no-show'
-                                                  ? { background: 'transparent', border: '1.5px solid #d1d5db', opacity: 0.4 }
+                                                  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
                                                   : student.status === 'present'
-                                                    ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}` }),
+                                                    ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }),
                                                 ...(bulkRemoveMode ? { boxShadow: isSelected ? '0 0 0 2px rgba(124,58,237,0.3)' : 'none' } : {}),
                                               }}
                                               onClick={(e) => {
@@ -510,9 +510,9 @@ export function WeekView({
                                     {isAvail && (
                                       <div onClick={() => openForm(tutor, isoDate, block.time)}
                                         className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                        style={{ background: '#eaf7ef', border: '2px dashed #86efac' }}>
-                                        <PlusCircle size={14} style={{ color: '#22c55e' }} />
-                                        <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#22c55e' }}>Available</span>
+                                        style={{ background: '#eff6ff', border: '2px dashed #60a5fa' }}>
+                                        <PlusCircle size={14} style={{ color: '#2563eb' }} />
+                                        <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#2563eb' }}>Available</span>
                                       </div>
                                     )}
                                     {isOutside && (

@@ -547,12 +547,12 @@ export function TodayView({
       <div
         onClick={() => openForm(tutor, block.time)}
         className="flex-1 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
-        style={{ minHeight: minH, background: '#eaf7ef', border: '2px dashed #86efac' }}
-        onMouseEnter={e => { e.currentTarget.style.background = '#d4f2e3'; e.currentTarget.style.borderColor = '#4ade80'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = '#eaf7ef'; e.currentTarget.style.borderColor = '#86efac'; }}
+        style={{ minHeight: minH, background: '#eff6ff', border: '2px dashed #60a5fa' }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#2563eb'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#60a5fa'; }}
       >
-        <PlusCircle size={14} style={{ color: '#22c55e' }} />
-        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#22c55e' }}>Available</span>
+        <PlusCircle size={14} style={{ color: '#2563eb' }} />
+        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#2563eb' }}>Available</span>
       </div>
     );
   };
@@ -681,7 +681,7 @@ export function TodayView({
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
               {/* Desktop table */}
-              <div className="hidden md:block rounded-xl" style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <div className="hidden md:block rounded-xl" style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0, overflow: 'auto' }}>
                 <div style={{ minWidth: 'max-content', width: '100%' }}>
                   <table className="border-collapse w-full">
                     <thead>
@@ -708,7 +708,7 @@ export function TodayView({
 
                             {/* Tutor name cell */}
                             <td className="px-3 py-3 align-middle"
-                              style={{ background: '#f0f2f5', borderRight: '1px solid #d1d5db', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
+                              style={{ background: '#e2e8f0', borderRight: '1px solid #94a3b8', borderBottom: '1px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                               <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                                   style={{ background: palette.bg, color: palette.text, border: `1.5px solid ${palette.border}` }}>
@@ -735,7 +735,7 @@ export function TodayView({
 
                               return (
                                 <td key={block.id} className="p-2 align-top"
-                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', minWidth: 200 }}>
+                                  style={{ background: isOutside ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' : '#f3f4f6', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #cbd5e1', minWidth: 200 }}>
                                   <div className="flex flex-col gap-1.5 min-h-[100px]">
 
                                     {/* booked students */}
@@ -743,9 +743,9 @@ export function TodayView({
                                       <div key={student.rowId || student.id}
                                         className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
                                         style={
-                                          student.status === 'no-show'  ? { background: 'transparent', border: '1.5px solid #d1d5db', opacity: 0.45 }
-                                          : student.status === 'present' ? { background: '#edfaf3',     border: '1.5px solid #6ee7b7' }
-                                          :                               { background: palette.bg,      border: `1.5px solid ${palette.border}` }
+                                          student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                          : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                          :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
                                         }
                                         onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
                                         <div className="flex justify-between items-start mb-1">
@@ -843,9 +843,9 @@ export function TodayView({
                                         <div key={student.rowId || student.id}
                                           className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                           style={
-                                            student.status === 'no-show'  ? { background: 'transparent', border: '1.5px solid #e5e7eb', opacity: 0.4 }
-                                            : student.status === 'present' ? { background: '#edfaf3', border: '1.5px solid #6ee7b7' }
-                                            :                               { background: palette.bg, border: `1.5px solid ${palette.border}` }
+                                            student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                            : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                            :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
                                           }>
                                           <button
                                             onClick={async e => {
@@ -881,9 +881,9 @@ export function TodayView({
                                   {isAvail && (
                                     <div onClick={() => openForm(tutor, block.time)}
                                       className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
-                                      style={{ minHeight: 56, background: '#eaf7ef', border: '2px dashed #86efac' }}>
-                                      <PlusCircle size={12} style={{ color: '#22c55e' }} />
-                                      <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#22c55e' }}>Available</span>
+                                      style={{ minHeight: 56, background: '#eff6ff', border: '2px dashed #60a5fa' }}>
+                                      <PlusCircle size={12} style={{ color: '#2563eb' }} />
+                                      <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#2563eb' }}>Available</span>
                                     </div>
                                   )}
                                   {isOutside && (
