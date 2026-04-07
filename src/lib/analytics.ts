@@ -30,6 +30,7 @@ export type EventName =
  | 'ai_booking_initiated'
  |'schedule_builder_confirmed'
  |'bulk_remove_sessions'
+ | 'students_bulk_deleted'
 | 'tutor_deleted'
 | 'tutor_created'
  | 'recurring_series_cancelled'
