@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { DB } from '@/lib/db';
 import {
   fetchAllSeries, fetchSeriesSessions, cancelSeries,
-  rescheduleSeries, markCompletedSeries,
+  rescheduleSeries, markCompletedSeries, createConfirmationToken,
   type RecurringSeries, type Tutor, type Student, toISODate,
 } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
@@ -376,7 +376,7 @@ export default function RecurringManager() {
               const { data: cr, error: ce } = await supabase.from(DB.sessions).insert({ session_date: isoDate, tutor_id: editingSeries.tutorId, time: editingSeries.time }).select('id').single();
               if (ce) throw ce; sessionId = cr.id;
             }
-            const { error: ee } = await supabase.from(DB.sessionStudents).insert({ session_id: sessionId, student_id: student.id, name: student.name, topic: editingSeries.topic, status: 'scheduled', series_id: editingSeries.id });
+            const { error: ee } = await supabase.from(DB.sessionStudents).insert({ session_id: sessionId, student_id: student.id, name: student.name, topic: editingSeries.topic, status: 'scheduled', series_id: editingSeries.id, confirmation_token: createConfirmationToken() });
             if (ee) throw ee;
             cursor.setDate(cursor.getDate() + 7);
           }
@@ -423,7 +423,7 @@ export default function RecurringManager() {
         if (ce) throw ce; newSessionId = cr.id;
       }
       const student = students.find(st => st.id === s.studentId);
-      const { error: ie } = await supabase.from(DB.sessionStudents).insert({ session_id: newSessionId, student_id: s.studentId, name: student?.name ?? s.studentName, topic: newTopic, status: 'scheduled', series_id: s.id });
+      const { error: ie } = await supabase.from(DB.sessionStudents).insert({ session_id: newSessionId, student_id: s.studentId, name: student?.name ?? s.studentName, topic: newTopic, status: 'scheduled', series_id: s.id, confirmation_token: createConfirmationToken() });
       if (ie) throw ie;
       closeSingleEdit();
       logEvent('recurring_session_edited', { seriesId: s.id, date: newDate });

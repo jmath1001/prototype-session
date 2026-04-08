@@ -64,7 +64,7 @@ export default function ContactCenter() {
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [selected, setSelected]                   = useState<Set<string>>(new Set());
   const [sending, setSending]                     = useState(false);
-  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[] } | null>(null);
+  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string } | null>(null);
 
   const [logs, setLogs]                 = useState<Log[]>([]);
   const [loadingLogs, setLoadingLogs]   = useState(true);
@@ -226,7 +226,15 @@ export default function ContactCenter() {
       if (data.error) {
         setSendResult({ sent: 0, failed: selected.size, errors: [data.error] });
       } else {
-        setSendResult({ sent: data.sent ?? 0, failed: data.failed ?? 0, errors: data.errors ?? [] });
+        setSendResult({
+          sent: data.sent ?? 0,
+          failed: data.failed ?? 0,
+          errors: data.errors ?? [],
+          mode: data.mode,
+          redirectedTo: data.redirectedTo ?? null,
+          skipped: !!data.skipped,
+          reason: data.reason,
+        });
         logEvent('reminder_sent', { sent: data.sent ?? 0, failed: data.failed ?? 0, date: dispatchDate });
         await Promise.all([fetchCandidates(dispatchDate), fetchLogs()]);
       }
@@ -272,6 +280,10 @@ export default function ContactCenter() {
                 style={{ background: sendResult.failed > 0 ? '#fef2f2' : '#f0fdf4', border: `1px solid ${sendResult.failed > 0 ? '#fca5a5' : '#86efac'}`, color: sendResult.failed > 0 ? '#dc2626' : '#16a34a' }}>
                 {sendResult.failed > 0 ? <AlertCircle size={16} className="shrink-0 mt-0.5" /> : <Check size={16} className="shrink-0 mt-0.5" />}
                 <div>
+                  {sendResult.mode === 'redirect' && sendResult.redirectedTo && (
+                    <p>Protected mode active. Emails were redirected to {sendResult.redirectedTo} and not marked as sent.</p>
+                  )}
+                  {sendResult.skipped && sendResult.reason && <p>{sendResult.reason}</p>}
                   {sendResult.sent > 0 && <p>{sendResult.sent} reminder{sendResult.sent !== 1 ? 's' : ''} sent.</p>}
                   {sendResult.failed > 0 && <p>{sendResult.failed} failed.{sendResult.errors[0] ? ` (${sendResult.errors[0]})` : ''}</p>}
                 </div>

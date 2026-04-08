@@ -14,6 +14,11 @@ const SESSIONS = DB.sessions;
 const STUDENTS = DB.students;
 const SETTINGS = DB.centerSettings;
 const REMINDER_LOGS = DB.reminderLogs;
+const EMAIL_SEND_MODE = (process.env.EMAIL_SEND_MODE ?? "redirect").toLowerCase();
+const REMINDER_CRON_ENABLED = process.env.REMINDER_CRON_ENABLED === "true";
+const TEST_RECIPIENT = process.env.EMAIL_TEST_RECIPIENT?.trim() || process.env.GOOGLE_EMAIL?.trim() || null;
+
+type DeliveryMode = "live" | "redirect" | "disabled";
 
 type ReminderStudent = {
   name?: string;
@@ -35,6 +40,12 @@ type ReminderSession = {
   session_date: string;
   time: string;
   [SS]?: ReminderEntry[];
+};
+
+type DeliveryGuard = {
+  mode: DeliveryMode;
+  redirectTo: string | null;
+  shouldMarkSent: boolean;
 };
 
 function pickRelation(row: any, key: string) {
@@ -100,6 +111,61 @@ function getTransporter() {
   });
 }
 
+function getDeliveryGuard(): DeliveryGuard {
+  if (EMAIL_SEND_MODE === "live") {
+    return { mode: "live", redirectTo: null, shouldMarkSent: true };
+  }
+
+  if (EMAIL_SEND_MODE === "disabled") {
+    return { mode: "disabled", redirectTo: null, shouldMarkSent: false };
+  }
+
+  return { mode: "redirect", redirectTo: TEST_RECIPIENT, shouldMarkSent: false };
+}
+
+async function sendProtectedMail({
+  transporter,
+  guard,
+  to,
+  subject,
+  text,
+  html,
+}: {
+  transporter: nodemailer.Transporter;
+  guard: DeliveryGuard;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}) {
+  if (guard.mode === "disabled") {
+    return { delivered: false, recipient: null };
+  }
+
+  if (guard.mode === "redirect" && !guard.redirectTo) {
+    throw new Error("EMAIL_TEST_RECIPIENT or GOOGLE_EMAIL must be set before sending in redirect mode");
+  }
+
+  const recipient = guard.mode === "live" ? to : guard.redirectTo!;
+  const subjectPrefix = guard.mode === "redirect" ? `[TEST for ${to}] ` : "";
+  const textPrefix = guard.mode === "redirect"
+    ? `TEST MODE\nOriginal recipient: ${to}\n\n`
+    : "";
+  const htmlPrefix = guard.mode === "redirect"
+    ? `<div style="margin:0 0 16px;padding:12px 14px;border-radius:10px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:12px;font-weight:700;">TEST MODE<br/>Original recipient: ${to}</div>`
+    : "";
+
+  await transporter.sendMail({
+    from: `"Prep Center" <${process.env.GOOGLE_EMAIL}>`,
+    to: recipient,
+    subject: `${subjectPrefix}${subject}`,
+    text: `${textPrefix}${text}`,
+    html: `${htmlPrefix}${html}`,
+  });
+
+  return { delivered: true, recipient };
+}
+
 async function getSettingsOrThrow() {
   const { data, error } = await supabase.from(SETTINGS).select("*").limit(1).maybeSingle();
 
@@ -117,15 +183,16 @@ async function getSettingsOrThrow() {
 // Core send: sends student + parent emails for one session_student row,
 // marks reminder_sent, logs to reminder logs table.
 async function sendReminderForEntry({
-  entry, session, settings, transporter,
-}: { entry: any; session: any; settings: any; transporter: any }) {
+  entry, session, settings, transporter, guard,
+}: { entry: any; session: any; settings: any; transporter: nodemailer.Transporter; guard: DeliveryGuard }) {
   const student = pickRelation(entry, STUDENTS);
   if (!student || (!student.email && !student.parent_email)) return { sent: 0, skipped: true };
 
   let token = entry.confirmation_token;
   if (!token) {
     token = randomUUID();
-    await supabase.from(SS).update({ confirmation_token: token }).eq("id", entry.id);
+    const { error: tokenError } = await supabase.from(SS).update({ confirmation_token: token }).eq("id", entry.id);
+    if (tokenError) throw tokenError;
   }
   const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/confirm?token=${token}`;
   let sent = 0;
@@ -136,36 +203,40 @@ async function sendReminderForEntry({
       .replace("{{date}}", session.session_date)
       .replace("{{time}}", session.time)
       .replace("{{link}}", confirmLink);
-    await transporter.sendMail({
-      from: `"${settings.center_name}" <${process.env.GOOGLE_EMAIL}>`,
+    const result = await sendProtectedMail({
+      transporter,
+      guard,
       to: student.email,
       subject: settings.reminder_subject,
       text: plainBody,
       html: buildStudentHtml(settings, student.name, session, confirmLink),
     });
-    sent++;
+    if (result.delivered) sent++;
   }
 
   if (student.parent_email) {
     const parentName = student.parent_name || "Parent/Guardian";
-    await transporter.sendMail({
-      from: `"${settings.center_name}" <${process.env.GOOGLE_EMAIL}>`,
+    const result = await sendProtectedMail({
+      transporter,
+      guard,
       to: student.parent_email,
       subject: `Upcoming session reminder for ${student.name}`,
       text: `Hi ${parentName},\n\n${student.name} has a session on ${session.session_date} at ${session.time}.\n\nNo action needed.\n\n— ${settings.center_name}`,
       html: buildParentHtml(settings, parentName, student.name, session),
     });
-    sent++;
+    if (result.delivered) sent++;
   }
 
-  await supabase.from(SS).update({ reminder_sent: true }).eq("id", entry.id);
-  await supabase.from(REMINDER_LOGS).insert({
-    session_date:       session.session_date,
-    session_time:       session.time,
-    student_name:       student.name,
-    emailed_to:         [student.email, student.parent_email].filter(Boolean).join(", "),
-    session_student_id: entry.id,
-  });
+  if (guard.shouldMarkSent) {
+    await supabase.from(SS).update({ reminder_sent: true }).eq("id", entry.id);
+    await supabase.from(REMINDER_LOGS).insert({
+      session_date:       session.session_date,
+      session_time:       session.time,
+      student_name:       student.name,
+      emailed_to:         [student.email, student.parent_email].filter(Boolean).join(", "),
+      session_student_id: entry.id,
+    });
+  }
 
   return { sent };
 }
@@ -174,6 +245,17 @@ async function sendReminderForEntry({
 
 export async function GET() {
   try {
+    const guard = getDeliveryGuard();
+    if (!REMINDER_CRON_ENABLED) {
+      return NextResponse.json({
+        sent: 0,
+        skipped: true,
+        mode: guard.mode,
+        redirectedTo: guard.redirectTo,
+        reason: "Automatic reminder sending is disabled. Set REMINDER_CRON_ENABLED=true to enable it.",
+      });
+    }
+
     const settings = await getSettingsOrThrow();
 
     const now = new Date();
@@ -189,6 +271,16 @@ export async function GET() {
       .in("session_date", [todayStr, tomorrowStr]) as PromiseLike<{ data: ReminderSession[] | null; error: any }>);
     if (error) throw error;
 
+    if (guard.mode === "disabled") {
+      return NextResponse.json({
+        sent: 0,
+        skipped: true,
+        mode: guard.mode,
+        redirectedTo: guard.redirectTo,
+        reason: "Email sending is disabled. Set EMAIL_SEND_MODE=redirect or live to send reminders.",
+      });
+    }
+
     const transporter = getTransporter();
     let sent = 0;
     const summaryEntries: string[] = [];
@@ -196,7 +288,7 @@ export async function GET() {
     for (const session of sessions ?? []) {
       for (const entry of (session[SS] as ReminderEntry[] | undefined) ?? []) {
         if (entry.reminder_sent) continue;
-        const result = await sendReminderForEntry({ entry, session, settings, transporter });
+        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard });
         if (!result.skipped) {
           sent += result.sent ?? 0;
           summaryEntries.push(`  • ${pickRelation(entry, STUDENTS)?.name} — ${session.session_date} at ${session.time}`);
@@ -204,7 +296,7 @@ export async function GET() {
       }
     }
 
-    if (settings.center_email) {
+    if (guard.mode === "live" && settings.center_email) {
       await transporter.sendMail({
         from:    `"${settings.center_name}" <${process.env.GOOGLE_EMAIL}>`,
         to:      settings.center_email,
@@ -213,7 +305,7 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json({ sent });
+    return NextResponse.json({ sent, mode: guard.mode, redirectedTo: guard.redirectTo });
   } catch (err: any) {
     console.error("CRON ERROR:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -229,6 +321,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     if (!body.manual || !Array.isArray(body.sessionStudentIds) || body.sessionStudentIds.length === 0) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const guard = getDeliveryGuard();
+    if (guard.mode === "disabled") {
+      return NextResponse.json({
+        sent: 0,
+        failed: 0,
+        errors: [],
+        skipped: true,
+        mode: guard.mode,
+        redirectedTo: guard.redirectTo,
+        reason: "Email sending is disabled. Set EMAIL_SEND_MODE=redirect or live to send reminders.",
+      });
     }
 
     const settings = await getSettingsOrThrow();
@@ -250,14 +355,14 @@ export async function POST(req: NextRequest) {
       const student = pickRelation(entry, STUDENTS);
       if (!session) { errors.push(`${student?.name ?? entry.id}: session not found`); continue; }
       try {
-        const result = await sendReminderForEntry({ entry, session, settings, transporter });
+        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard });
         sent += result.sent ?? 0;
       } catch (e: any) {
         errors.push(`${student?.name ?? entry.id}: ${e.message}`);
       }
     }
 
-    return NextResponse.json({ sent, failed: errors.length, errors });
+    return NextResponse.json({ sent, failed: errors.length, errors, mode: guard.mode, redirectedTo: guard.redirectTo });
   } catch (err: any) {
     console.error("MANUAL SEND ERROR:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

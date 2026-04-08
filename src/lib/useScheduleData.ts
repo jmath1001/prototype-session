@@ -270,6 +270,11 @@ export function useScheduleData(weekStart: Date): ScheduleData {
 
 // ── Write helpers ─────────────────────────────────────────────────────────────
 
+export function createConfirmationToken(): string {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+}
+
 export async function bookStudent({
   tutorId, date, time, student, topic,
   notes = '', recurring = false, recurringWeeks = 1,
@@ -340,6 +345,7 @@ export async function bookStudent({
     const { error: enrollErr } = await supabase.from(SS).insert({
       session_id: sessionId, student_id: student.id, name: student.name,
       topic, notes: notes || null, status: 'scheduled', series_id: seriesId,
+      confirmation_token: createConfirmationToken(),
     })
     if (enrollErr) throw enrollErr
   }
@@ -622,6 +628,7 @@ export async function rescheduleSeries({ seriesId, newTutorId, newTime, student,
     const { error: enrollErr } = await supabase.from(SS).insert({
       session_id: sessionId, student_id: student.id, name: student.name,
       topic, status: 'scheduled', series_id: seriesId,
+      confirmation_token: createConfirmationToken(),
     })
     if (enrollErr) throw enrollErr
   }
