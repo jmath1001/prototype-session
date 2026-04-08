@@ -183,8 +183,15 @@ async function getSettingsOrThrow() {
 // Core send: sends student + parent emails for one session_student row,
 // marks reminder_sent, logs to reminder logs table.
 async function sendReminderForEntry({
-  entry, session, settings, transporter, guard,
-}: { entry: any; session: any; settings: any; transporter: nodemailer.Transporter; guard: DeliveryGuard }) {
+  entry, session, settings, transporter, guard, appBaseUrl,
+}: {
+  entry: any;
+  session: any;
+  settings: any;
+  transporter: nodemailer.Transporter;
+  guard: DeliveryGuard;
+  appBaseUrl: string;
+}) {
   const student = pickRelation(entry, STUDENTS);
   if (!student || (!student.email && !student.parent_email)) return { sent: 0, skipped: true };
 
@@ -194,7 +201,8 @@ async function sendReminderForEntry({
     const { error: tokenError } = await supabase.from(SS).update({ confirmation_token: token }).eq("id", entry.id);
     if (tokenError) throw tokenError;
   }
-  const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/confirm?token=${token}`;
+  const normalizedBaseUrl = appBaseUrl.endsWith("/") ? appBaseUrl.slice(0, -1) : appBaseUrl;
+  const confirmLink = `${normalizedBaseUrl}/confirm?token=${token}`;
   let sent = 0;
 
   if (student.email) {
@@ -246,6 +254,7 @@ async function sendReminderForEntry({
 export async function GET() {
   try {
     const guard = getDeliveryGuard();
+    const appBaseUrl = (process.env.NEXT_PUBLIC_BASE_URL ?? "").trim();
     if (!REMINDER_CRON_ENABLED) {
       return NextResponse.json({
         sent: 0,
@@ -257,6 +266,10 @@ export async function GET() {
     }
 
     const settings = await getSettingsOrThrow();
+
+    if (!appBaseUrl) {
+      throw new Error("NEXT_PUBLIC_BASE_URL must be set for reminder links");
+    }
 
     const now = new Date();
     const todayStr    = now.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
@@ -288,7 +301,7 @@ export async function GET() {
     for (const session of sessions ?? []) {
       for (const entry of (session[SS] as ReminderEntry[] | undefined) ?? []) {
         if (entry.reminder_sent) continue;
-        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard });
+        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard, appBaseUrl });
         if (!result.skipped) {
           sent += result.sent ?? 0;
           summaryEntries.push(`  • ${pickRelation(entry, STUDENTS)?.name} — ${session.session_date} at ${session.time}`);
@@ -324,6 +337,9 @@ export async function POST(req: NextRequest) {
     }
 
     const guard = getDeliveryGuard();
+    const requestOrigin = req.headers.get("origin")?.trim() || "";
+    const bodyBaseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+    const appBaseUrl = bodyBaseUrl || requestOrigin || (process.env.NEXT_PUBLIC_BASE_URL ?? "").trim();
     if (guard.mode === "disabled") {
       return NextResponse.json({
         sent: 0,
@@ -337,6 +353,10 @@ export async function POST(req: NextRequest) {
     }
 
     const settings = await getSettingsOrThrow();
+
+    if (!appBaseUrl) {
+      return NextResponse.json({ error: "Unable to determine app base URL for confirmation links" }, { status: 500 });
+    }
 
     const { data: entries, error: fetchErr } = await (supabase
       .from(SS)
@@ -355,7 +375,7 @@ export async function POST(req: NextRequest) {
       const student = pickRelation(entry, STUDENTS);
       if (!session) { errors.push(`${student?.name ?? entry.id}: session not found`); continue; }
       try {
-        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard });
+        const result = await sendReminderForEntry({ entry, session, settings, transporter, guard, appBaseUrl });
         sent += result.sent ?? 0;
       } catch (e: any) {
         errors.push(`${student?.name ?? entry.id}: ${e.message}`);
