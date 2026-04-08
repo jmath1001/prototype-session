@@ -292,10 +292,9 @@ export default function RecurringManager() {
         id: r.id, name: r.name, subject: r.subject, grade: r.grade ?? null,
         hoursLeft: r.hours_left, availabilityBlocks: r.availability_blocks ?? [],
         email: r.email ?? null, phone: r.phone ?? null,
-        mom_name: r.mom_name ?? null, mom_email: r.mom_email ?? null,
-        mom_phone: r.mom_phone ?? null,
-        dad_name: r.dad_name ?? null, dad_email: r.dad_email ?? null,
-        dad_phone: r.dad_phone ?? null,
+        parent_name: r.parent_name ?? r.mom_name ?? r.dad_name ?? null,
+        parent_email: r.parent_email ?? r.mom_email ?? r.dad_email ?? null,
+        parent_phone: r.parent_phone ?? r.mom_phone ?? r.dad_phone ?? null,
         bluebook_url: r.bluebook_url ?? null,
       })));
     } catch (e: any) { setError(e.message); }
