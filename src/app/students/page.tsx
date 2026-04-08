@@ -20,7 +20,11 @@ const STUDENTS = `${p}_students`
 const SESSIONS = `${p}_sessions`
 const SS       = `${p}_session_students`
 
-const EMPTY_FORM = { name: '', grade: '', email: '', phone: '', parent_name: '', parent_email: '', parent_phone: '' };
+const EMPTY_FORM = {
+  name: '', grade: '', email: '', phone: '',
+  mom_name: '', mom_email: '', mom_phone: '',
+  dad_name: '', dad_email: '', dad_phone: '',
+};
 const ACTIVE_DAYS = [1, 2, 3, 4, 6];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'];
 const MAX_CAPACITY = 3;
@@ -220,8 +224,11 @@ function StudentRow({
     const { error } = await supabase.from(STUDENTS).update({
       name: draft.name, grade: draft.grade,
       email: draft.email || null, phone: draft.phone || null,
-      parent_name: draft.parent_name || null, parent_email: draft.parent_email || null,
-      parent_phone: draft.parent_phone || null, bluebook_url: draft.bluebook_url || null,
+      mom_name: draft.mom_name || null, mom_email: draft.mom_email || null,
+      mom_phone: draft.mom_phone || null,
+      dad_name: draft.dad_name || null, dad_email: draft.dad_email || null,
+      dad_phone: draft.dad_phone || null,
+      bluebook_url: draft.bluebook_url || null,
     }).eq('id', student.id);
     if (!error) { onRefetch(); setIsEditing(false); logEvent('student_edited', { studentName: draft.name }); }
     setSaving(false);
@@ -237,7 +244,14 @@ function StudentRow({
   const handleConfirmBooking = async (data: any) => {
     await bookStudent({
       tutorId: data.slot.tutor.id, date: data.slot.date, time: data.slot.time,
-      student: { id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null, hoursLeft: student.hours_left ?? 0, availabilityBlocks: student.availability_blocks ?? [], email: student.email ?? null, phone: student.phone ?? null, parent_name: student.parent_name ?? null, parent_email: student.parent_email ?? null, parent_phone: student.parent_phone ?? null, bluebook_url: student.bluebook_url ?? null },
+      student: {
+        id: student.id, name: student.name, subject: student.subject ?? '', grade: student.grade ?? null,
+        hoursLeft: student.hours_left ?? 0, availabilityBlocks: student.availability_blocks ?? [],
+        email: student.email ?? null, phone: student.phone ?? null,
+        mom_name: student.mom_name ?? null, mom_email: student.mom_email ?? null, mom_phone: student.mom_phone ?? null,
+        dad_name: student.dad_name ?? null, dad_email: student.dad_email ?? null, dad_phone: student.dad_phone ?? null,
+        bluebook_url: student.bluebook_url ?? null,
+      },
       topic: data.topic, recurring: data.recurring, recurringWeeks: data.recurringWeeks,
     });
     setShowBooking(false); onRefetch();
@@ -381,12 +395,29 @@ function StudentRow({
                   ))}
                 </div>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-2 text-[#94a3b8]">Parent / Guardian</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest mb-2 text-[#94a3b8]">Mom</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
-                      { label: 'Name', field: 'parent_name', type: 'text', value: student.parent_name },
-                      { label: 'Email', field: 'parent_email', type: 'email', value: student.parent_email },
-                      { label: 'Phone', field: 'parent_phone', type: 'tel', value: student.parent_phone },
+                      { label: 'Name', field: 'mom_name', type: 'text', value: student.mom_name },
+                      { label: 'Email', field: 'mom_email', type: 'email', value: student.mom_email },
+                      { label: 'Phone', field: 'mom_phone', type: 'tel', value: student.mom_phone },
+                    ].map(({ label, field, type, value }) => (
+                      <div key={field} className="space-y-1">
+                        <label className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">{label}</label>
+                        {isEditing
+                          ? <input type={type} value={draft[field] ?? ''} onChange={e => setDraft((p: any) => ({ ...p, [field]: e.target.value }))} className={inputCls} placeholder={label} />
+                          : <p className="text-sm text-[#1e293b]">{value || <span className="text-[#cbd5e1] italic text-xs">—</span>}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest mb-2 text-[#94a3b8]">Dad</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {[
+                      { label: 'Name', field: 'dad_name', type: 'text', value: student.dad_name },
+                      { label: 'Email', field: 'dad_email', type: 'email', value: student.dad_email },
+                      { label: 'Phone', field: 'dad_phone', type: 'tel', value: student.dad_phone },
                     ].map(({ label, field, type, value }) => (
                       <div key={field} className="space-y-1">
                         <label className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">{label}</label>
@@ -569,8 +600,10 @@ export default function StudentAdminPage() {
     await supabase.from(STUDENTS).insert([{
       name: newStudent.name, grade: newStudent.grade || null,
       email: newStudent.email || null, phone: newStudent.phone || null,
-      parent_name: newStudent.parent_name || null, parent_email: newStudent.parent_email || null,
-      parent_phone: newStudent.parent_phone || null,
+      mom_name: newStudent.mom_name || null, mom_email: newStudent.mom_email || null,
+      mom_phone: newStudent.mom_phone || null,
+      dad_name: newStudent.dad_name || null, dad_email: newStudent.dad_email || null,
+      dad_phone: newStudent.dad_phone || null,
     }]);
     setAdding(false); setNewStudent(EMPTY_FORM); fetchData(); setCreating(false);
   };
@@ -671,7 +704,15 @@ export default function StudentAdminPage() {
                 ))}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[['Parent Name','parent_name','text','Parent name'],['Parent Email','parent_email','email','parent@email.com'],['Parent Phone','parent_phone','tel','(555) 000-0000']].map(([l,f,t,ph]) => (
+                {[['Mom Name','mom_name','text','Mom name'],['Mom Email','mom_email','email','mom@email.com'],['Mom Phone','mom_phone','tel','(555) 000-0000']].map(([l,f,t,ph]) => (
+                  <div key={f} className="space-y-1">
+                    <label className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">{l}</label>
+                    <input type={t} value={(newStudent as any)[f]} onChange={e => setNewStudent({ ...newStudent, [f]: e.target.value })} className={inputCls} placeholder={ph} />
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[['Dad Name','dad_name','text','Dad name'],['Dad Email','dad_email','email','dad@email.com'],['Dad Phone','dad_phone','tel','(555) 000-0000']].map(([l,f,t,ph]) => (
                   <div key={f} className="space-y-1">
                     <label className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">{l}</label>
                     <input type={t} value={(newStudent as any)[f]} onChange={e => setNewStudent({ ...newStudent, [f]: e.target.value })} className={inputCls} placeholder={ph} />

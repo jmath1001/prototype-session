@@ -23,8 +23,10 @@ type DeliveryMode = "live" | "redirect" | "disabled";
 type ReminderStudent = {
   name?: string;
   email?: string;
-  parent_name?: string;
-  parent_email?: string;
+  mom_name?: string;
+  mom_email?: string;
+  dad_name?: string;
+  dad_email?: string;
 };
 
 type ReminderEntry = {
@@ -82,7 +84,7 @@ function buildStudentHtml(settings: any, studentName: string, session: any, conf
   </table></td></tr></table></body></html>`;
 }
 
-function buildParentHtml(settings: any, parentName: string, studentName: string, session: any) {
+function buildGuardianHtml(settings: any, guardianName: string, studentName: string, session: any) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;"><tr><td align="center">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
@@ -92,7 +94,7 @@ function buildParentHtml(settings: any, parentName: string, studentName: string,
     </td></tr>
     <tr><td style="padding:28px;">
       <p style="margin:0;font-size:15px;color:#111827;line-height:1.6;">
-        Hi <strong>${parentName}</strong>,<br><br>
+        Hi <strong>${guardianName}</strong>,<br><br>
         This is a heads-up that <strong>${studentName}</strong> has a tutoring session on
         <strong>${session.session_date}</strong> at <strong>${session.time}</strong>.<br><br>
         No action needed — this is for your records only.
@@ -180,7 +182,7 @@ async function getSettingsOrThrow() {
   return data;
 }
 
-// Core send: sends student + parent emails for one session_student row,
+// Core send: sends student + family emails for one session_student row,
 // marks reminder_sent, logs to reminder logs table.
 async function sendReminderForEntry({
   entry, session, settings, transporter, guard, appBaseUrl,
@@ -193,7 +195,7 @@ async function sendReminderForEntry({
   appBaseUrl: string;
 }) {
   const student = pickRelation(entry, STUDENTS);
-  if (!student || (!student.email && !student.parent_email)) return { sent: 0, skipped: true };
+  if (!student || (!student.email && !student.mom_email && !student.dad_email)) return { sent: 0, skipped: true };
 
   let token = entry.confirmation_token;
   if (!token) {
@@ -222,15 +224,28 @@ async function sendReminderForEntry({
     if (result.delivered) sent++;
   }
 
-  if (student.parent_email) {
-    const parentName = student.parent_name || "Parent/Guardian";
+  if (student.mom_email) {
+    const momName = student.mom_name || "Mom";
     const result = await sendProtectedMail({
       transporter,
       guard,
-      to: student.parent_email,
+      to: student.mom_email,
       subject: `Upcoming session reminder for ${student.name}`,
-      text: `Hi ${parentName},\n\n${student.name} has a session on ${session.session_date} at ${session.time}.\n\nNo action needed.\n\n— ${settings.center_name}`,
-      html: buildParentHtml(settings, parentName, student.name, session),
+      text: `Hi ${momName},\n\n${student.name} has a session on ${session.session_date} at ${session.time}.\n\nNo action needed.\n\n— ${settings.center_name}`,
+      html: buildGuardianHtml(settings, momName, student.name, session),
+    });
+    if (result.delivered) sent++;
+  }
+
+  if (student.dad_email) {
+    const dadName = student.dad_name || "Dad";
+    const result = await sendProtectedMail({
+      transporter,
+      guard,
+      to: student.dad_email,
+      subject: `Upcoming session reminder for ${student.name}`,
+      text: `Hi ${dadName},\n\n${student.name} has a session on ${session.session_date} at ${session.time}.\n\nNo action needed.\n\n— ${settings.center_name}`,
+      html: buildGuardianHtml(settings, dadName, student.name, session),
     });
     if (result.delivered) sent++;
   }
@@ -241,7 +256,7 @@ async function sendReminderForEntry({
       session_date:       session.session_date,
       session_time:       session.time,
       student_name:       student.name,
-      emailed_to:         [student.email, student.parent_email].filter(Boolean).join(", "),
+      emailed_to:         [student.email, student.mom_email, student.dad_email].filter(Boolean).join(", "),
       session_student_id: entry.id,
     });
   }
@@ -280,7 +295,7 @@ export async function GET() {
       .from(SESSIONS)
       .select(`id, session_date, time,
         ${SS} ( id, status, reminder_sent, confirmation_token, topic,
-          ${STUDENTS} ( name, email, parent_name, parent_email ) )`)
+          ${STUDENTS} ( name, email, mom_name, mom_email, dad_name, dad_email ) )`)
       .in("session_date", [todayStr, tomorrowStr]) as PromiseLike<{ data: ReminderSession[] | null; error: any }>);
     if (error) throw error;
 
@@ -361,7 +376,7 @@ export async function POST(req: NextRequest) {
     const { data: entries, error: fetchErr } = await (supabase
       .from(SS)
       .select(`id, status, reminder_sent, confirmation_token, topic,
-        ${STUDENTS} ( name, email, parent_name, parent_email ),
+        ${STUDENTS} ( name, email, mom_name, mom_email, dad_name, dad_email ),
         ${SESSIONS} ( session_date, time )`)
       .in("id", body.sessionStudentIds) as PromiseLike<{ data: ReminderEntry[] | null; error: any }>);
     if (fetchErr) throw fetchErr;

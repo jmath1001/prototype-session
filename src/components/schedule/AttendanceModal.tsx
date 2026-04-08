@@ -113,7 +113,9 @@ function ModalContent({
       const studentObj = students.find(st => st.id === student.id) ?? {
         id: student.id, name: student.name, subject: student.topic, grade: student.grade ?? null,
         hoursLeft: 0, availabilityBlocks: [], email: null, phone: null,
-        parent_name: null, parent_email: null, parent_phone: null, bluebook_url: null,
+        mom_name: null, mom_email: null, mom_phone: null,
+        dad_name: null, dad_email: null, dad_phone: null,
+        bluebook_url: null,
       };
       await bookStudent({ tutorId: newTutor.id, date: s.date, time: sessionTime, student: studentObj, topic: student.topic });
       refetch(); setSelectedSession(null);
@@ -271,21 +273,42 @@ function ModalContent({
 
                 <div style={{ height: 1, background: '#f1f5f9', margin: '0 12px' }} />
 
-                {/* Parent */}
+                {/* Mom */}
                 <div className="px-3 pt-2 pb-3">
-                  <p className="text-[9px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1.5">Parent / Guardian</p>
+                  <p className="text-[9px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1.5">Mom</p>
                   <div className="space-y-1">
-                    {cr?.parent_name && (
+                    {cr?.mom_name && (
                       <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(203,213,225,0.5)' }}>
                         <User size={11} style={{ color: '#94a3b8' }} className="shrink-0" />
-                        <span className="flex-1 text-[12.5px] font-medium text-[#1e293b]">{cr.parent_name}</span>
-                        <CopyBtn value={cr.parent_name} />
+                        <span className="flex-1 text-[12.5px] font-medium text-[#1e293b]">{cr.mom_name}</span>
+                        <CopyBtn value={cr.mom_name} />
                       </div>
                     )}
-                    {cr?.parent_email && <ContactRow href={`mailto:${cr.parent_email}`} icon={<Mail size={11} />} label={cr.parent_email} copyValue={cr.parent_email} />}
-                    {cr?.parent_phone && <ContactRow href={`tel:${cr.parent_phone}`} icon={<Phone size={11} />} label={cr.parent_phone} copyValue={cr.parent_phone} />}
-                    {!cr?.parent_name && !cr?.parent_email && !cr?.parent_phone && (
-                      <div className="px-2.5 py-2 rounded-lg text-[12px] text-[#94a3b8]" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}>No parent contact on file</div>
+                    {cr?.mom_email && <ContactRow href={`mailto:${cr.mom_email}`} icon={<Mail size={11} />} label={cr.mom_email} copyValue={cr.mom_email} />}
+                    {cr?.mom_phone && <ContactRow href={`tel:${cr.mom_phone}`} icon={<Phone size={11} />} label={cr.mom_phone} copyValue={cr.mom_phone} />}
+                    {!cr?.mom_name && !cr?.mom_email && !cr?.mom_phone && (
+                      <div className="px-2.5 py-2 rounded-lg text-[12px] text-[#94a3b8]" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}>No mom contact on file</div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ height: 1, background: '#f1f5f9', margin: '0 12px' }} />
+
+                {/* Dad */}
+                <div className="px-3 pt-2 pb-3">
+                  <p className="text-[9px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1.5">Dad</p>
+                  <div className="space-y-1">
+                    {cr?.dad_name && (
+                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(203,213,225,0.5)' }}>
+                        <User size={11} style={{ color: '#94a3b8' }} className="shrink-0" />
+                        <span className="flex-1 text-[12.5px] font-medium text-[#1e293b]">{cr.dad_name}</span>
+                        <CopyBtn value={cr.dad_name} />
+                      </div>
+                    )}
+                    {cr?.dad_email && <ContactRow href={`mailto:${cr.dad_email}`} icon={<Mail size={11} />} label={cr.dad_email} copyValue={cr.dad_email} />}
+                    {cr?.dad_phone && <ContactRow href={`tel:${cr.dad_phone}`} icon={<Phone size={11} />} label={cr.dad_phone} copyValue={cr.dad_phone} />}
+                    {!cr?.dad_name && !cr?.dad_email && !cr?.dad_phone && (
+                      <div className="px-2.5 py-2 rounded-lg text-[12px] text-[#94a3b8]" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}>No dad contact on file</div>
                     )}
                   </div>
                 </div>
@@ -404,9 +427,12 @@ export function AttendanceModal(props: AttendanceModalProps) {
     email: studentRecord?.email ?? studentRecord?.student_email ?? student?.email ?? student?.student_email ?? null,
     phone: studentRecord?.phone ?? studentRecord?.student_phone ?? student?.phone ?? student?.student_phone ?? null,
     bluebook_url: studentRecord?.bluebook_url ?? studentRecord?.bluebookUrl ?? student?.bluebook_url ?? student?.bluebookUrl ?? null,
-    parent_name: studentRecord?.parent_name ?? studentRecord?.parentName ?? student?.parent_name ?? student?.parentName ?? null,
-    parent_email: studentRecord?.parent_email ?? studentRecord?.parentEmail ?? student?.parent_email ?? student?.parentEmail ?? null,
-    parent_phone: studentRecord?.parent_phone ?? studentRecord?.parentPhone ?? student?.parent_phone ?? student?.parentPhone ?? null,
+    mom_name: studentRecord?.mom_name ?? studentRecord?.momName ?? student?.mom_name ?? student?.momName ?? null,
+    mom_email: studentRecord?.mom_email ?? studentRecord?.momEmail ?? student?.mom_email ?? student?.momEmail ?? null,
+    mom_phone: studentRecord?.mom_phone ?? studentRecord?.momPhone ?? student?.mom_phone ?? student?.momPhone ?? null,
+    dad_name: studentRecord?.dad_name ?? studentRecord?.dadName ?? student?.dad_name ?? student?.dadName ?? null,
+    dad_email: studentRecord?.dad_email ?? studentRecord?.dadEmail ?? student?.dad_email ?? student?.dadEmail ?? null,
+    dad_phone: studentRecord?.dad_phone ?? studentRecord?.dadPhone ?? student?.dad_phone ?? student?.dadPhone ?? null,
   };
 
   const altTutors = props.tutors.filter(t => {
@@ -421,7 +447,8 @@ export function AttendanceModal(props: AttendanceModalProps) {
 
   const hasContactInfo = !!(
     contactInfo?.email || contactInfo?.phone || contactInfo?.bluebook_url ||
-    contactInfo?.parent_name || contactInfo?.parent_email || contactInfo?.parent_phone
+    contactInfo?.mom_name || contactInfo?.mom_email || contactInfo?.mom_phone ||
+    contactInfo?.dad_name || contactInfo?.dad_email || contactInfo?.dad_phone
   );
 
   const contentProps: ModalContentProps = {

@@ -38,7 +38,8 @@ type Candidate = {
   sessionTime: string;
   tutorName: string;
   studentEmail: string | null;
-  parentEmail: string | null;
+  momEmail: string | null;
+  dadEmail: string | null;
   reminderSent: boolean;
 };
 
@@ -146,7 +147,8 @@ export default function ContactCenter() {
           ${DB.students} (
             name,
             email,
-            parent_email
+            mom_email,
+            dad_email
           )
         `)
         .eq(`${DB.sessions}.session_date`, date)
@@ -165,13 +167,14 @@ export default function ContactCenter() {
           sessionTime:  sess?.time ?? '',
           tutorName:    tutor?.name ?? '—',
           studentEmail: student?.email ?? null,
-          parentEmail:  student?.parent_email ?? null,
+          momEmail:     student?.mom_email ?? null,
+          dadEmail:     student?.dad_email ?? null,
           reminderSent: !!r.reminder_sent,
         };
       }).sort((a: Candidate, b: Candidate) => a.sessionTime.localeCompare(b.sessionTime) || a.studentName.localeCompare(b.studentName));
 
       setCandidates(rows);
-      setSelected(new Set(rows.filter((r: Candidate) => !r.reminderSent && (r.studentEmail || r.parentEmail)).map((r: Candidate) => r.rowId)));
+      setSelected(new Set(rows.filter((r: Candidate) => !r.reminderSent && (r.studentEmail || r.momEmail || r.dadEmail)).map((r: Candidate) => r.rowId)));
     } catch (e: any) {
       console.error('Failed to load candidates:', e);
       setCandidates([]);
@@ -206,7 +209,7 @@ export default function ContactCenter() {
     setEditingTemplate(false);
   };
 
-  const selectableIds = candidates.filter(c => !c.reminderSent && (c.studentEmail || c.parentEmail)).map(c => c.rowId);
+  const selectableIds = candidates.filter(c => !c.reminderSent && (c.studentEmail || c.momEmail || c.dadEmail)).map(c => c.rowId);
   const allChecked  = selectableIds.length > 0 && selectableIds.every(id => selected.has(id));
   const someChecked = selectableIds.some(id => selected.has(id));
 
@@ -352,7 +355,7 @@ export default function ContactCenter() {
             ) : (
               <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #e2e8f0', background: '#ffffff' }}>
                 {candidates.map((c, i) => {
-                  const noEmail    = !c.studentEmail && !c.parentEmail;
+                  const noEmail    = !c.studentEmail && !c.momEmail && !c.dadEmail;
                   const isDisabled = noEmail || c.reminderSent;
                   const isChecked  = selected.has(c.rowId);
                   return (
@@ -375,8 +378,8 @@ export default function ContactCenter() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-[11px] font-semibold" style={{ color: '#475569' }}>{c.sessionTime} · {c.tutorName}</span>
-                          {(c.studentEmail || c.parentEmail) && !c.reminderSent && (
-                            <span className="text-[10px] font-medium" style={{ color: '#64748b' }}>→ {[c.studentEmail, c.parentEmail].filter(Boolean).join(', ')}</span>
+                          {(c.studentEmail || c.momEmail || c.dadEmail) && !c.reminderSent && (
+                            <span className="text-[10px] font-medium" style={{ color: '#64748b' }}>→ {[c.studentEmail, c.momEmail, c.dadEmail].filter(Boolean).join(', ')}</span>
                           )}
                         </div>
                       </div>

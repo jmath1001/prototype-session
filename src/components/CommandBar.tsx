@@ -161,7 +161,8 @@ function StudentHeader({ student, onBook }: { student: any; onBook: () => void }
 // ── Student Contact Card ──────────────────────────────────────────────────────
 function StudentContactCard({ student, onBook }: { student: any; onBook: () => void }) {
   const hasStudent = student.email || student.phone
-  const hasParent = student.parent_name || student.parent_email || student.parent_phone
+  const hasMom = student.mom_name || student.mom_email || student.mom_phone
+  const hasDad = student.dad_name || student.dad_email || student.dad_phone
   return (
     <div>
       <StudentHeader student={student} onBook={onBook} />
@@ -175,22 +176,42 @@ function StudentContactCard({ student, onBook }: { student: any; onBook: () => v
             </div>
           </>
         )}
-        {hasParent && (
+        {hasMom && (
           <>
-            <Section label="Parent / Guardian" />
+            <Section label="Mom" />
             <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {student.parent_name && (
+              {student.mom_name && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: C.surface, border: `1.5px solid ${C.border}` }}>
                   <User size={13} style={{ color: C.textMuted, flexShrink: 0 }} />
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Name</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>{student.parent_name}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>{student.mom_name}</div>
                   </div>
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
-                {student.parent_email && <ContactLink href={`mailto:${student.parent_email}`} icon={<Mail size={13} />} label={student.parent_email} sublabel="Email" />}
-                {student.parent_phone && <ContactLink href={`tel:${student.parent_phone}`} icon={<Phone size={13} />} label={student.parent_phone} sublabel="Phone" />}
+                {student.mom_email && <ContactLink href={`mailto:${student.mom_email}`} icon={<Mail size={13} />} label={student.mom_email} sublabel="Email" />}
+                {student.mom_phone && <ContactLink href={`tel:${student.mom_phone}`} icon={<Phone size={13} />} label={student.mom_phone} sublabel="Phone" />}
+              </div>
+            </div>
+          </>
+        )}
+        {hasDad && (
+          <>
+            <Section label="Dad" />
+            <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {student.dad_name && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: C.surface, border: `1.5px solid ${C.border}` }}>
+                  <User size={13} style={{ color: C.textMuted, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 1 }}>Name</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>{student.dad_name}</div>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {student.dad_email && <ContactLink href={`mailto:${student.dad_email}`} icon={<Mail size={13} />} label={student.dad_email} sublabel="Email" />}
+                {student.dad_phone && <ContactLink href={`tel:${student.dad_phone}`} icon={<Phone size={13} />} label={student.dad_phone} sublabel="Phone" />}
               </div>
             </div>
           </>
@@ -203,7 +224,7 @@ function StudentContactCard({ student, onBook }: { student: any; onBook: () => v
             </div>
           </>
         )}
-        {!hasStudent && !hasParent && !student.bluebook_url && (
+        {!hasStudent && !hasMom && !hasDad && !student.bluebook_url && (
           <div style={{ padding: '24px 20px', color: C.textMuted, fontSize: 13, textAlign: 'center' }}>No contact info on file</div>
         )}
       </div>
@@ -449,7 +470,8 @@ export function CommandBar({
     students: students.map(s => ({
       id: s.id, name: s.name, subject: s.subject, grade: s.grade,
       hoursLeft: s.hoursLeft, email: s.email, phone: s.phone,
-      parent_name: s.parent_name, parent_email: s.parent_email, parent_phone: s.parent_phone,
+      mom_name: s.mom_name, mom_email: s.mom_email, mom_phone: s.mom_phone,
+      dad_name: s.dad_name, dad_email: s.dad_email, dad_phone: s.dad_phone,
     })),
     availableSeats: allAvailableSeats.map(s => ({
       tutor: { name: s.tutor.name, id: s.tutor.id, subjects: s.tutor.subjects ?? [] },

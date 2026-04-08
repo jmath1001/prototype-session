@@ -12,9 +12,12 @@ const DB_FIELDS = [
   { key: 'grade',        label: 'Grade' },
   { key: 'email',        label: 'Student Email' },
   { key: 'phone',        label: 'Student Phone' },
-  { key: 'parent_name',  label: 'Parent Name' },
-  { key: 'parent_email', label: 'Parent Email' },
-  { key: 'parent_phone', label: 'Parent Phone' },
+  { key: 'mom_name',     label: 'Mom Name' },
+  { key: 'mom_email',    label: 'Mom Email' },
+  { key: 'mom_phone',    label: 'Mom Phone' },
+  { key: 'dad_name',     label: 'Dad Name' },
+  { key: 'dad_email',    label: 'Dad Email' },
+  { key: 'dad_phone',    label: 'Dad Phone' },
   { key: 'bluebook_url', label: 'Bluebook URL' },
   { key: 'hours_left',   label: 'Hours Left' },
 ]
@@ -29,11 +32,14 @@ function autoMap(headers: string[]): Record<string, string> {
         hl === fl ||
         hl.includes(fl) ||
         fl.includes(hl) ||
-        (hl.includes('parent') && hl.includes('name') && f.key === 'parent_name') ||
-        (hl.includes('parent') && hl.includes('email') && f.key === 'parent_email') ||
-        (hl.includes('parent') && (hl.includes('phone') || hl.includes('cell')) && f.key === 'parent_phone') ||
-        (!hl.includes('parent') && hl.includes('email') && f.key === 'email') ||
-        (!hl.includes('parent') && (hl.includes('phone') || hl.includes('cell')) && f.key === 'phone') ||
+        ((hl.includes('parent') || hl.includes('mom') || hl.includes('mother')) && hl.includes('name') && f.key === 'mom_name') ||
+        ((hl.includes('parent') || hl.includes('mom') || hl.includes('mother')) && hl.includes('email') && f.key === 'mom_email') ||
+        ((hl.includes('parent') || hl.includes('mom') || hl.includes('mother')) && (hl.includes('phone') || hl.includes('cell')) && f.key === 'mom_phone') ||
+        ((hl.includes('dad') || hl.includes('father')) && hl.includes('name') && f.key === 'dad_name') ||
+        ((hl.includes('dad') || hl.includes('father')) && hl.includes('email') && f.key === 'dad_email') ||
+        ((hl.includes('dad') || hl.includes('father')) && (hl.includes('phone') || hl.includes('cell')) && f.key === 'dad_phone') ||
+        (!hl.includes('parent') && !hl.includes('mom') && !hl.includes('mother') && !hl.includes('dad') && !hl.includes('father') && hl.includes('email') && f.key === 'email') ||
+        (!hl.includes('parent') && !hl.includes('mom') && !hl.includes('mother') && !hl.includes('dad') && !hl.includes('father') && (hl.includes('phone') || hl.includes('cell')) && f.key === 'phone') ||
         (hl.includes('grade') && f.key === 'grade') ||
         ((hl === 'name' || hl === 'studentname' || hl === 'fullname') && f.key === 'name') ||
         (hl.includes('hour') && f.key === 'hours_left') ||
@@ -280,7 +286,8 @@ export function CSVImportModal({ onClose, onImported }: Props) {
                         <span className="font-bold text-[#0f172a] w-28 shrink-0 truncate">{getMapped(row, 'name')}</span>
                         {getMapped(row, 'grade') && <span className="text-[#64748b]">Gr. {getMapped(row, 'grade')}</span>}
                         {getMapped(row, 'email') && <span className="text-[#94a3b8] truncate">{getMapped(row, 'email')}</span>}
-                        {getMapped(row, 'parent_name') && <span className="text-[#94a3b8] truncate">{getMapped(row, 'parent_name')}</span>}
+                        {getMapped(row, 'mom_name') && <span className="text-[#94a3b8] truncate">{getMapped(row, 'mom_name')}</span>}
+                        {getMapped(row, 'dad_name') && <span className="text-[#94a3b8] truncate">{getMapped(row, 'dad_name')}</span>}
                       </div>
                     ))}
                   </div>
