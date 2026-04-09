@@ -49,7 +49,7 @@ export function ScheduleNav({
   return (
     <div className="sticky top-0 z-30 border-b"
       style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', borderColor: '#e0e7ff' }}>
-      <div className="max-w-[1600px] mx-auto px-2 md:px-6 h-10 md:h-11 flex items-center gap-1.5 md:gap-2">
+      <div className="mx-auto px-2 md:px-6 h-10 md:h-11 relative flex items-center gap-1.5 md:gap-2" style={{ maxWidth: 1600 }}>
 
         {/* Week/Today toggle */}
         <div className="flex gap-0.5 p-0.5 rounded-lg shrink-0" style={{ background: '#e0e7ff' }}>
@@ -92,10 +92,22 @@ export function ScheduleNav({
           </>
         )}
 
+        {commandBarSlot && (
+          <div className="absolute left-1/2 top-1/2 hidden xl:flex w-full -translate-x-1/2 -translate-y-1/2 justify-center px-4 pointer-events-none" style={{ maxWidth: 620 }}>
+            <div className="w-full flex items-center justify-center gap-2 pointer-events-auto">
+              {commandBarSlot}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 min-w-0" />
 
-        {/* AI command bar button — renders whatever MasterDeployment passes in */}
-        {commandBarSlot}
+        {/* AI command bar stays inline below xl to avoid overlapping nav controls */}
+        {commandBarSlot && (
+          <div className="flex xl:hidden items-center gap-2 shrink-0">
+            {commandBarSlot}
+          </div>
+        )}
 
         {!todayView && onToggleBulkRemoveMode && onBulkRemove && (
           <>
