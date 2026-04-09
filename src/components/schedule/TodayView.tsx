@@ -139,32 +139,32 @@ function SidePanel({
   };
 
   const statusStyle = (status: string) => {
-    if (status === 'present')  return { bg: '#edfaf3', border: '#6ee7b7', dot: '#059669', label: 'Present' };
-    if (status === 'no-show')  return { bg: '#fef2f2', border: '#fca5a5', dot: '#dc2626', label: 'No-show' };
-    return                            { bg: '#f9fafb', border: '#e5e7eb', dot: '#d1d5db', label: 'Unmarked' };
+    if (status === 'present')  return { bg: '#dcfce7', border: '#86efac', dot: '#16a34a', label: '✓ Present' };
+    if (status === 'no-show')  return { bg: '#fee2e2', border: '#fca5a5', dot: '#dc2626', label: '✕ No-show' };
+    return                            { bg: '#dbeafe', border: '#7dd3fc', dot: '#0284c7', label: '→ Unmarked' };
   };
 
   return (
-    <div className="hidden md:flex flex-col shrink-0" style={{ width: 232, minHeight: 0 }}>
-      <div className="rounded-xl overflow-hidden flex flex-col"
-        style={{ background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0 }}>
+    <div className="hidden md:flex flex-col shrink-0" style={{ width: 240, minHeight: 0 }}>
+      <div className="rounded-xl overflow-hidden flex flex-col shadow-sm"
+        style={{ background: 'white', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 16px rgba(15,23,42,0.08)', flex: 1, minHeight: 0 }}>
 
         {/* Tab bar */}
-        <div className="flex shrink-0" style={{ background: '#f3f4f6', borderBottom: '1px solid #e5e7eb' }}>
+        <div className="flex shrink-0" style={{ background: 'linear-gradient(90deg, #ffffff 0%, #f8fafc 100%)', borderBottom: '1.5px solid #e2e8f0' }}>
           {([
-            { key: 'attendance',   label: 'Attend',  count: attCounts.all,          countBg: '#1f2937' },
-            { key: 'confirmation', label: 'Confirm', count: pendingStudents.length, countBg: '#4f46e5' },
+            { key: 'attendance',   label: '✓ Attendance',  count: attCounts.all,          countBg: '#10b981' },
+            { key: 'confirmation', label: '⚪ Confirm', count: pendingStudents.length, countBg: '#f59e0b' },
           ] as const).map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black uppercase tracking-wider transition-all"
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[10px] font-black uppercase tracking-wider transition-all"
               style={tab === t.key
-                ? { background: 'white', color: '#111827', borderBottom: '2px solid #1f2937' }
-                : { color: '#9ca3af', borderBottom: '2px solid transparent' }}>
+                ? { background: t.key === 'attendance' ? '#ecfdf5' : '#fffbeb', color: t.key === 'attendance' ? '#16a34a' : '#b45309', borderBottom: `3px solid ${t.key === 'attendance' ? '#10b981' : '#f59e0b'}`, boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }
+                : { color: '#94a3b8', borderBottom: '3px solid transparent', fontWeight: '600' }}>
               {t.label}
               {t.count > 0 && (
-                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: tab === t.key ? t.countBg : '#d1d5db', color: 'white' }}>
+                <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full" style={{ background: t.key === 'attendance' ? '#10b981' : '#f59e0b', color: 'white' }}>
                   {t.count}
                 </span>
               )}
@@ -174,25 +174,25 @@ function SidePanel({
 
         {/* ── CONFIRMATION TAB ── */}
         {tab === 'confirmation' && (
-          <div className="overflow-y-auto flex-1 p-2">
+          <div className="overflow-y-auto flex-1 p-2.5">
             {pendingStudents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: '#dcfce7' }}>
-                  <Check size={14} style={{ color: '#16a34a' }} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>
+                  <Check size={16} style={{ color: '#16a34a' }} />
                 </div>
-                <p className="text-[10px] font-semibold text-center" style={{ color: '#9ca3af' }}>All confirmed</p>
+                <p className="text-[11px] font-bold text-center" style={{ color: '#16a34a' }}>All confirmed!</p>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <div className="px-2 py-1.5 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+              <div className="space-y-2">
+                <div className="px-3 py-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '1.5px solid #fde68a' }}>
                   <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#b45309' }}>
-                    Waiting For Confirmation
+                    ⚠️ {pendingStudents.length} Need Confirmation
                   </p>
                 </div>
                 {pendingStudents.map((student: any, idx: number) => (
                   <div key={`${student.rowId || student.id}-${idx}`}
-                    className="p-2.5 rounded-lg cursor-pointer transition-all hover:shadow-sm"
-                    style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}
+                    className="p-3 rounded-lg cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
+                    style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}
                     onClick={() => setSelectedSessionWithNotes({
                       ...student.session,
                       activeStudent: student,
@@ -201,14 +201,14 @@ function SidePanel({
                       tutorName: student.tutorName,
                       block: daySessions.find((b: any) => b.time === student.sessionTime),
                     })}>
-                    <p className="text-xs font-bold leading-tight" style={{ color: '#111827' }}>{student.name}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Clock size={9} style={{ color: '#4b5563' }} />
-                      <span className="text-[9px] font-semibold" style={{ color: '#4b5563' }}>
+                    <p className="text-xs font-bold leading-tight text-[#0f172a]">{student.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Clock size={10} style={{ color: '#f59e0b' }} />
+                      <span className="text-[9px] font-semibold text-[#f59e0b]">
                         {daySessions.find((b: any) => b.time === student.sessionTime)?.label ?? student.sessionTime}
                       </span>
                     </div>
-                    <p className="text-[9px] mt-0.5 font-medium truncate" style={{ color: '#6b7280' }}>{student.tutorName}</p>
+                    <p className="text-[9px] mt-1 font-medium truncate text-[#64748b]">{student.tutorName}</p>
                   </div>
                 ))}
               </div>
@@ -220,48 +220,48 @@ function SidePanel({
         {tab === 'attendance' && (
           <>
             {/* Filter pills */}
-            <div className="flex gap-1 px-2 py-2 shrink-0" style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <div className="flex gap-1.5 px-2.5 py-2.5 shrink-0" style={{ borderBottom: '1.5px solid #f1f5f9', background: '#f8fafc' }}>
               {([
-                { key: 'all',      label: 'All',     dot: '#9ca3af' },
-                { key: 'present',  label: 'Here',    dot: '#059669' },
-                { key: 'no-show',  label: 'No-show', dot: '#dc2626' },
-                { key: 'unmarked', label: '?',       dot: '#d1d5db' },
+                { key: 'all',      label: 'All',     dot: '#10b981' },
+                { key: 'present',  label: '✓',    dot: '#10b981' },
+                { key: 'no-show',  label: '✕', dot: '#dc2626' },
+                { key: 'unmarked', label: '?',       dot: '#0284c7' },
               ] as const).map(f => (
                 <button
                   key={f.key}
                   onClick={() => setAttFilter(f.key)}
-                  className="flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-[9px] font-black transition-all"
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[9px] font-black transition-all"
                   style={attFilter === f.key
-                    ? { background: '#1f2937', color: 'white' }
-                    : { background: '#f3f4f6', color: '#6b7280' }}>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: attFilter === f.key ? 'white' : f.dot }} />
+                    ? { background: f.key === 'present' ? '#dcfce7' : f.key === 'no-show' ? '#fee2e2' : '#dbeafe', color: f.key === 'present' ? '#16a34a' : f.key === 'no-show' ? '#dc2626' : '#0284c7', border: '1.5px solid' + (f.key === 'present' ? '#86efac' : f.key === 'no-show' ? '#fca5a5' : '#7dd3fc'), boxShadow: f.key === 'present' ? '0 2px 4px rgba(22,163,74,0.1)' : f.key === 'no-show' ? '0 2px 4px rgba(220,38,38,0.1)' : '0 2px 4px rgba(2,132,199,0.1)' }
+                    : { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: f.dot, opacity: attFilter === f.key ? 1 : 0.5 }} />
                   {f.label}
                   {attCounts[f.key] > 0 && (
-                    <span style={{ opacity: 0.7 }}>({attCounts[f.key]})</span>
+                    <span style={{ opacity: 0.75, fontSize: '7px' }}>({attCounts[f.key]})</span>
                   )}
                 </button>
               ))}
             </div>
 
-            <div className="overflow-y-auto flex-1 p-2">
+            <div className="overflow-y-auto flex-1 p-2.5">
               {filteredAtt.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
-                  <p className="text-[10px] font-semibold text-center" style={{ color: '#9ca3af' }}>
+                  <p className="text-[10px] font-semibold text-center text-[#94a3b8]">
                     No {attFilter === 'all' ? '' : attFilter} students
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {filteredAtt.map((student: any, idx: number) => {
                     const st = statusStyle(student.status);
                     const isToggling = toggling === (student.rowId || student.id);
                     return (
                       <div key={`${student.rowId || student.id}-${idx}`}
-                        className="rounded-lg overflow-hidden"
-                        style={{ border: `1px solid ${st.border}`, background: st.bg }}>
+                        className="rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all"
+                        style={{ border: `1.5px solid ${st.border}`, background: st.bg }}>
                         {/* Student row */}
-                        <div className="flex items-center gap-2 px-2.5 py-2">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.dot }} />
+                        <div className="flex items-center gap-2 px-3 py-2.5">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: st.dot }} />
                           <div className="flex-1 min-w-0 cursor-pointer"
                             onClick={() => setSelectedSessionWithNotes({
                               ...student.session,
@@ -271,8 +271,8 @@ function SidePanel({
                               tutorName: student.tutorName,
                               block: daySessions.find((b: any) => b.time === student.sessionTime),
                             })}>
-                            <p className="text-xs font-bold leading-tight truncate" style={{ color: '#111827' }}>{student.name}</p>
-                            <p className="text-[9px] font-semibold" style={{ color: '#6b7280' }}>
+                            <p className="text-xs font-bold leading-tight truncate text-[#0f172a]">{student.name}</p>
+                            <p className="text-[9px] font-semibold text-[#64748b]">
                               {daySessions.find((b: any) => b.time === student.sessionTime)?.label ?? student.sessionTime}
                               {' · '}{student.tutorName.split(' ')[0]}
                             </p>
@@ -281,8 +281,8 @@ function SidePanel({
                         {/* Attendance toggles */}
                         <div className="flex border-t" style={{ borderColor: st.border }}>
                           {([
-                            { status: 'present' as const, label: '✓ Here',    activeBg: '#059669', activeColor: 'white' },
-                            { status: 'scheduled' as const, label: '– Reset', activeBg: '#6b7280', activeColor: 'white' },
+                            { status: 'present' as const, label: '✓ Here',    activeBg: '#16a34a', activeColor: 'white' },
+                            { status: 'scheduled' as const, label: '–', activeBg: '#64748b', activeColor: 'white' },
                             { status: 'no-show' as const, label: '✕ Skip',    activeBg: '#dc2626', activeColor: 'white' },
                           ]).map((btn, bi) => {
                             const isActive = student.status === btn.status || (btn.status === 'scheduled' && student.status !== 'present' && student.status !== 'no-show');
@@ -291,12 +291,13 @@ function SidePanel({
                                 key={btn.status}
                                 disabled={isToggling}
                                 onClick={() => handleToggle(student, btn.status)}
-                                className="flex-1 py-1.5 text-[8px] font-black uppercase tracking-wide transition-all"
+                                className="flex-1 py-2 text-[8px] font-black uppercase tracking-wider transition-all hover:opacity-90"
                                 style={{
                                   background: isActive ? btn.activeBg : 'transparent',
                                   color: isActive ? btn.activeColor : '#9ca3af',
                                   borderRight: bi < 2 ? `1px solid ${st.border}` : 'none',
-                                  opacity: isToggling ? 0.5 : 1,
+                                  opacity: isToggling ? 0.6 : 1,
+                                  fontWeight: isActive ? '900' : '700',
                                 }}>
                                 {isToggling && isActive ? '…' : btn.label}
                               </button>

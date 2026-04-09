@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import {
   Plus, Trash2, GraduationCap, Loader2, Save, X, Search,
   ChevronDown, ChevronUp, ExternalLink, BarChart2, AlertTriangle,
@@ -357,6 +358,11 @@ function StudentRow({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-1 pr-3" onClick={e => e.stopPropagation()}>
+          <Link href={`/students/${student.id}`}
+            className="inline-flex rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#7f1d1d] transition-all"
+            style={{ background: '#fee2e2', border: '1px solid #fca5a5' }}>
+            History
+          </Link>
           <button onClick={() => setShowBooking(true)}
             className="rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white transition-all"
             style={{ background: '#dc2626', boxShadow: '0 8px 18px rgba(220,38,38,0.24)' }}>Book</button>
@@ -465,9 +471,9 @@ function StudentRow({
             )}
 
             {tab === 'sessions' && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 max-h-105 overflow-y-auto pr-1">
                 {allStudentSessions.length === 0 && <p className="text-xs text-[#94a3b8] italic">No sessions yet</p>}
-                {allStudentSessions.slice(0, 8).map((s, i) => {
+                {allStudentSessions.map((s, i) => {
                   const d = new Date(s.date + 'T00:00:00');
                   const statusColors: Record<string, { bg: string; text: string }> = {
                     present: { bg: '#f0fdf4', text: '#16a34a' },
@@ -493,8 +499,14 @@ function StudentRow({
                     </div>
                   );
                 })}
-                {allStudentSessions.length > 8 && (
-                  <p className="text-[10px] text-[#94a3b8] text-center pt-1">+{allStudentSessions.length - 8} more</p>
+                {allStudentSessions.length > 0 && (
+                  <div className="pt-2 text-center">
+                    <Link href={`/students/${student.id}`}
+                      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]"
+                      style={{ color: '#7f1d1d', background: '#fff1f2', border: '1px solid #fecdd3' }}>
+                      Full History <ChevronRight size={10} />
+                    </Link>
+                  </div>
                 )}
               </div>
             )}
