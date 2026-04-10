@@ -287,6 +287,49 @@ export function createConfirmationToken(): string {
     ?? `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
 }
 
+export async function createInlineStudent({
+  name,
+  subject,
+}: {
+  name: string
+  subject?: string | null
+}): Promise<Student> {
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('Student name is required.')
+
+  const { data, error } = await supabase
+    .from(STUDENTS)
+    .insert({
+      name: trimmed,
+      subject: subject?.trim() || null,
+    })
+    .select('*')
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    name: data.name,
+    subject: data.subject ?? subject?.trim() ?? 'General',
+    grade: data.grade ?? null,
+    hoursLeft: data.hours_left ?? 0,
+    availabilityBlocks: data.availability_blocks ?? [],
+    email: data.email ?? null,
+    phone: data.phone ?? null,
+    parent_name: data.parent_name ?? null,
+    parent_email: data.parent_email ?? null,
+    parent_phone: data.parent_phone ?? null,
+    mom_name: data.mom_name ?? null,
+    mom_email: data.mom_email ?? null,
+    mom_phone: data.mom_phone ?? null,
+    dad_name: data.dad_name ?? null,
+    dad_email: data.dad_email ?? null,
+    dad_phone: data.dad_phone ?? null,
+    bluebook_url: data.bluebook_url ?? null,
+  }
+}
+
 export async function bookStudent({
   tutorId, date, time, student, topic,
   notes = '', recurring = false, recurringWeeks = 1,

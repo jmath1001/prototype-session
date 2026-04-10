@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlusCircle, Check, X, Loader2 } from 'lucide-react';
-import { updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
+import { createInlineStudent, updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, TUTOR_PALETTES } from './scheduleConstants';
@@ -15,6 +15,7 @@ interface InlineForm {
   topic: string;
   recurring: boolean;
   recurringWeeks: number;
+  creating: boolean;
   saving: boolean;
   error: string | null;
 }
@@ -25,6 +26,7 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   topic: tutor.subjects?.[0] ?? '',
   recurring: false,
   recurringWeeks: 4,
+  creating: false,
   saving: false,
   error: null,
 });
@@ -153,6 +155,40 @@ export function WeekView({
     }
   };
 
+  const handleCreateStudent = async (key: string, tutor: Tutor) => {
+    const form = forms[key];
+    const name = form?.query?.trim();
+    if (!name || form?.creating) return;
+
+    const existing = students.find(
+      (s: any) => String(s?.name ?? '').trim().toLowerCase() === name.toLowerCase()
+    );
+
+    if (existing) {
+      patchForm(key, { student: existing, query: existing.name, error: null });
+      setOpenDropdown(null);
+      return;
+    }
+
+    patchForm(key, { creating: true, error: null });
+    try {
+      const created = await createInlineStudent({
+        name,
+        subject: form.topic || tutor.subjects?.[0] || null,
+      });
+      patchForm(key, {
+        creating: false,
+        student: created,
+        query: created.name,
+        topic: form.topic || tutor.subjects?.[0] || created.subject || '',
+      });
+      setOpenDropdown(null);
+      refetch();
+    } catch (err: any) {
+      patchForm(key, { creating: false, error: err?.message || 'Could not create student.' });
+    }
+  };
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (!(e.target as Element).closest('[data-inline-form]')) setOpenDropdown(null);
@@ -198,7 +234,10 @@ export function WeekView({
     const form  = forms[key];
     if (!form) return null;
     const hints   = getSuggestions(key);
-    const canSave = !!form.student && !!form.topic && !form.saving && (!form.recurring || form.recurringWeeks >= 2);
+    const normalizedQuery = (form.query ?? '').trim();
+    const hasExactMatch = hints.some((s: any) => String(s?.name ?? '').trim().toLowerCase() === normalizedQuery.toLowerCase());
+    const canCreate = !!normalizedQuery && !form.student && !hasExactMatch && !form.saving;
+    const canSave = !!form.student && !!form.topic && !form.saving && !form.creating && (!form.recurring || form.recurringWeeks >= 2);
     const topics  = topicsFor(tutor);
     const selectedTopicOption = topics.includes(form.topic) ? form.topic : '__custom__';
 
@@ -214,7 +253,7 @@ export function WeekView({
         <div className="relative" data-inline-form>
           <input autoFocus type="text" placeholder="Student name…"
             value={form.student ? form.student.name : form.query}
-            onChange={e => { patchForm(key, { query: e.target.value, student: null }); setOpenDropdown(key); }}
+            onChange={e => { patchForm(key, { query: e.target.value, student: null, error: null }); setOpenDropdown(key); }}
             onFocus={() => setOpenDropdown(key)}
             className="w-full text-xs font-semibold rounded-lg px-2.5 py-1.5 outline-none"
             style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
@@ -224,7 +263,7 @@ export function WeekView({
               <X size={9} />
             </button>
           )}
-          {openDropdown === key && hints.length > 0 && !form.student && (
+          {openDropdown === key && !form.student && (hints.length > 0 || canCreate) && (
             <div data-inline-form className="absolute z-50 left-0 right-0 rounded-lg overflow-hidden"
               style={{ top: 'calc(100% + 3px)', background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 6px 20px rgba(0,0,0,0.12)' }}>
               {hints.map(s => (
@@ -243,6 +282,18 @@ export function WeekView({
                   {s.subject && <span className="ml-2 text-[9px] font-normal" style={{ color: '#a5b4fc' }}>{s.subject}</span>}
                 </button>
               ))}
+              {canCreate && (
+                <button
+                  className="w-full text-left px-3 py-2 text-xs font-bold transition-colors"
+                  style={{ color: '#2563eb', background: '#eff6ff' }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    void handleCreateStudent(key, tutor);
+                  }}
+                >
+                  {form.creating ? 'Adding new student…' : `+ Add "${normalizedQuery}" as new student`}
+                </button>
+              )}
             </div>
           )}
         </div>
