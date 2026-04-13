@@ -154,7 +154,6 @@ export function WeekView({
       });
       closeForm(key);
       logEvent('session_booked', { studentName: form.student.name, date, recurring: form.recurring, source: 'inline_week' });
-      refetch();
     } catch (err: any) {
       patchForm(key, { saving: false, error: err?.message || 'Booking failed — please try again.' });
     }

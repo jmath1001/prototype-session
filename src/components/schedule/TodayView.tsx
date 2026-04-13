@@ -423,7 +423,6 @@ export function TodayView({
       });
       closeForm(key);
       logEvent('session_booked', { studentName: form.student.name, date: todayIso, recurring: form.recurring, source: 'inline_today' });
-      refetch();
     } catch (err: any) {
       patchForm(key, { saving: false, error: err?.message || 'Booking failed — please try again.' });
     }

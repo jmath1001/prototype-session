@@ -98,6 +98,18 @@ export type ScheduleData = {
   refetch: () => void
 }
 
+export type BookStudentResult = {
+  date: string
+  time: string
+  tutorId: string
+  sessionId: string
+  rowId: string
+  studentId: string
+  topic: string
+  notes: string | null
+  seriesId: string | null
+}
+
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
 export function getCentralTimeNow(): Date {
@@ -342,9 +354,10 @@ export async function bookStudent({
   notes?: string
   recurring?: boolean
   recurringWeeks?: number
-}) {
+}): Promise<BookStudentResult[]> {
   const weeks = recurring ? recurringWeeks : 1
   const MAX_CAPACITY = 3
+  const booked: BookStudentResult[] = []
 
   let seriesId: string | null = null
   if (recurring && recurringWeeks > 1) {
@@ -397,13 +410,31 @@ export async function bookStudent({
       sessionId = created.id
     }
 
-    const { error: enrollErr } = await supabase.from(SS).insert({
-      session_id: sessionId, student_id: student.id, name: student.name,
-      topic, notes: notes || null, status: 'scheduled', series_id: seriesId,
-      confirmation_token: createConfirmationToken(),
-    })
+    const { data: enrolled, error: enrollErr } = await supabase
+      .from(SS)
+      .insert({
+        session_id: sessionId, student_id: student.id, name: student.name,
+        topic, notes: notes || null, status: 'scheduled', series_id: seriesId,
+        confirmation_token: createConfirmationToken(),
+      })
+      .select('id, series_id')
+      .single()
     if (enrollErr) throw enrollErr
+
+    booked.push({
+      date: isoDate,
+      time,
+      tutorId,
+      sessionId,
+      rowId: enrolled.id,
+      studentId: student.id,
+      topic,
+      notes: notes || null,
+      seriesId: enrolled.series_id ?? seriesId,
+    })
   }
+
+  return booked
 }
 
 export async function updateAttendance({ sessionId, studentId, status }: {

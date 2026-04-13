@@ -14,6 +14,7 @@ import {
   toISODate,
   dayOfWeek,
   getCentralTimeNow,
+  type BookStudentResult,
   type Tutor,
   type Student,
 } from '@/lib/useScheduleData';
@@ -61,6 +62,115 @@ export default function MasterDeployment() {
   const [selectedRemovals, setSelectedRemovals] = useState<Record<string, { sessionId: string; studentId: string; name: string }>>({});
   const [isBulkRemoving, setIsBulkRemoving] = useState(false);
   const [isClearingWeek, setIsClearingWeek] = useState(false);
+  const [localSessions, setLocalSessions] = useState(sessions);
+
+  useEffect(() => {
+    setLocalSessions(sessions);
+  }, [sessions]);
+
+  const applyInlineBookingOptimistic = useCallback((
+    current: typeof localSessions,
+    args: {
+      tutorId: string;
+      date: string;
+      time: string;
+      student: Student;
+      topic: string;
+      notes: string;
+      recurring: boolean;
+      recurringWeeks: number;
+    }
+  ) => {
+    const { tutorId, date, time, student, topic, notes, recurring, recurringWeeks } = args;
+    const weeks = recurring ? recurringWeeks : 1;
+    const next = [...current];
+
+    for (let w = 0; w < weeks; w++) {
+      const d = new Date(date + 'T00:00:00');
+      d.setDate(d.getDate() + (w * 7));
+      const isoDate = toISODate(d);
+
+      const studentRow = {
+        rowId: `temp-${Date.now()}-${w}-${Math.random().toString(16).slice(2)}`,
+        id: student.id,
+        name: student.name,
+        topic,
+        status: 'scheduled',
+        grade: student.grade ?? null,
+        notes: notes || null,
+        confirmationStatus: null,
+        seriesId: null,
+      };
+
+      const existingIdx = next.findIndex(s => s.date === isoDate && s.tutorId === tutorId && s.time === time);
+      if (existingIdx >= 0) {
+        const existing = next[existingIdx];
+        if (existing.students.some(st => st.id === student.id && st.status !== 'cancelled')) continue;
+        next[existingIdx] = {
+          ...existing,
+          students: [...existing.students, studentRow],
+        };
+      } else {
+        next.push({
+          id: `temp-session-${Date.now()}-${w}-${Math.random().toString(16).slice(2)}`,
+          date: isoDate,
+          tutorId,
+          time,
+          students: [studentRow],
+        });
+      }
+    }
+
+    next.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    return next;
+  }, []);
+
+  const reconcileInlineBooking = useCallback((
+    current: typeof localSessions,
+    bookedRows: BookStudentResult[],
+    student: Student,
+  ) => {
+    const next = [...current];
+
+    for (const row of bookedRows) {
+      const idx = next.findIndex(s => s.date === row.date && s.tutorId === row.tutorId && s.time === row.time);
+      const normalizedStudent = {
+        rowId: row.rowId,
+        id: row.studentId,
+        name: student.name,
+        topic: row.topic,
+        status: 'scheduled',
+        grade: student.grade ?? null,
+        notes: row.notes,
+        confirmationStatus: null,
+        seriesId: row.seriesId,
+      };
+
+      if (idx >= 0) {
+        const existing = next[idx];
+        const studentIdx = existing.students.findIndex(st => st.id === row.studentId);
+        const studentsForSession = studentIdx >= 0
+          ? existing.students.map((st, sIdx) => (sIdx === studentIdx ? normalizedStudent : st))
+          : [...existing.students, normalizedStudent];
+        next[idx] = {
+          ...existing,
+          id: row.sessionId,
+          students: studentsForSession,
+        };
+      } else {
+        next.push({
+          id: row.sessionId,
+          date: row.date,
+          tutorId: row.tutorId,
+          time: row.time,
+          students: [normalizedStudent],
+        });
+      }
+    }
+
+    next.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    return next;
+  }, []);
 
   const handleTodayDateChange = useCallback((date: Date) => {
     setTodayDate(date);
@@ -187,7 +297,7 @@ export default function MasterDeployment() {
         if (timeOff.some(t => t.tutorId === tutor.id && t.date === isoDate)) return;
         getSessionsForDay(dow).forEach(block => {
           if (!isTutorAvailable(tutor, dow, block.time)) return;
-          const session = sessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
+          const session = localSessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
           const count = session ? session.students.length : 0;
           if (count < MAX_CAPACITY) {
             seats.push({ tutor, dayName: DAY_NAMES[ACTIVE_DAYS.indexOf(dow)], date: isoDate, time: block.time, block, count, seatsLeft: MAX_CAPACITY - count, dayNum: dow });
@@ -196,7 +306,7 @@ export default function MasterDeployment() {
       });
     });
     return seats.sort((a, b) => { const dd = a.date.localeCompare(b.date); return dd !== 0 ? dd : a.time.localeCompare(b.time); });
-  }, [enrollCat, tutors, sessions, activeDates, timeOff]);
+  }, [enrollCat, tutors, localSessions, activeDates, timeOff]);
 
   // All tutors regardless of category — for ScheduleBuilder
   const allSeatsForBuilder = useMemo(() => {
@@ -209,7 +319,7 @@ export default function MasterDeployment() {
         if (timeOff.some(t => t.tutorId === tutor.id && t.date === isoDate)) return;
         getSessionsForDay(dow).forEach(block => {
           if (!isTutorAvailable(tutor, dow, block.time)) return;
-          const session = sessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
+          const session = localSessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);
           const count = session ? session.students.length : 0;
           if (count < MAX_CAPACITY) {
             seats.push({ tutor, dayName: DAY_NAMES[ACTIVE_DAYS.indexOf(dow)], date: isoDate, time: block.time, block, count, seatsLeft: MAX_CAPACITY - count, dayNum: dow });
@@ -218,7 +328,32 @@ export default function MasterDeployment() {
       });
     });
     return seats.sort((a, b) => { const dd = a.date.localeCompare(b.date); return dd !== 0 ? dd : a.time.localeCompare(b.time); });
-  }, [tutors, sessions, activeDates, timeOff]);
+  }, [tutors, localSessions, activeDates, timeOff]);
+
+  const handleInlineBook = useCallback(async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }: {
+    tutorId: string;
+    date: string;
+    time: string;
+    student: Student;
+    topic: string;
+    notes: string;
+    recurring: boolean;
+    recurringWeeks: number;
+  }) => {
+    let previousSessions = localSessions;
+    setLocalSessions(curr => {
+      previousSessions = curr;
+      return applyInlineBookingOptimistic(curr, { tutorId, date, time, student, topic, notes, recurring, recurringWeeks });
+    });
+
+    try {
+      const bookedRows = await bookStudent({ tutorId, date, time, student, topic, notes: notes || '', recurring, recurringWeeks });
+      setLocalSessions(curr => reconcileInlineBooking(curr, bookedRows, student));
+    } catch (err) {
+      setLocalSessions(previousSessions);
+      throw err;
+    }
+  }, [localSessions, applyInlineBookingOptimistic, reconcileInlineBooking]);
 
   // Week range strings for ScheduleBuilder
   const weekStartIso = toISODate(weekStart);
@@ -350,7 +485,7 @@ export default function MasterDeployment() {
         commandBarSlot={
           <>
             <CommandBar
-              sessions={[...sessions, ...(nextWeekSessions ?? [])]}
+              sessions={[...localSessions, ...(nextWeekSessions ?? [])]}
               students={students}
               tutors={tutors}
               onBookingAction={handleAIBookingAction}
@@ -389,7 +524,7 @@ export default function MasterDeployment() {
       {todayView && (
         <TodayView
           tutors={tutors}
-          sessions={sessions}
+          sessions={localSessions}
           timeOff={timeOff}
           students={students}
           selectedTutorFilter={selectedTutorFilter}
@@ -399,9 +534,7 @@ export default function MasterDeployment() {
           refetch={refetch}
           selectedDate={todayDate}
           onDateChange={handleTodayDateChange}
-          onInlineBook={async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }) => {
-            await bookStudent({ tutorId, date, time, student, topic, notes: notes || '', recurring, recurringWeeks });
-          }}
+          onInlineBook={handleInlineBook}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
             refetch();
@@ -413,7 +546,7 @@ export default function MasterDeployment() {
         <WeekView
           activeDates={activeDates}
           tutors={tutors}
-          sessions={sessions}
+          sessions={localSessions}
           timeOff={timeOff}
           students={students}
           selectedTutorFilter={selectedTutorFilter}
@@ -424,9 +557,7 @@ export default function MasterDeployment() {
           bulkRemoveMode={bulkRemoveMode}
           selectedRemovals={selectedRemovals}
           setSelectedRemovals={setSelectedRemovals}
-          onInlineBook={async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }) => {
-            await bookStudent({ tutorId, date, time, student, topic, notes: notes || '', recurring, recurringWeeks });
-          }}
+          onInlineBook={handleInlineBook}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
             refetch();
@@ -445,7 +576,7 @@ export default function MasterDeployment() {
             allAvailableSeats={allAvailableSeats}
             studentDatabase={students}
             initialStudentId={aiPrefilledStudentId}
-            sessions={sessions}
+            sessions={localSessions}
           />
         </div>
       )}
@@ -460,7 +591,7 @@ export default function MasterDeployment() {
             allAvailableSeats={allAvailableSeats}
             studentDatabase={students}
             initialStudentId={aiPrefilledStudentId}
-            sessions={sessions}
+            sessions={localSessions}
           />
         </div>
       )}
@@ -473,7 +604,7 @@ export default function MasterDeployment() {
         setModalTab={setModalTab}
         tutors={tutors}
         students={students}
-        sessions={sessions}
+        sessions={localSessions}
         refetch={refetch}
       />
 
@@ -487,7 +618,7 @@ export default function MasterDeployment() {
         isApplying={isApplying}
         activeDates={activeDates}
         tutors={tutors}
-        sessions={sessions}
+        sessions={localSessions}
         timeOff={timeOff}
         students={students}
         tutorPaletteMap={tutorPaletteMap}
@@ -497,7 +628,7 @@ export default function MasterDeployment() {
         <ScheduleBuilder
           students={students}
           tutors={tutors}
-          sessions={sessions}
+          sessions={localSessions}
           allAvailableSeats={allSeatsForBuilder}
           weekStart={weekStartIso}
           weekEnd={weekEndIso}
