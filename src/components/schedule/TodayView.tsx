@@ -13,6 +13,7 @@ interface InlineForm {
   query: string;
   student: any | null;
   topic: string;
+  notes: string;
   recurring: boolean;
   recurringWeeks: number;
   creating: boolean;
@@ -24,6 +25,7 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   query: '',
   student: null,
   topic: tutor.subjects?.[0] ?? '',
+  notes: '',
   recurring: false,
   recurringWeeks: 4,
   creating: false,
@@ -52,6 +54,7 @@ interface TodayViewProps {
     time: string;
     student: any;
     topic: string;
+    notes: string;
     recurring: boolean;
     recurringWeeks: number;
   }) => Promise<void>;
@@ -414,6 +417,7 @@ export function TodayView({
         time:    block.time,
         student: form.student,
         topic:   form.topic,
+        notes:   form.notes,
         recurring: form.recurring,
         recurringWeeks: form.recurring ? clampWeeks(form.recurringWeeks) : 1,
       });
@@ -632,6 +636,14 @@ export function TodayView({
             style={{ background: '#fefefe', border: '1px solid #cbd5e1', color: '#374151' }}
           />
         )}
+        <textarea
+          value={form.notes}
+          onChange={e => patchForm(key, { notes: e.target.value })}
+          rows={2}
+          placeholder="Session notes (optional)"
+          className="w-full text-xs font-medium rounded-lg px-2.5 py-1.5 outline-none resize-y"
+          style={{ background: '#f8fafc', border: '1px solid #e5e7eb', color: '#334155' }}
+        />
 
         <div className="rounded-lg p-2" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
           <div className="flex items-center justify-between gap-2">
@@ -641,7 +653,7 @@ export function TodayView({
                 type="button"
                 onClick={() => patchForm(key, { recurring: false })}
                 className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wide"
-                style={form.recurring ? { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' } : { background: '#4f46e5', border: '1px solid #4f46e5', color: 'white' }}
+                style={form.recurring ? { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' } : { background: '#334155', border: '1px solid #334155', color: 'white' }}
               >
                 No
               </button>
@@ -649,7 +661,7 @@ export function TodayView({
                 type="button"
                 onClick={() => patchForm(key, { recurring: true, recurringWeeks: form.recurringWeeks < 2 ? 4 : form.recurringWeeks })}
                 className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wide"
-                style={form.recurring ? { background: '#4f46e5', border: '1px solid #4f46e5', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}
+                style={form.recurring ? { background: '#334155', border: '1px solid #334155', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}
               >
                 Yes
               </button>
@@ -684,7 +696,7 @@ export function TodayView({
           disabled={!canSave}
           className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
           style={{
-            background: canSave ? '#6366f1' : '#e5e7eb',
+            background: canSave ? '#0f172a' : '#e5e7eb',
             color:      canSave ? 'white'   : '#9ca3af',
             cursor:     canSave ? 'pointer' : 'not-allowed',
           }}
@@ -762,9 +774,8 @@ export function TodayView({
         </div>
       </div>
       <div className="flex flex-col items-center justify-center py-24 gap-3">
-        <p className="text-4xl">🎉</p>
-        <p className="text-lg font-bold" style={{ color: '#111827', fontFamily: 'ui-serif, Georgia, serif' }}>No sessions for this day</p>
-        <p className="text-xs" style={{ color: '#9ca3af' }}>Enjoy the day off</p>
+        <p className="text-lg font-bold" style={{ color: '#111827' }}>No sessions for this day</p>
+        <p className="text-xs" style={{ color: '#64748b' }}>No bookings are scheduled for the selected date.</p>
       </div>
     </div>
   );
@@ -782,7 +793,7 @@ export function TodayView({
         <div className="hidden md:flex items-center gap-3 mb-4 shrink-0">
           <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold" style={{ color: '#4f46e5', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
+              <h2 className="text-2xl font-bold" style={{ color: '#0f172a' }}>{dayLabel}</h2>
               <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
                 {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
@@ -814,7 +825,7 @@ export function TodayView({
         {/* Day header — mobile */}
         <div className="flex md:hidden items-center justify-between mb-3 shrink-0">
           <div>
-            <h2 className="text-lg font-bold" style={{ color: '#4f46e5', fontFamily: 'ui-serif, Georgia, serif' }}>{dayLabel}</h2>
+            <h2 className="text-lg font-bold" style={{ color: '#0f172a' }}>{dayLabel}</h2>
             <p className="text-[10px] font-semibold" style={{ color: '#9ca3af' }}>
               {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
@@ -938,7 +949,7 @@ export function TodayView({
                                           <div className="flex items-center gap-1">
                                             {student.confirmationStatus === 'confirmed'            && <span style={{ color: '#15803d', fontSize: 10 }}>Confirmed</span>}
                                             {student.confirmationStatus === 'cancelled'            && <span style={{ color: '#dc2626', fontSize: 10 }}>✕</span>}
-                                            {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#6d28d9', fontSize: 10 }}>↗</span>}
+                                            {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#334155', fontSize: 10 }}>↗</span>}
                                             <button
                                               onClick={async e => {
                                                 e.stopPropagation();
@@ -1101,7 +1112,7 @@ export function TodayView({
                                     <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
                                       style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                       {isOnTimeOff
-                                        ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#4f46e5' }}>OFF</span>
+                                        ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#475569' }}>OFF</span>
                                         : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#d1d5db' }}>—</span>}
                                     </div>
                                   )}

@@ -270,14 +270,14 @@ export default function ContactCenter() {
   }, {});
 
   return (
-    <div className="min-h-screen" style={{ background: '#f1f5f9', fontFamily: 'Manrope, Sora, Inter, ui-sans-serif, system-ui, sans-serif' }}>
+    <div className="min-h-screen" style={{ background: '#f8fafc', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-10 space-y-6 md:space-y-7">
 
         <div className="rounded-xl px-6 py-5 md:px-7 md:py-6"
           style={{ background: '#ffffff', border: '1px solid #dbe3ee', boxShadow: '0 8px 22px rgba(15,23,42,0.06)' }}>
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#64748b]">Communication</p>
-          <h1 className="text-2xl md:text-[30px] font-extrabold tracking-tight text-[#0f172a] mt-1">Contact Center</h1>
-          <p className="text-sm mt-1.5 text-[#64748b]">Send reminders, edit the template, and review send history.</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#64748b]">Operations</p>
+          <h1 className="text-2xl md:text-[30px] font-bold tracking-tight text-[#0f172a] mt-1">Contact Center</h1>
+          <p className="text-sm mt-1.5 text-[#64748b]">Manage reminder dispatch, template settings, and send history.</p>
         </div>
 
         {/* Dispatch panel */}

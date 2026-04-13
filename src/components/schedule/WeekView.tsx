@@ -13,6 +13,7 @@ interface InlineForm {
   query: string;
   student: any | null;
   topic: string;
+  notes: string;
   recurring: boolean;
   recurringWeeks: number;
   creating: boolean;
@@ -24,6 +25,7 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   query: '',
   student: null,
   topic: tutor.subjects?.[0] ?? '',
+  notes: '',
   recurring: false,
   recurringWeeks: 4,
   creating: false,
@@ -49,6 +51,7 @@ interface WeekViewProps {
     time: string;
     student: any;
     topic: string;
+    notes: string;
     recurring: boolean;
     recurringWeeks: number;
   }) => Promise<void>;
@@ -89,6 +92,7 @@ export function WeekView({
 
   const selectionKey = (sessionId: string, studentId: string) => `${sessionId}|${studentId}`;
   type DragStudentPayload = { rowId: string; studentId: string; fromSessionId: string; topic: string | null };
+
   const toggleRemovalSelection = (sessionId: string, studentId: string, name: string) => {
     const key = selectionKey(sessionId, studentId);
     setSelectedRemovals(prev => {
@@ -144,6 +148,7 @@ export function WeekView({
         time: block.time,
         student: form.student,
         topic: form.topic,
+        notes: form.notes,
         recurring: form.recurring,
         recurringWeeks: form.recurring ? clampWeeks(form.recurringWeeks) : 1,
       });
@@ -243,9 +248,9 @@ export function WeekView({
 
     return (
       <div data-inline-form className="flex flex-col gap-2 p-2.5 rounded-xl"
-        style={{ background: 'white', border: '1.5px solid #6366f1', boxShadow: '0 2px 14px rgba(99,102,241,0.13)', minHeight: 110 }}>
+        style={{ background: 'white', border: '1.5px solid #94a3b8', boxShadow: '0 2px 10px rgba(15,23,42,0.08)', minHeight: 110 }}>
         <div className="flex items-center justify-between">
-          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#6366f1' }}>Quick Add</span>
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#334155' }}>Quick Add</span>
           <button onClick={() => closeForm(key)} className="w-4 h-4 flex items-center justify-center rounded hover:bg-gray-100" style={{ color: '#9ca3af' }}>
             <X size={10} />
           </button>
@@ -313,6 +318,14 @@ export function WeekView({
             style={{ background: '#fefefe', border: '1px solid #cbd5e1', color: '#374151' }}
           />
         )}
+        <textarea
+          value={form.notes}
+          onChange={e => patchForm(key, { notes: e.target.value })}
+          rows={2}
+          placeholder="Session notes (optional)"
+          className="w-full text-xs font-medium rounded-lg px-2.5 py-1.5 outline-none resize-y"
+          style={{ background: '#f8fafc', border: '1px solid #e5e7eb', color: '#334155' }}
+        />
         <div className="rounded-lg p-2" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: '#475569' }}>Recurring</span>
@@ -321,14 +334,14 @@ export function WeekView({
                 type="button"
                 onClick={() => patchForm(key, { recurring: false })}
                 className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wide"
-                style={form.recurring ? { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' } : { background: '#dc2626', border: '1px solid #dc2626', color: 'white' }}>
+                style={form.recurring ? { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' } : { background: '#334155', border: '1px solid #334155', color: 'white' }}>
                 No
               </button>
               <button
                 type="button"
                 onClick={() => patchForm(key, { recurring: true, recurringWeeks: form.recurringWeeks < 2 ? 4 : form.recurringWeeks })}
                 className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wide"
-                style={form.recurring ? { background: '#dc2626', border: '1px solid #dc2626', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}>
+                style={form.recurring ? { background: '#334155', border: '1px solid #334155', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}>
                 Yes
               </button>
             </div>
@@ -355,7 +368,7 @@ export function WeekView({
         )}
         <button onClick={() => handleSave(key, tutor, date, block)} disabled={!canSave}
           className="w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
-          style={{ background: canSave ? '#6366f1' : '#e5e7eb', color: canSave ? 'white' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed' }}>
+          style={{ background: canSave ? '#0f172a' : '#e5e7eb', color: canSave ? 'white' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed' }}>
           {form.saving ? <><Loader2 size={10} className="animate-spin" /> Saving…</> : 'Book'}
         </button>
       </div>
@@ -411,19 +424,19 @@ export function WeekView({
             <div className="flex items-center gap-3 md:gap-4 px-1">
               <div className="flex items-baseline gap-3">
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-none"
-                  style={{ color: isToday ? '#dc2626' : '#1f2937', fontFamily: 'ui-serif, Georgia, serif' }}>
+                  style={{ color: '#0f172a' }}>
                   {dayLabel}
                 </h2>
-                <span className="text-base md:text-lg font-semibold" style={{ color: isToday ? '#dc2626' : '#6b7280' }}>
+                <span className="text-base md:text-lg font-semibold" style={{ color: '#64748b' }}>
                   {dateLabel}
                   {isToday && (
                     <span className="ml-2 text-[9px] font-bold px-2 py-0.5 rounded-full align-middle uppercase tracking-wider"
-                      style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626' }}>Today</span>
+                      style={{ background: '#e2e8f0', border: '1px solid #cbd5e1', color: '#334155' }}>Today</span>
                   )}
                 </span>
               </div>
               <div className="h-px grow rounded-full"
-                style={{ background: isToday ? 'linear-gradient(90deg, #fca5a5, transparent)' : 'linear-gradient(90deg, #e5e7eb, transparent)' }} />
+                style={{ background: 'linear-gradient(90deg, #cbd5e1, transparent)' }} />
             </div>
 
             {activeTutors.length === 0 ? (
@@ -541,7 +554,7 @@ export function WeekView({
                                               <div className="flex items-center gap-1 shrink-0 ml-1">
                                                 {student.confirmationStatus === 'confirmed'            && <span style={{ color: '#15803d', fontSize: 10 }}>✓</span>}
                                                 {student.confirmationStatus === 'cancelled'            && <span style={{ color: '#dc2626', fontSize: 10 }}>✕</span>}
-                                                {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#6d28d9', fontSize: 10 }}>↗</span>}
+                                                {student.confirmationStatus === 'reschedule_requested' && <span style={{ color: '#334155', fontSize: 10 }}>↗</span>}
                                                 <button
                                                   onClick={async e => {
                                                     e.stopPropagation();
@@ -583,7 +596,7 @@ export function WeekView({
                                           style={{ background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                           {isOnTimeOff ? (
                                             <>
-                                              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
+                                              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#475569' }}>OFF</span>
                                               {timeOffNote && <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#9ca3af' }}>{timeOffNote}</span>}
                                             </>
                                           ) : (

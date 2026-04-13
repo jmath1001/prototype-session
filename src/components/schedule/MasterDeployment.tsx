@@ -399,8 +399,8 @@ export default function MasterDeployment() {
           refetch={refetch}
           selectedDate={todayDate}
           onDateChange={handleTodayDateChange}
-          onInlineBook={async ({ tutorId, date, time, student, topic, recurring, recurringWeeks }) => {
-            await bookStudent({ tutorId, date, time, student, topic, notes: '', recurring, recurringWeeks });
+          onInlineBook={async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }) => {
+            await bookStudent({ tutorId, date, time, student, topic, notes: notes || '', recurring, recurringWeeks });
           }}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
@@ -424,8 +424,8 @@ export default function MasterDeployment() {
           bulkRemoveMode={bulkRemoveMode}
           selectedRemovals={selectedRemovals}
           setSelectedRemovals={setSelectedRemovals}
-          onInlineBook={async ({ tutorId, date, time, student, topic, recurring, recurringWeeks }) => {
-            await bookStudent({ tutorId, date, time, student, topic, notes: '', recurring, recurringWeeks });
+          onInlineBook={async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }) => {
+            await bookStudent({ tutorId, date, time, student, topic, notes: notes || '', recurring, recurringWeeks });
           }}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
