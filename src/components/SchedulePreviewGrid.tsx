@@ -103,6 +103,7 @@ export function SchedulePreviewGrid({
 
   const placedProposals = proposals.filter(p => p.slot)
   const unmatchedProposals = proposals.filter(p => !p.slot)
+  const isSingleBookingPreview = proposals.length === 1
 
   const allDates = Array.from(new Set([
     ...placedProposals.map(p => p.slot!.date),
@@ -184,7 +185,40 @@ export function SchedulePreviewGrid({
         // 5. Not the current slot
         return !(seat.tutor.id === p.slot?.tutor.id && seat.date === p.slot?.date && seat.time === p.slot?.time)
       })
-      .slice(0, 14)
+      .sort((a, b) => {
+        const aExisting = existingSessions
+          .filter(s => s.tutorId === a.seat.tutor.id && s.date === a.seat.date && s.time === a.seat.time)
+          .flatMap(s => s.students)
+          .length
+        const bExisting = existingSessions
+          .filter(s => s.tutorId === b.seat.tutor.id && s.date === b.seat.date && s.time === b.seat.time)
+          .flatMap(s => s.students)
+          .length
+
+        const aProposed = placedProposals.filter(pp =>
+          pp.needId !== p.needId &&
+          pp.slot &&
+          pp.slot.tutor.id === a.seat.tutor.id &&
+          pp.slot.date === a.seat.date &&
+          pp.slot.time === a.seat.time
+        ).length
+        const bProposed = placedProposals.filter(pp =>
+          pp.needId !== p.needId &&
+          pp.slot &&
+          pp.slot.tutor.id === b.seat.tutor.id &&
+          pp.slot.date === b.seat.date &&
+          pp.slot.time === b.seat.time
+        ).length
+
+        const aOccupied = aExisting + aProposed
+        const bOccupied = bExisting + bProposed
+
+        if (bOccupied !== aOccupied) return bOccupied - aOccupied
+        if (a.seat.seatsLeft !== b.seat.seatsLeft) return a.seat.seatsLeft - b.seat.seatsLeft
+        if (a.seat.date !== b.seat.date) return a.seat.date.localeCompare(b.seat.date)
+        return a.seat.time.localeCompare(b.seat.time)
+      })
+      .slice(0, 2)
   }
 
   if (allDates.length === 0 && unmatchedProposals.length === 0) {
@@ -399,7 +433,7 @@ export function SchedulePreviewGrid({
                                                     <div style={{ padding: '8px 12px', borderBottom: '1px solid #e2e8f0', fontSize: 9, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                                                       Move to…
                                                     </div>
-                                                    {swaps.map(({ seat, index }) => (
+                                                    {swaps.map(({ seat, index }, optionIndex) => (
                                                       <button
                                                         key={index}
                                                         onClick={() => {
@@ -416,6 +450,9 @@ export function SchedulePreviewGrid({
                                                         onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                                                         title={`Move ${p.student.name} to ${seat.dayName} ${seat.block?.display ?? seat.time} with ${seat.tutor.name}`}
                                                       >
+                                                        <span style={{ fontSize: 9, fontWeight: 800, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 999, padding: '1px 6px' }}>
+                                                          Option {optionIndex + 2}
+                                                        </span>
                                                         <span style={{ fontWeight: 700, color: '#0f172a' }}>{seat.dayName}</span>
                                                         <span style={{ color: '#cbd5e1' }}>·</span>
                                                         <span>{seat.block?.label ?? seat.time}</span>
@@ -440,6 +477,38 @@ export function SchedulePreviewGrid({
                                             </button>
                                           </div>
                                         </div>
+
+                                        {isSingleBookingPreview && swaps.length > 0 && (
+                                          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {swaps.map(({ seat, index }, optionIndex) => (
+                                              <button
+                                                key={`${p.needId}-inline-${index}`}
+                                                onClick={() => onSwap(p.needId, index)}
+                                                style={{
+                                                  fontSize: 10,
+                                                  fontWeight: 700,
+                                                  padding: '4px 8px',
+                                                  borderRadius: 8,
+                                                  border: `1.5px solid ${sc.ring}`,
+                                                  background: 'white',
+                                                  color: '#1e293b',
+                                                  cursor: 'pointer',
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: 5,
+                                                }}
+                                                title={`Use option ${optionIndex + 2}: ${seat.dayName} ${seat.block?.label ?? seat.time} with ${seat.tutor.name}`}
+                                              >
+                                                <span style={{ fontSize: 9, fontWeight: 800, color: '#7c3aed' }}>Option {optionIndex + 2}</span>
+                                                <span>{seat.dayName}</span>
+                                                <span style={{ color: '#cbd5e1' }}>·</span>
+                                                <span>{seat.block?.label ?? seat.time}</span>
+                                                <span style={{ color: '#cbd5e1' }}>·</span>
+                                                <span style={{ color: '#7c3aed' }}>{seat.tutor.name}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                     )
                                   })}
