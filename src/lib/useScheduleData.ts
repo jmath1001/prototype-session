@@ -183,7 +183,13 @@ export function useScheduleData(weekStart: Date): ScheduleData {
     let cancelled = false
 
     async function load() {
-      setLoading(true)
+      const isInitialLoad =
+        tutors.length === 0 &&
+        students.length === 0 &&
+        sessions.length === 0 &&
+        timeOff.length === 0
+
+      if (isInitialLoad) setLoading(true)
       setError(null)
 
       const weekEnd = new Date(weekStart)

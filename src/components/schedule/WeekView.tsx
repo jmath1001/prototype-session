@@ -389,12 +389,12 @@ export function WeekView({
     if (forms[key]) return renderInlineForm(tutor, date, block, palette);
     return (
       <div onClick={() => openForm(tutor, date, block.time)}
-        className="w-full h-full min-h-[100px] rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
+        className="w-full h-full min-h-20 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
         style={{ background: '#eff6ff', border: '2px dashed #60a5fa' }}
         onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#2563eb'; }}
         onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#60a5fa'; }}>
         <PlusCircle size={14} style={{ color: '#2563eb' }} />
-        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#2563eb' }}>Available</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: '#2563eb' }}>Available</span>
       </div>
     );
   };
@@ -404,7 +404,7 @@ export function WeekView({
     if (forms[key]) return renderInlineForm(tutor, date, block, palette);
     return (
       <button onClick={() => openForm(tutor, date, block.time)}
-        className="mt-auto py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all w-full"
+        className="mt-auto py-1 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all w-full"
         style={{ background: 'transparent', border: '1.5px dashed #d1d5db', color: '#9ca3af' }}
         onMouseEnter={e => { e.currentTarget.style.background = '#1f2937'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#1f2937'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#d1d5db'; }}>
@@ -414,7 +414,7 @@ export function WeekView({
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto p-3 md:p-6 space-y-10 md:space-y-14">
+    <div className="mx-auto w-full p-2 md:p-4 space-y-6 md:space-y-8" style={{ maxWidth: 1600 }}>
       {activeDates.map((date) => {
         const isoDate   = toISODate(date);
         const dow       = dayOfWeek(isoDate);
@@ -429,14 +429,14 @@ export function WeekView({
         const daySessions = getSessionsForDay(dow);
 
         return (
-          <div key={isoDate} className="space-y-3 md:space-y-4">
-            <div className="flex items-center gap-3 md:gap-4 px-1">
+          <div key={isoDate} className="space-y-2.5 md:space-y-3">
+            <div className="flex items-center gap-2.5 md:gap-3 px-1">
               <div className="flex items-baseline gap-3">
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-none"
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-none"
                   style={{ color: '#0f172a' }}>
                   {dayLabel}
                 </h2>
-                <span className="text-base md:text-lg font-semibold" style={{ color: '#64748b' }}>
+                <span className="text-sm md:text-base font-semibold" style={{ color: '#64748b' }}>
                   {dateLabel}
                   {isToday && (
                     <span className="ml-2 text-[9px] font-bold px-2 py-0.5 rounded-full align-middle uppercase tracking-wider"
@@ -461,15 +461,15 @@ export function WeekView({
                     <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}>
                       <thead>
                         <tr style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
-                          <th className="px-2 py-2 text-left text-xs font-bold uppercase tracking-wider"
+                          <th className="px-2 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider"
                             style={{ color: 'rgba(255,255,255,0.5)', borderRight: '1px solid rgba(255,255,255,0.08)', width: 1, whiteSpace: 'nowrap', position: 'sticky', left: 0, top: 0, zIndex: 4, background: '#1f2937' }}>
                             Instructor
                           </th>
                           {daySessions.map(block => (
-                            <th key={block.id} className="px-4 py-2 text-center"
-                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 200, position: 'sticky', top: 0, background: '#1f2937', zIndex: 3 }}>
-                              <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.9)' }}>{block.label}</div>
-                              <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{block.display}</div>
+                            <th key={block.id} className="px-3 py-1.5 text-center"
+                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 172, position: 'sticky', top: 0, background: '#1f2937', zIndex: 3 }}>
+                              <div className="text-xs font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.9)' }}>{block.label}</div>
+                              <div className="text-[11px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{block.display}</div>
                             </th>
                           ))}
                         </tr>
@@ -479,15 +479,15 @@ export function WeekView({
                           const palette = TUTOR_PALETTES[tutorPaletteMap[tutor.id] ?? 0];
                           return (
                             <tr key={tutor.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                              <td className="px-2 py-2 align-middle"
+                              <td className="px-2 py-1.5 align-middle"
                                 style={{ background: '#e2e8f0', borderRight: '1px solid #94a3b8', borderBottom: '1px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-5 h-5 rounded-md flex items-center justify-center text-[8px] font-bold shrink-0"
                                     style={{ background: palette.bg, color: palette.text, border: `1px solid ${palette.border}` }}>
                                     {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="text-xs font-bold leading-tight whitespace-nowrap" style={{ color: '#1f2937' }}>{tutor.name}</p>
+                                    <p className="text-[11px] font-bold leading-tight whitespace-nowrap" style={{ color: '#1f2937' }}>{tutor.name}</p>
                                     <span className="text-[8px] font-bold px-1 py-0.5 rounded mt-0.5 inline-block"
                                       style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
                                       {tutor.cat === 'math' ? 'Math' : 'English'}
@@ -507,7 +507,7 @@ export function WeekView({
                                 const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === isoDate)?.note : null;
 
                                 return (
-                                  <td key={block.id} className="p-2 align-top"
+                                  <td key={block.id} className="p-1.5 align-top"
                                     style={{
                                       background: isOutside
                                         ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)'
@@ -518,11 +518,11 @@ export function WeekView({
                                             : '#f3f4f6',
                                       borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                       borderBottom: '1px solid #cbd5e1',
-                                      minWidth: 200,
+                                      minWidth: 172,
                                     }}
                                     onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                     onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, isoDate, block.time); }}>
-                                    <div className="flex flex-col gap-1.5 h-full min-h-[100px]">
+                                    <div className="flex flex-col gap-1.5 h-full min-h-20">
 
                                       {/* Booked students — same card style as TodayView */}
                                       {hasStudents && !isOnTimeOff && session!.students.map((student: any) => {
@@ -530,7 +530,7 @@ export function WeekView({
                                         const isSelected = !!selectedRemovals[key];
                                         return (
                                           <div key={student.rowId || student.id}
-                                            className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
+                                            className="p-2 rounded-xl cursor-pointer transition-all hover:shadow-md"
                                             draggable={!!student.rowId && !bulkRemoveMode}
                                             onDragStart={(e) => {
                                               if (!student.rowId || bulkRemoveMode) return;
@@ -560,7 +560,7 @@ export function WeekView({
                                             }}>
                                             <div className="flex justify-between items-start mb-1">
                                               <div className="flex items-center gap-1.5 min-w-0">
-                                                <p className="text-sm font-bold leading-tight truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}</p>
+                                                <p className="text-xs font-bold leading-tight truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}</p>
                                                 {attendanceBadge(student.status) && (
                                                   <span
                                                     className="text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"
@@ -586,11 +586,11 @@ export function WeekView({
                                                     logEvent('attendance_marked', { status: next, studentName: student.name, source: 'week_grid' });
                                                     refetch();
                                                   }}
-                                                  className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all"
+                                                  className="shrink-0 w-4 h-4 rounded-md flex items-center justify-center transition-all"
                                                   style={student.status === 'present'
                                                     ? { background: '#2563eb', border: '1.5px solid #2563eb' }
                                                     : { background: 'white', border: '1.5px solid #d1d5db' }}>
-                                                  {student.status === 'present' && <Check size={11} strokeWidth={3} color="white" />}
+                                                  {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
                                                 </button>
                                               </div>
                                             </div>
@@ -615,7 +615,7 @@ export function WeekView({
                                       {hasStudents && !isOnTimeOff && !isFull && renderAddMore(tutor, isoDate, block, session, palette)}
                                       {isAvail && renderAvailableSlot(tutor, isoDate, block, palette)}
                                       {isOutside && (
-                                        <div className="w-full h-full min-h-[100px] rounded-xl flex flex-col items-center justify-center gap-1"
+                                        <div className="w-full h-full min-h-20 rounded-xl flex flex-col items-center justify-center gap-1"
                                           style={{ background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                           {isOnTimeOff ? (
                                             <>
@@ -661,7 +661,7 @@ export function WeekView({
                               const dropState   = dropStateFor(tutor, isOutside);
 
                               return (
-                                <div key={block.id} className="flex-shrink-0 w-40 p-1.5"
+                                <div key={block.id} className="shrink-0 w-36 p-1.5"
                                   style={{
                                     background: isOutside
                                       ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)'
@@ -678,7 +678,7 @@ export function WeekView({
                                     <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#374151' }}>{block.label}</div>
                                     <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
                                   </div>
-                                  <div className="space-y-1" style={{ minHeight: 110 }}>
+                                  <div className="space-y-1" style={{ minHeight: 90 }}>
                                     {hasStudents && !isOnTimeOff && (
                                       <>
                                         {session!.students.map((student: any) => {
@@ -772,14 +772,14 @@ export function WeekView({
                                     )}
                                     {isAvail && (
                                       <div onClick={() => openForm(tutor, isoDate, block.time)}
-                                        className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
+                                        className="w-full h-full min-h-24 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition-all"
                                         style={{ background: '#eff6ff', border: '2px dashed #60a5fa' }}>
                                         <PlusCircle size={14} style={{ color: '#2563eb' }} />
                                         <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: '#2563eb' }}>Available</span>
                                       </div>
                                     )}
                                     {isOutside && (
-                                      <div className="w-full h-full min-h-[110px] rounded-lg flex flex-col items-center justify-center gap-1"
+                                      <div className="w-full h-full min-h-24 rounded-lg flex flex-col items-center justify-center gap-1"
                                         style={{ background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                         {isOnTimeOff
                                           ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
