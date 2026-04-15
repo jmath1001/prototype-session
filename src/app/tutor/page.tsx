@@ -14,9 +14,10 @@ const TIME_OFF = `${p}_tutor_time_off`
 
 // ── Subject definitions ───────────────────────────────────────────────────────
 export const SUBJECT_GROUPS = [
-  { group: 'Math & Science', subjects: ['Algebra', 'Geometry', 'Precalculus', 'Calculus', 'Statistics', 'Biology', 'Chemistry', 'Physics'] },
-  { group: 'English & Humanities', subjects: ['English/Writing', 'Literature', 'History', 'Geography'] },
-  { group: 'Test Prep', subjects: ['SAT Math', 'SAT Reading', 'ACT Math', 'ACT English', 'ACT Science'] },
+  { group: 'Math & Science', subjects: ['Algebra', 'Geometry', 'Precalculus', 'Calculus', 'Statistics', 'IB Math', 'Biology', 'Chemistry', 'Physics'] },
+  { group: 'English & Humanities', subjects: ['English/Writing', 'Literature', 'History', 'Geography', 'Psychology'] },
+  { group: 'Test Prep', subjects: ['SAT Math', 'SAT R/W', 'ACT Math', 'ACT English', 'ACT Science'] },
+  { group: 'AP', subjects: ['AP Physics C Mechanics', 'AP Physics C E&M', 'AP Environmental Science', 'AP Statistics'] },
 ];
 
 const ACTIVE_DAYS_INFO = [

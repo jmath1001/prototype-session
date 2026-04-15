@@ -14,15 +14,19 @@ import type { Tutor } from '@/lib/useScheduleData';
 export const SUBJECT_GROUPS = [
   {
     group: 'Math & Science',
-    subjects: ['Algebra', 'Geometry', 'Precalculus', 'Calculus', 'Statistics', 'Biology', 'Chemistry', 'Physics'],
+    subjects: ['Algebra', 'Geometry', 'Precalculus', 'Calculus', 'Statistics', 'IB Math', 'Biology', 'Chemistry', 'Physics'],
   },
   {
     group: 'English & Humanities',
-    subjects: ['English/Writing', 'Literature', 'History', 'Geography'],
+    subjects: ['English/Writing', 'Literature', 'History', 'Geography', 'Psychology'],
   },
   {
     group: 'Test Prep',
-    subjects: ['SAT Math', 'SAT Reading', 'ACT Math', 'ACT English', 'ACT Science'],
+    subjects: ['SAT Math', 'SAT R/W', 'ACT Math', 'ACT English', 'ACT Science'],
+  },
+  {
+    group: 'AP',
+    subjects: ['AP Physics C Mechanics', 'AP Physics C E&M', 'AP Environmental Science', 'AP Statistics'],
   },
 ];
 

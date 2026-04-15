@@ -71,8 +71,10 @@ interface ScheduleBuilderProps {
 
 const ALL_SUBJECTS = [
   'Algebra', 'Geometry', 'Precalculus', 'Calculus', 'Statistics',
-  'SAT Math', 'ACT Math', 'Physics', 'Chemistry', 'Biology', 'ACT Science',
-  'English/Writing', 'Literature', 'History', 'ACT English', 'SAT Reading',
+  'IB Math', 'Physics', 'Chemistry', 'Biology', 'Psychology',
+  'SAT Math', 'ACT Math', 'ACT Science', 'ACT English', 'SAT R/W',
+  'English/Writing', 'Literature', 'History',
+  'AP Physics C Mechanics', 'AP Physics C E&M', 'AP Environmental Science', 'AP Statistics',
 ]
 
 const AVAILABILITY_DAYS = [
