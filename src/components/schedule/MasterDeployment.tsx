@@ -70,7 +70,6 @@ export default function MasterDeployment() {
   const [isBulkRemoving, setIsBulkRemoving] = useState(false);
   const [isClearingWeek, setIsClearingWeek] = useState(false);
   const [localSessions, setLocalSessions] = useState(sessions);
-  const [infoToast, setInfoToast] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalSessions(sessions);
@@ -690,15 +689,15 @@ export default function MasterDeployment() {
                 >
                   <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>Scheduler Actions</p>
                   <div style={{ display: 'grid', gap: 6 }}>
-                    <button onClick={() => { setScheduleBuilderMode('batch'); setIsScheduleBuilderOpen(true); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Plan Week</button>
-                    <button onClick={() => { setScheduleBuilderMode('single'); setIsScheduleBuilderOpen(true); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Book One Session</button>
-                    <button onClick={() => { openOptimizerFromCurrentSchedule('daily'); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #67e8f9', background: '#ecfeff', color: '#0e7490', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Optimize Day (Max Pack)</button>
-                    <button onClick={() => { openOptimizerFromCurrentSchedule('weekly'); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Optimize Week (Max Pack)</button>
+                    <button onClick={() => { setScheduleBuilderMode('batch'); setIsScheduleBuilderOpen(true); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Batch Book</button>
+                    <button onClick={() => { setScheduleBuilderMode('single'); setIsScheduleBuilderOpen(true); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', padding: '7px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Single Book</button>
+                    <button onClick={() => { openOptimizerFromCurrentSchedule('daily'); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #67e8f9', background: '#ecfeff', color: '#0e7490', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Optimize Day</button>
+                    <button onClick={() => { openOptimizerFromCurrentSchedule('weekly'); setIsSchedulerMenuOpen(false); }} style={{ textAlign: 'left', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Optimize Week</button>
                   </div>
 
                   <div style={{ marginTop: 8, borderRadius: 8, border: '1px solid #cbd5e1', background: '#f8fafc', padding: 8 }}>
                     <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 800, color: '#334155', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Constraints Used</p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#0f172a', lineHeight: 1.5 }}>Primary objective is max session packing. Subject fit, student availability, tutor availability/time-off, no double-booking, and seat limits are enforced.</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#0f172a', lineHeight: 1.5 }}>Tutor subject match, student availability blocks, tutor time-off/availability, no double-booking, and seat capacity limits.</p>
                   </div>
                 </div>
               )}
@@ -795,17 +794,6 @@ export default function MasterDeployment() {
       />
 
       {bookingToast && <BookingToast data={bookingToast} onClose={() => setBookingToast(null)} />}
-            {infoToast && (
-              <div className="fixed bottom-6 left-1/2 z-60 flex min-w-75 max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-2xl">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                </div>
-                <p className="flex-1 text-sm font-medium text-slate-700">{infoToast}</p>
-                <button onClick={() => setInfoToast(null)} className="shrink-0 text-slate-400 hover:text-slate-600">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            )}
       {isTutorModalOpen && <TutorManagementModal tutors={tutors} onClose={() => setIsTutorModalOpen(false)} onRefetch={refetch} />}
 
       <ScheduleOptimizerController
@@ -815,11 +803,11 @@ export default function MasterDeployment() {
         allSeatsForBuilder={allSeatsForBuilder}
         onOpenProposal={openPreview}
         onNoSuggestions={(scope) => {
-          const msg = scope === 'daily'
-            ? 'No available swaps today — sessions are already as packed as availability allows.'
-            : 'No available swaps this week — the schedule is already at maximum consolidation.';
-          setInfoToast(msg);
-          setTimeout(() => setInfoToast(null), 4500);
+          if (scope === 'daily') {
+            alert('No daily optimizer suggestions right now. This day may already be near maximum consolidation under availability constraints.');
+            return;
+          }
+          alert('No weekly optimizer suggestions right now. Current schedule may already be near maximum consolidation under availability constraints.');
         }}
         onBindRun={(run) => {
           optimizerRunRef.current = run;

@@ -100,6 +100,47 @@ function bookingConflict(
   return bookedSlots[studentId]?.has(`${slot.date}-${slot.time}`) ?? false
 }
 
+// Prioritize clean placements first so conflict-heavy needs do not block easy wins.
+function prioritizeNeeds(
+  needs: StudentNeed[],
+  seats: AvailableSeat[],
+  existingBooked: Record<string, Set<string>>
+): StudentNeed[] {
+  return [...needs]
+    .map((need, originalIndex) => {
+      const matchingSeats = seats.filter(seat => {
+        if (!subjectMatchesTutor(need.subject, seat.tutor)) return false
+        if (seat.seatsLeft <= 0) return false
+        if ((need.student.availabilityBlocks?.length ?? 0) > 0 && !need.student.availabilityBlocks?.includes(`${seat.dayNum}-${seat.time}`)) {
+          return false
+        }
+        return true
+      })
+
+      const directSeats = matchingSeats.filter(seat =>
+        !bookingConflict(need.student.id, seat, existingBooked)
+      )
+
+      return {
+        need,
+        originalIndex,
+        hasDirect: directSeats.length > 0,
+        directCount: directSeats.length,
+        totalCount: matchingSeats.length,
+      }
+    })
+    .sort((a, b) => {
+      // 1) Direct non-conflict needs first.
+      if (a.hasDirect !== b.hasDirect) return a.hasDirect ? -1 : 1
+      // 2) Within each bucket, place tighter constraints first.
+      if (a.directCount !== b.directCount) return a.directCount - b.directCount
+      if (a.totalCount !== b.totalCount) return a.totalCount - b.totalCount
+      // 3) Stable fallback.
+      return a.originalIndex - b.originalIndex
+    })
+    .map(x => x.need)
+}
+
 // Client-side fallback — mirrors engine logic, with improved gap-filling
 function clientSideMatch(
   needs: StudentNeed[],
@@ -221,6 +262,7 @@ export function ScheduleBuilder({
   const [generating, setGenerating] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [suggestionsByNeed, setSuggestionsByNeed] = useState<Record<string, SuggestionOption[]>>({})
+  const [previewSeatPool, setPreviewSeatPool] = useState<AvailableSeat[]>(allAvailableSeats)
 
   const [singleStudentId, setSingleStudentId] = useState('')
   const [singleSubject, setSingleSubject] = useState('')
@@ -285,7 +327,11 @@ export function ScheduleBuilder({
     return map
   }, [tutors])
 
-  const buildSuggestionsForNeed = useCallback((need: StudentNeed, currentProposals: Proposal[]): SuggestionOption[] => {
+  const buildSuggestionsForNeed = useCallback((
+    need: StudentNeed,
+    currentProposals: Proposal[],
+    candidateSeats: AvailableSeat[] = allAvailableSeats
+  ): SuggestionOption[] => {
     const options: SuggestionOption[] = []
     const studentExisting = bookedSlotsByStudent[need.student.id] ?? new Set<string>()
     const studentRunBooked = new Set(
@@ -306,7 +352,7 @@ export function ScheduleBuilder({
       return seat.seatsLeft - (proposalLoadBySeat.get(key) ?? 0)
     }
 
-    const directCandidates = allAvailableSeats
+    const directCandidates = candidateSeats
       .filter(seat =>
         subjectMatchesTutor(need.subject, seat.tutor) &&
         seatRemaining(seat) > 0 &&
@@ -326,7 +372,7 @@ export function ScheduleBuilder({
       .slice(0, 3)
 
     // Calculate all candidates for confidence assessment
-    const allValidCandidates = allAvailableSeats
+    const allValidCandidates = candidateSeats
       .filter(seat =>
         subjectMatchesTutor(need.subject, seat.tutor) &&
         seatRemaining(seat) > 0 &&
@@ -397,7 +443,7 @@ export function ScheduleBuilder({
       })
     })
 
-    const conflictSeats = allAvailableSeats
+    const conflictSeats = candidateSeats
       .filter(seat =>
         subjectMatchesTutor(need.subject, seat.tutor) &&
         seatRemaining(seat) > 0 &&
@@ -420,7 +466,7 @@ export function ScheduleBuilder({
         ? ((conflictingSession.students ?? []).find((st: any) => st.id === need.student.id && st.status !== 'cancelled')?.topic || need.subject)
         : need.subject
 
-      const moveTarget = allAvailableSeats.find(seat => {
+      const moveTarget = candidateSeats.find(seat => {
         if (!subjectMatchesTutor(conflictTopic, seat.tutor)) return false
         if (seatRemaining(seat) <= 0) return false
         if (seat.date === conflictSeat.date && seat.time === conflictSeat.time) return false
@@ -494,7 +540,7 @@ export function ScheduleBuilder({
         if (!movingStudent) continue
         const movingTopic = st.topic || movingStudent.subject || need.subject
 
-        const destination = allAvailableSeats.find(seat => {
+        const destination = candidateSeats.find(seat => {
           if (!subjectMatchesTutor(movingTopic, seat.tutor)) return false
           if (seatRemaining(seat) <= 0) return false
           if (seat.date === full.date && seat.time === full.time) return false
@@ -752,6 +798,9 @@ export function ScheduleBuilder({
       ? allAvailableSeats.filter(seat => singleSessionBlocks.includes(`${seat.dayNum}-${seat.time}`))
       : allAvailableSeats
 
+    const prioritizedNeeds = prioritizeNeeds(needsToRun, seatsForRun, bookedSlotsByStudent)
+    setPreviewSeatPool(seatsForRun)
+
     setGenerating(true)
     try {
       const needStudentIds = Array.from(new Set(needsToRun.map(n => n.student.id)))
@@ -759,7 +808,7 @@ export function ScheduleBuilder({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          needs: needsToRun.map(n => ({
+          needs: prioritizedNeeds.map(n => ({
             studentId: n.student.id,
             studentName: n.student.name,
             subject: n.subject,
@@ -794,7 +843,7 @@ export function ScheduleBuilder({
       if (!res.ok) throw new Error('API error')
       const data = await res.json()
 
-      const built: Proposal[] = needsToRun.map(need => {
+      const built: Proposal[] = prioritizedNeeds.map(need => {
         const a = data.assignments?.find((x: any) => x.studentId === need.student.id && x.subject === need.subject)
         if (!a || a.slotIndex == null) {
           return { needId: need.needId, student: need.student, subject: need.subject, slot: null, status: 'unmatched' as ProposalStatus, reason: a?.reason ?? 'No valid slot found' }
@@ -808,19 +857,19 @@ export function ScheduleBuilder({
 
       setProposals(built)
       const nextSuggestions: Record<string, SuggestionOption[]> = {}
-      needsToRun.forEach(need => {
+      prioritizedNeeds.forEach(need => {
         const placed = built.find(p => p.needId === need.needId)?.slot
-        if (!placed) nextSuggestions[need.needId] = buildSuggestionsForNeed(need, built)
+        if (!placed) nextSuggestions[need.needId] = buildSuggestionsForNeed(need, built, seatsForRun)
       })
       setSuggestionsByNeed(nextSuggestions)
       setStep('preview')
     } catch {
-      const fallbackBuilt = clientSideMatch(needsToRun, seatsForRun, bookedSlotsByStudent)
+      const fallbackBuilt = clientSideMatch(prioritizedNeeds, seatsForRun, bookedSlotsByStudent)
       setProposals(fallbackBuilt)
       const nextSuggestions: Record<string, SuggestionOption[]> = {}
-      needsToRun.forEach(need => {
+      prioritizedNeeds.forEach(need => {
         const placed = fallbackBuilt.find(p => p.needId === need.needId)?.slot
-        if (!placed) nextSuggestions[need.needId] = buildSuggestionsForNeed(need, fallbackBuilt)
+        if (!placed) nextSuggestions[need.needId] = buildSuggestionsForNeed(need, fallbackBuilt, seatsForRun)
       })
       setSuggestionsByNeed(nextSuggestions)
       setStep('preview')
@@ -857,7 +906,8 @@ export function ScheduleBuilder({
       s.date === slot.date && s.time === slot.time && s.tutorId === slot.tutor.id
     ).flatMap((s: any) => s.students ?? []).filter((st: any) => st.status !== 'cancelled').length
 
-    if (currentBookings >= slot.seatsLeft) {
+    const slotCapacity = slot.maxCapacity ?? 3
+    if (currentBookings >= slotCapacity) {
       return { success: false, reason: 'No capacity available' }
     }
 
@@ -913,13 +963,13 @@ export function ScheduleBuilder({
           <div style={{ width: '100%', maxWidth: 520, borderRadius: 28, background: 'white', border: '1px solid #e5e7eb', boxShadow: '0 24px 80px rgba(15,23,42,0.12)', padding: '32px', color: '#0f172a' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#64748b', margin: 0 }}>{builderMode === 'single' ? 'Single session planner' : 'Weekly planner'}</p>
-                <h2 style={{ fontSize: 26, fontWeight: 800, margin: '10px 0 0', lineHeight: 1.05 }}>{builderMode === 'single' ? 'Finding the best slot…' : 'Planning the week…'}</h2>
+                <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#64748b', margin: 0 }}>{builderMode === 'single' ? 'Single book planner' : 'Batch book planner'}</p>
+                <h2 style={{ fontSize: 26, fontWeight: 800, margin: '10px 0 0', lineHeight: 1.05 }}>{builderMode === 'single' ? 'Finding the best slot…' : 'Batch booking sessions…'}</h2>
               </div>
               <p style={{ margin: 0, color: '#475569', lineHeight: 1.75 }}>
                 {builderMode === 'single'
                   ? 'Matching subject, tutor fit, and open seats for one booking.'
-                  : 'Running constraint engine — matching subjects, checking capacity, and spreading sessions across the week.'}
+                  : 'Running placement engine — matching subjects, checking capacity, and optimizing batch assignments.'}
               </p>
               <div style={{ display: 'flex', gap: 10 }}>
                 {[0, 1, 2, 3].map(i => (
@@ -943,7 +993,7 @@ export function ScheduleBuilder({
               <Sparkles size={16} style={{ color: '#5b21b6' }} />
             </div>
             <div>
-              <p style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>{builderMode === 'single' ? 'Single Session Planner' : 'Weekly Planner'}</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>{builderMode === 'single' ? 'Single Book' : 'Batch Book'}</p>
               <p style={{ fontSize: 11, fontWeight: 600, color: '#334155', margin: '3px 0 0' }}>
                 {builderMode === 'single'
                   ? `Find the best open seat for one student · ${allAvailableSeats.length} options this week`
@@ -956,12 +1006,12 @@ export function ScheduleBuilder({
               <button
                 onClick={() => setBuilderMode('batch')}
                 style={{ padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 800, background: builderMode === 'batch' ? '#1d4ed8' : 'transparent', color: builderMode === 'batch' ? '#ffffff' : '#0f172a' }}>
-                Plan Week
+                Batch Book
               </button>
               <button
                 onClick={() => setBuilderMode('single')}
                 style={{ padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 800, background: builderMode === 'single' ? '#1d4ed8' : 'transparent', color: builderMode === 'single' ? '#ffffff' : '#0f172a' }}>
-                Book One
+                Single Book
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 10, background: '#f8fafc', border: '1px solid #cbd5e1' }}>
@@ -999,18 +1049,12 @@ export function ScheduleBuilder({
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <div style={{ padding: '14px 24px 0' }}>
-                <div style={{ borderRadius: 12, border: '1px solid #94a3b8', background: '#f8fafc', padding: 12 }}>
-                  <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>What To Select Here</p>
-                  <p style={{ margin: '0 0 8px', fontSize: 12, color: '#1e293b', lineHeight: 1.55 }}>
-                    {builderMode === 'single'
-                      ? 'Pick one student and one subject. Optional session preferences narrow which day/time blocks are allowed for this booking.'
-                      : 'Select students to include in this run, then assign the subject/session count for each. The planner will maximize packing density while respecting constraints.'}
-                  </p>
-                  <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 700, color: '#7f1d1d' }}>
-                    Recurring series are preserved. This planner does not move recurring bookings.
-                  </p>
-                  <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>Constraints This Scheduler Uses</p>
-                  <div style={{ fontSize: 12, color: '#1e293b', lineHeight: 1.55 }}>
+                <div style={{ borderRadius: 14, border: '1px solid #7c3aed', background: 'linear-gradient(180deg, #faf5ff 0%, #f8fafc 100%)', padding: 14, boxShadow: '0 10px 24px rgba(124,58,237,0.16)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 900, color: '#581c87', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Constraints This Scheduler Uses</p>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#6d28d9', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 999, padding: '2px 8px' }}>Always enforced</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#1e293b', lineHeight: 1.6 }}>
                     <span style={{ display: 'block' }}>1. Tutor subject compatibility.</span>
                     <span style={{ display: 'block' }}>2. Student availability blocks and no time collisions.</span>
                     <span style={{ display: 'block' }}>3. Tutor time-off and tutor availability windows.</span>
@@ -1322,6 +1366,11 @@ export function ScheduleBuilder({
               <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#e0f2fe', color: '#0369a1' }}>
                 Ratio {currentRatioMetrics.ratio.toFixed(2)}
               </span>
+              {builderMode === 'single' && singleSessionBlocks.length > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#ede9fe', color: '#6d28d9', border: '1px solid #c4b5fd' }}>
+                  Only showing selected session blocks ({singleSessionBlocks.length})
+                </span>
+              )}
               <span style={{ fontSize: 11, color: '#334155', fontWeight: 600, marginLeft: 4 }}>Week of {weekStart}</span>
               <button onClick={() => setStep('select')} style={{ ...btnSecondary, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <RotateCcw size={11} /> Back
@@ -1332,7 +1381,7 @@ export function ScheduleBuilder({
               <SchedulePreviewGrid
                 proposals={proposals}
                 suggestionsByNeed={suggestionsByNeed}
-                allAvailableSeats={allAvailableSeats}
+                allAvailableSeats={previewSeatPool}
                 existingSessions={sessions.map((s: any) => ({
                   date: s.date,
                   tutorId: s.tutorId,
