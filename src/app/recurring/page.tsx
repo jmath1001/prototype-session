@@ -8,7 +8,7 @@ import {
   type RecurringSeries, type Tutor, type Student, toISODate,
 } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
-import { Repeat, X, AlertTriangle, RefreshCw, Calendar, User, BookOpen, Edit3, Clock, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Repeat, X, AlertTriangle, RefreshCw, Calendar, User, BookOpen, Edit3, Clock, Pencil, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { logEvent } from '@/lib/analytics';
 
 const DAY_NAMES: Record<number, string> = {
@@ -336,6 +336,7 @@ export default function RecurringManager() {
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
+  const [search, setSearch] = useState('');
   const [editingSeries, setEditingSeries] = useState<RecurringSeries | null>(null);
   const [editTab, setEditTab] = useState<EditTab>('schedule');
   const [editing, setEditing] = useState(false);
@@ -608,7 +609,13 @@ export default function RecurringManager() {
     } catch (e: any) { patchSingle({ saving: false, error: e.message }); }
   };
 
-  const filtered = statusFilter === 'all' ? series : series.filter(s => s.status === statusFilter);
+  const filtered = series
+    .filter(s => statusFilter === 'all' || s.status === statusFilter)
+    .filter(s => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return s.studentName.toLowerCase().includes(q) || s.tutorName.toLowerCase().includes(q) || s.topic.toLowerCase().includes(q);
+    });
   const counts = { all: series.length, active: series.filter(s => s.status === 'active').length, completed: series.filter(s => s.status === 'completed').length, cancelled: series.filter(s => s.status === 'cancelled').length };
   const createBlocks = getSessionsForDay(createForm.dayOfWeek);
 
@@ -653,6 +660,23 @@ export default function RecurringManager() {
             <p className="text-[10px] font-black uppercase tracking-widest text-[#334155]">Cancelled</p>
             <p className="mt-1 text-2xl font-black text-[#64748b]">{counts.cancelled}</p>
           </div>
+        </div>
+
+        <div className="relative">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by student, tutor, or topic…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs font-medium outline-none transition-all"
+            style={{ background: 'white', border: '1.5px solid #e2e8f0', color: '#0f172a' }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#334155]">
+              <X size={12} />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
