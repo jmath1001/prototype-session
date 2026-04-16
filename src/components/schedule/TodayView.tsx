@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback } from 'react';
-import { PlusCircle, Check, Clock, Calendar as CalendarIcon, X, Loader2 } from 'lucide-react';
-import { createInlineStudent, updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
+import { PlusCircle, Check, Clock, Calendar as CalendarIcon, X, Loader2, Trash2 } from 'lucide-react';
+import { createInlineStudent, updateAttendance, removeStudentFromSession, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, TUTOR_PALETTES } from './scheduleConstants';
@@ -343,6 +343,7 @@ export function TodayView({
   // which slot's student-suggestion dropdown is open
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const todayIso  = toISODate(selectedDate);
   const todayDow  = dayOfWeek(todayIso);
@@ -396,6 +397,21 @@ export function TodayView({
 
   const topicsFor = (tutor: Tutor) =>
     Array.from(new Set((tutor.subjects ?? []).map((s: string) => s?.trim()).filter(Boolean)));
+
+  /** Map a student's stored subject to the tutor's current subject list.
+   *  Exact match first, then case-insensitive, then partial word overlap, else keep original. */
+  const resolveTopicForTutor = (studentSubject: string | null | undefined, tutor: Tutor): string => {
+    if (!studentSubject) return tutor.subjects?.[0] ?? '';
+    const list = topicsFor(tutor);
+    if (!list.length) return studentSubject;
+    const exact = list.find(t => t === studentSubject);
+    if (exact) return exact;
+    const ci = list.find(t => t.toLowerCase() === studentSubject.toLowerCase());
+    if (ci) return ci;
+    const words = studentSubject.toLowerCase().split(/\W+/).filter(Boolean);
+    const best = list.find(t => words.some(w => w.length > 2 && t.toLowerCase().includes(w)));
+    return best ?? list[0];
+  };
 
   const topicMatchesTutor = (_tutor: Tutor, _topic: string | null) => true;
 
@@ -598,8 +614,7 @@ export function TodayView({
                   onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                   onMouseDown={e => {
                     e.preventDefault();
-                    // auto-match topic from student's subject if possible
-                    const autoTopic = s.subject ?? form.topic;
+                    const autoTopic = resolveTopicForTutor(s.subject, tutor);
                     patchForm(key, { student: s, query: s.name, topic: autoTopic });
                     setOpenDropdown(null);
                   }}
@@ -987,6 +1002,24 @@ export function TodayView({
                                                 : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                               {student.status === 'present' && <Check size={11} strokeWidth={3} color="white" />}
                                             </button>
+                                            <button
+                                              title={removingId === (student.rowId || student.id) ? 'Tap again to confirm remove' : 'Remove student'}
+                                              onClick={async e => {
+                                                e.stopPropagation();
+                                                const sid = student.rowId || student.id;
+                                                if (removingId !== sid) { setRemovingId(sid); return; }
+                                                setRemovingId(null);
+                                                await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                                logEvent('student_removed', { source: 'today_grid', sessionId: session.id, studentId: student.id });
+                                                refetch();
+                                              }}
+                                              onBlur={() => setRemovingId(null)}
+                                              className="shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-all"
+                                              style={removingId === (student.rowId || student.id)
+                                                ? { background: '#fee2e2', color: '#dc2626' }
+                                                : { background: 'transparent', color: '#6b7280' }}>
+                                              <Trash2 size={11} strokeWidth={2} />
+                                            </button>
                                           </div>
                                         </div>
                                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -995,8 +1028,8 @@ export function TodayView({
                                             <span className="text-[8px] font-black px-1 py-0.5 rounded" style={{ background: '#ede9fe', color: '#7c3aed', letterSpacing: '0.02em' }}>↺ REC</span>
                                           )}
                                         </div>
-                                        {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>Grade {student.grade}</p>}
-                                        {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#9ca3af' }}>📝 {student.notes}</p>}
+                                        {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#6b7280' }}>Grade {student.grade}</p>}
+                                        {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
                                       </div>
                                     ))}
 
@@ -1104,6 +1137,22 @@ export function TodayView({
                                               ? { background: '#059669', border: '1.5px solid #059669' }
                                               : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                             {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
+                                          </button>
+                                          <button
+                                            onClick={async e => {
+                                              e.stopPropagation();
+                                              const sid = student.rowId || student.id;
+                                              if (removingId !== sid) { setRemovingId(sid); return; }
+                                              setRemovingId(null);
+                                              await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                              refetch();
+                                            }}
+                                            onBlur={() => setRemovingId(null)}
+                                            className="shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
+                                            style={removingId === (student.rowId || student.id)
+                                              ? { background: '#fee2e2', color: '#dc2626' }
+                                              : { background: 'transparent', color: '#6b7280' }}>
+                                            <Trash2 size={8} strokeWidth={2} />
                                           </button>
                                           <div className="flex-1 min-w-0 cursor-pointer"
                                             onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
@@ -1240,7 +1289,7 @@ export function TodayView({
                                   style={{ color: '#111827', borderBottom: '1px solid #f3f4f6' }}
                                   onMouseDown={e => {
                                     e.preventDefault();
-                                    const autoTopic = s.subject ?? form.topic;
+                                    const autoTopic = resolveTopicForTutor(s.subject, tutor);
                                     patchForm(openKey, { student: s, query: s.name, topic: autoTopic });
                                     setOpenDropdown(null);
                                   }}>

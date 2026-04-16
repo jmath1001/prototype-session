@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, Check, X, Loader2 } from 'lucide-react';
-import { createInlineStudent, updateAttendance, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
+import { PlusCircle, Check, X, Loader2, Trash2 } from 'lucide-react';
+import { createInlineStudent, updateAttendance, removeStudentFromSession, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, TUTOR_PALETTES } from './scheduleConstants';
@@ -89,6 +89,7 @@ export function WeekView({
   const [forms, setForms]               = useState<Record<string, InlineForm>>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const selectionKey = (sessionId: string, studentId: string) => `${sessionId}|${studentId}`;
   type DragStudentPayload = { rowId: string; studentId: string; fromSessionId: string; topic: string | null };
@@ -594,6 +595,24 @@ export function WeekView({
                                                     : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                                   {student.status === 'present' && <Check size={9} strokeWidth={3} color="white" />}
                                                 </button>
+                                                <button
+                                                  title={removingId === (student.rowId || student.id) ? 'Tap again to confirm' : 'Remove student'}
+                                                  onClick={async e => {
+                                                    e.stopPropagation();
+                                                    const sid = student.rowId || student.id;
+                                                    if (removingId !== sid) { setRemovingId(sid); return; }
+                                                    setRemovingId(null);
+                                                    await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                                    logEvent('student_removed', { source: 'week_grid', sessionId: session.id, studentId: student.id });
+                                                    refetch();
+                                                  }}
+                                                  onBlur={() => setRemovingId(null)}
+                                                  className="shrink-0 w-4 h-4 rounded-md flex items-center justify-center transition-all"
+                                                  style={removingId === (student.rowId || student.id)
+                                                    ? { background: '#fee2e2', color: '#dc2626' }
+                                                    : { background: 'transparent', color: '#6b7280' }}>
+                                                  <Trash2 size={9} strokeWidth={2} />
+                                                </button>
                                               </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -602,8 +621,8 @@ export function WeekView({
                                                 <span className="text-[8px] font-black px-1 py-0.5 rounded" style={{ background: '#ede9fe', color: '#7c3aed', letterSpacing: '0.02em' }}>↺ REC</span>
                                               )}
                                             </div>
-                                            {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>Grade {student.grade}</p>}
-                                            {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#9ca3af' }}>📝 {student.notes}</p>}
+                                            {student.grade && <p className="text-[10px] mt-0.5" style={{ color: '#6b7280' }}>Grade {student.grade}</p>}
+                                            {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
                                             {bulkRemoveMode && (
                                               <div className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: isSelected ? '#7c3aed' : '#6b7280' }}>
                                                 <span style={{ width: 10, height: 10, borderRadius: 999, display: 'inline-block', background: isSelected ? '#7c3aed' : '#d1d5db' }} />
@@ -732,6 +751,23 @@ export function WeekView({
                                                   ? { background: '#2563eb', border: '1.5px solid #2563eb' }
                                                   : { background: 'white', border: '1.5px solid #d1d5db' }}>
                                                 {student.status === 'present' && <Check size={7} strokeWidth={3} color="white" />}
+                                              </button>
+                                              <button
+                                                onClick={async e => {
+                                                  e.stopPropagation();
+                                                  const sid = student.rowId || student.id;
+                                                  if (removingId !== sid) { setRemovingId(sid); return; }
+                                                  setRemovingId(null);
+                                                  await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                                  logEvent('student_removed', { source: 'week_grid_mobile', sessionId: session.id, studentId: student.id });
+                                                  refetch();
+                                                }}
+                                                onBlur={() => setRemovingId(null)}
+                                                className="shrink-0 w-3 h-3 rounded flex items-center justify-center transition-all"
+                                                style={removingId === (student.rowId || student.id)
+                                                  ? { background: '#fee2e2', color: '#dc2626' }
+                                                  : { background: 'transparent', color: '#6b7280' }}>
+                                                <Trash2 size={7} strokeWidth={2} />
                                               </button>
                                               <div className="flex-1 min-w-0"
                                                 style={{ cursor: bulkRemoveMode ? 'pointer' : 'default' }}>

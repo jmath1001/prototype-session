@@ -24,6 +24,8 @@ interface ScheduleNavProps {
   onClearBulkSelection?: () => void;
   onClearWeekNonRecurring?: () => void;
   isClearingWeek?: boolean;
+  activeStudentCount?: number;
+  totalStudentCount?: number;
   commandBarSlot?: React.ReactNode;
 }
 
@@ -47,6 +49,8 @@ export function ScheduleNav({
   onClearBulkSelection,
   onClearWeekNonRecurring,
   isClearingWeek,
+  activeStudentCount = 0,
+  totalStudentCount = 0,
   commandBarSlot,
 }: ScheduleNavProps) {
   const [clearMenuOpen, setClearMenuOpen] = useState(false);
@@ -194,6 +198,19 @@ export function ScheduleNav({
             )}
           </div>
         )}
+
+          <div className="hidden md:block w-px h-5 shrink-0" style={{ background: '#a5b4fc' }} />
+
+          <div className="hidden md:flex items-center gap-1.5 shrink-0">
+            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
+              style={{ background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#16a34a' }}>
+              Active {activeStudentCount}
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b' }}>
+              Inactive {Math.max(0, totalStudentCount - activeStudentCount)}
+            </span>
+          </div>
 
           <div className="w-px h-5 shrink-0" style={{ background: '#a5b4fc' }} />
 

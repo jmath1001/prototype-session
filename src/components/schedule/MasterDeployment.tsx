@@ -49,7 +49,7 @@ export default function MasterDeployment() {
   const [isSchedulerMenuOpen, setIsSchedulerMenuOpen] = useState(false);
 
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
-  const { tutors, students, sessions, timeOff, loading, error, refetch } = useScheduleData(weekStart);
+  const { tutors, students, sessions, timeOff, activeStudentIds, loading, error, refetch } = useScheduleData(weekStart);
   const nextWeekStart = useMemo(() => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + 7);
@@ -650,6 +650,8 @@ export default function MasterDeployment() {
         onClearBulkSelection={() => setSelectedRemovals({})}
         onClearWeekNonRecurring={handleClearWeekNonRecurring}
         isClearingWeek={isClearingWeek}
+        activeStudentCount={activeStudentIds.size}
+        totalStudentCount={students.length}
         commandBarSlot={
           <>
             <CommandBar

@@ -93,6 +93,7 @@ export type ScheduleData = {
   students: Student[]
   sessions: Session[]
   timeOff: TimeOff[]
+  activeStudentIds: Set<string>
   loading: boolean
   error: string | null
   refetch: () => void
@@ -173,6 +174,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
   const [students, setStudents] = useState<Student[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [timeOff,  setTimeOff]  = useState<TimeOff[]>([])
+  const [activeStudentIds, setActiveStudentIds] = useState<Set<string>>(new Set())
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
   const [tick,     setTick]     = useState(0)
@@ -198,7 +200,12 @@ export function useScheduleData(weekStart: Date): ScheduleData {
       const to   = toISODate(weekEnd)
 
       try {
-        const [tutorRes, studentRes, sessionRes, timeOffRes] = await Promise.all([
+        const todayIso = toISODate(getCentralTimeNow())
+        const thirtyDaysAgo = new Date(todayIso + 'T00:00:00')
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        const thirtyDaysAgoIso = toISODate(thirtyDaysAgo)
+
+        const [tutorRes, studentRes, sessionRes, timeOffRes, activeRes] = await Promise.all([
           supabase.from(TUTORS).select('*').order('name'),
           supabase.from(STUDENTS).select('*').order('name'),
           (supabase
@@ -213,6 +220,11 @@ export function useScheduleData(weekStart: Date): ScheduleData {
             .select('*')
             .gte('date', from)
             .lte('date', to),
+          (supabase
+            .from(SESSIONS)
+            .select(`id, ${SS}(student_id)`)
+            .gte('session_date', thirtyDaysAgoIso)
+            .lte('session_date', todayIso) as any),
         ])
 
         if (tutorRes.error)   throw tutorRes.error
@@ -283,6 +295,10 @@ export function useScheduleData(weekStart: Date): ScheduleData {
           setStudents(students)
           setSessions(sessions)
           setTimeOff(timeOffMapped)
+          const ids = new Set<string>(
+            (activeRes.data ?? []).flatMap((r: any) => (r[SS] ?? []).map((ss: any) => ss.student_id as string))
+          )
+          setActiveStudentIds(ids)
         }
       } catch (err: any) {
         if (!cancelled) setError(err.message ?? 'Failed to load schedule')
@@ -295,7 +311,7 @@ export function useScheduleData(weekStart: Date): ScheduleData {
     return () => { cancelled = true }
   }, [toISODate(weekStart), tick])
 
-  return { tutors, students, sessions, timeOff, loading, error, refetch }
+  return { tutors, students, sessions, timeOff, activeStudentIds, loading, error, refetch }
 }
 
 // ── Write helpers ─────────────────────────────────────────────────────────────

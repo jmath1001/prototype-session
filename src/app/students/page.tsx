@@ -81,12 +81,19 @@ function MetricsPanel({ students, allSessions, tutors }: { students: any[]; allS
       const recs = past.filter(r => dayOfWeek(r.date) === dow);
       return { dow, label: ['','Mon','Tue','Wed','Thu','','Sat'][dow], total: recs.length, noShow: recs.filter(r => r.status === 'no-show').length };
     });
+    const thirtyDaysAgo = toISODate(new Date(new Date(today).setDate(new Date(today).getDate() - 30)));
+    const activeIds = new Set(
+      allSessions
+        .filter(s => s.date >= thirtyDaysAgo && s.date <= today)
+        .flatMap(s => s.students.map((st: any) => st.id as string))
+    );
     return {
       total: past.length, present: present.length, noShow: noShow.length,
       attendanceRate: past.length > 0 ? present.length / past.length : null,
       noShowRate: past.length > 0 ? noShow.length / past.length : null,
       bookingCoverage: students.length > 0 ? bookedThisWeek.size / students.length : null,
       bookedCount: bookedThisWeek.size, atRisk, studentStats, tutorLoad, dowStats,
+      activeCount: activeIds.size, inactiveCount: students.length - activeIds.size,
     };
   }, [students, allSessions, tutors]);
 
@@ -120,10 +127,10 @@ function MetricsPanel({ students, allSessions, tutors }: { students: any[]; allS
         <div style={{ borderTop: '1px solid #e2e8f0' }}>
           <div className="grid grid-cols-2 md:grid-cols-4" style={{ borderBottom: '1px solid #e2e8f0' }}>
             {[
+              { label: 'Active (30d)', value: String(metrics.activeCount), sub: 'attended in last 30 days', color: '#16a34a' },
+              { label: 'Inactive (30d)', value: String(metrics.inactiveCount), sub: 'no sessions in 30 days', color: '#94a3b8' },
               { label: 'Attendance', value: pct(metrics.attendanceRate), sub: `${metrics.present}/${metrics.total}`, color: rateColor(metrics.attendanceRate) },
               { label: 'No-show', value: pct(metrics.noShowRate), sub: `${metrics.noShow} sessions`, color: metrics.noShowRate && metrics.noShowRate > 0.2 ? '#dc2626' : '#16a34a' },
-              { label: 'Booked This Week', value: pct(metrics.bookingCoverage), sub: `${metrics.bookedCount}/${students.length}`, color: rateColor(metrics.bookingCoverage) },
-              { label: 'At Risk', value: String(metrics.atRisk.length), sub: '>40% no-show rate', color: metrics.atRisk.length > 0 ? '#dc2626' : '#16a34a' },
             ].map((k, i) => (
               <div key={k.label} className="bg-white px-5 py-4" style={{ borderRight: i < 3 ? '1px solid #e2e8f0' : 'none' }}>
                 <p className="mb-1 text-[9px] font-black uppercase tracking-[0.2em] text-[#64748b]">{k.label}</p>
@@ -180,9 +187,9 @@ function MetricsPanel({ students, allSessions, tutors }: { students: any[]; allS
 
 // ── Student Row (table row style) ─────────────────────────────────────────────
 function StudentRow({
-  student, selected, onToggle, onRefetch, tutors, allSessions, allAvailableSeats, onBookingSuccess,
+  student, isActive, selected, onToggle, onRefetch, tutors, allSessions, allAvailableSeats, onBookingSuccess,
 }: {
-  student: any; selected: boolean; onToggle: () => void;
+  student: any; isActive: boolean; selected: boolean; onToggle: () => void;
   onRefetch: () => void; tutors: any[]; allSessions: any[];
   allAvailableSeats: any[]; onBookingSuccess: (d: any) => void;
 }) {
@@ -222,6 +229,7 @@ function StudentRow({
   const rateColor = !rate ? '#94a3b8' : rate >= 0.8 ? '#16a34a' : rate >= 0.6 ? '#f59e0b' : '#dc2626';
   const isAtRisk = past.length >= 3 && noShowCount / past.length > 0.4;
   const nextSession = upcoming[0];
+  const latestSession = past[0];
 
   const handleUpdate = async () => {
     setSaving(true);
@@ -308,6 +316,13 @@ function StudentRow({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[13px] font-black text-[#0f172a] truncate">{student.name}</span>
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider"
+                style={isActive
+                  ? { background: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }
+                  : { background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
+                {isActive ? 'Active' : 'Inactive'}
+              </span>
               {isAtRisk && <AlertTriangle size={10} style={{ color: '#dc2626', flexShrink: 0 }} />}
             </div>
             {student.grade && <span className="text-[10px] text-[#94a3b8]">Grade {student.grade}</span>}
@@ -347,13 +362,18 @@ function StudentRow({
 
         {/* Next session */}
         <div>
-          {nextSession ? (
-            <span className="text-[10px] text-[#64748b]">
-              {new Date(nextSession.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          <div className="flex flex-col">
+            <span className="text-[9px] font-semibold" style={{ color: nextSession ? '#4f46e5' : '#cbd5e1' }}>
+              {nextSession
+                ? `Next ${new Date(nextSession.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'Next —'}
             </span>
-          ) : (
-            <span className="text-[10px] text-[#cbd5e1]">—</span>
-          )}
+            <span className="text-[9px]" style={{ color: latestSession ? '#64748b' : '#cbd5e1' }}>
+              {latestSession
+                ? `Last ${new Date(latestSession.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'Last —'}
+            </span>
+          </div>
         </div>
 
         {/* Actions */}
@@ -663,7 +683,7 @@ export default function StudentAdminPage() {
   const [adding, setAdding] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'booked' | 'unbooked'>('all');
+  const [filter, setFilter] = useState<'all' | 'booked' | 'unbooked' | 'active' | 'inactive'>('all');
   const [newStudent, setNewStudent] = useState(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
   const [bookingToast, setBookingToast] = useState<any>(null);
@@ -721,10 +741,23 @@ export default function StudentAdminPage() {
     return ids;
   }, [allSessions, today, weekEnd]);
 
+  const activeIds = useMemo(() => {
+    const ids = new Set<string>();
+    const dt = new Date(today + 'T00:00:00');
+    dt.setDate(dt.getDate() - 30);
+    const thirtyDaysAgo = toISODate(dt);
+    allSessions
+      .filter(s => s.date >= thirtyDaysAgo && s.date <= today)
+      .forEach(s => s.students.forEach((st: any) => ids.add(st.id)));
+    return ids;
+  }, [allSessions, today]);
+
   const filtered = students.filter(s => {
     if (!s.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === 'booked') return bookedIds.has(s.id);
     if (filter === 'unbooked') return !bookedIds.has(s.id);
+    if (filter === 'active') return activeIds.has(s.id);
+    if (filter === 'inactive') return !activeIds.has(s.id);
     return true;
   });
 
@@ -806,13 +839,15 @@ export default function StudentAdminPage() {
 
         {/* Stats */}
         {!loading && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { label: 'Total Students', value: students.length, key: 'all', color: '#0f172a', activeBg: '#0f172a', bg: '#fff' },
               { label: 'Booked This Week', value: bookedIds.size, key: 'booked', color: '#16a34a', activeBg: '#16a34a', bg: '#f0fdf4' },
               { label: 'Not Booked', value: students.length - bookedIds.size, key: 'unbooked', color: '#dc2626', activeBg: '#dc2626', bg: '#fff5f5' },
+              { label: 'Active (30d)', value: activeIds.size, key: 'active', color: '#15803d', activeBg: '#15803d', bg: '#f0fdf4' },
+              { label: 'Inactive (30d)', value: students.length - activeIds.size, key: 'inactive', color: '#64748b', activeBg: '#475569', bg: '#f8fafc' },
             ].map(s => (
-              <button key={s.key} onClick={() => setFilter(f => f === s.key ? 'all' : s.key as any)}
+              <button key={s.key} onClick={() => setFilter(f => f === s.key ? 'all' : s.key as 'all' | 'booked' | 'unbooked' | 'active' | 'inactive')}
                 className="rounded-lg p-4 text-left shadow-[0_14px_32px_rgba(15,23,42,0.08)] transition-all"
                 style={{
                   background: filter === s.key ? s.activeBg : s.bg,
@@ -913,7 +948,7 @@ export default function StudentAdminPage() {
                 </button>
               </div>
               <div />
-              {['Student', 'Sessions', 'Booking', 'Attendance', 'Next', 'Actions'].map(h => (
+              {['Student', 'Sessions', 'Booking', 'Attendance', 'Next / Latest', 'Actions'].map(h => (
                 <div key={h} className={`text-[9px] font-black uppercase tracking-[0.2em] text-[#64748b] ${h === 'Actions' ? 'text-right pr-3' : ''}`}>{h}</div>
               ))}
             </div>
@@ -921,6 +956,7 @@ export default function StudentAdminPage() {
             {filtered.map(s => (
               <StudentRow
                 key={s.id} student={s}
+                isActive={activeIds.has(s.id)}
                 selected={selected.has(s.id)}
                 onToggle={() => setSelected(sel => { const n = new Set(sel); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}
                 onRefetch={fetchData} tutors={tutors} allSessions={allSessions}
