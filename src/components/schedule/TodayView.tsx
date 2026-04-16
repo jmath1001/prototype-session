@@ -948,9 +948,9 @@ export function TodayView({
                                         }}
                                         onDragEnd={() => setDraggingTopic(null)}
                                         style={
-                                          student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
-                                          : student.status === 'present' ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
-                                          :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
+                                          student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                          : student.status === 'present' ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 6px 14px rgba(37,99,235,0.16), 0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                          :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                         }
                                         onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
                                         <div className="flex justify-between items-start mb-1">
@@ -1088,9 +1088,9 @@ export function TodayView({
                                           }}
                                           onDragEnd={() => setDraggingTopic(null)}
                                           style={
-                                            student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
-                                            : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
-                                            :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
+                                            student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                            : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.14), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                            :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                           }>
                                           <button
                                             onClick={async e => {

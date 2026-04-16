@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlusCircle, Check, X, Loader2 } from 'lucide-react';
-import { createInlineStudent, updateAttendance, toISODate, dayOfWeek, type Tutor } from '@/lib/useScheduleData';
+import { createInlineStudent, updateAttendance, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, TUTOR_PALETTES } from './scheduleConstants';
@@ -421,7 +421,7 @@ export function WeekView({
         const dayIdx    = ACTIVE_DAYS.indexOf(dow);
         const dayLabel  = DAY_NAMES[dayIdx];
         const dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const isToday   = isoDate === toISODate(new Date());
+        const isToday   = isoDate === toISODate(getCentralTimeNow());
         const activeTutors = tutors.filter(t =>
           t.availability.includes(dow) &&
           (selectedTutorFilter === null || t.id === selectedTutorFilter)
@@ -433,7 +433,9 @@ export function WeekView({
             <div className="flex items-center gap-2.5 md:gap-3 px-1">
               <div className="flex items-baseline gap-3">
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-none"
-                  style={{ color: '#0f172a' }}>
+                  style={isToday
+                    ? { color: '#4338ca', textShadow: '0 1px 10px rgba(79,70,229,0.18)' }
+                    : { color: '#0f172a' }}>
                   {dayLabel}
                 </h2>
                 <span className="text-sm md:text-base font-semibold" style={{ color: '#64748b' }}>
@@ -546,9 +548,9 @@ export function WeekView({
                                             }}
                                             onDragEnd={() => setDraggingTopic(null)}
                                             style={
-                                              student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
-                                              : student.status === 'present' ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
-                                              :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }
+                                              student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                              : student.status === 'present' ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 6px 14px rgba(37,99,235,0.16), 0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                              :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                             }
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -703,11 +705,11 @@ export function WeekView({
                                               onDragEnd={() => setDraggingTopic(null)}
                                               style={{
                                                 ...(student.status === 'no-show'
-                                                  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: 'inset 0 0 0 1px rgba(148,163,184,0.2)' }
+                                                  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
                                                   : student.status === 'present'
-                                                    ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
-                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 1px 0 rgba(17,24,39,0.12)' }),
-                                                ...(bulkRemoveMode ? { boxShadow: isSelected ? '0 0 0 2px rgba(124,58,237,0.3)' : 'none' } : {}),
+                                                    ? { background: '#dbeafe', border: '1.5px solid #2563eb', boxShadow: '0 6px 14px rgba(37,99,235,0.16), 0 1px 0 rgba(37,99,235,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
+                                                    : { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }),
+                                                ...(bulkRemoveMode ? { outline: isSelected ? '2px solid rgba(124,58,237,0.32)' : 'none', outlineOffset: 0 } : {}),
                                               }}
                                               onClick={(e) => {
                                                 e.stopPropagation();

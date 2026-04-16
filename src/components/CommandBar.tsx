@@ -36,11 +36,11 @@ type Result =
   | { type: 'error'; text: string }
 
 const PLACEHOLDERS = [
-  "Show Maya's contact info...",
-  "Find open Physics slots...",
-  "John's upcoming sessions...",
-  "Pull Sarah's session history...",
-  "Open Math slots this week...",
+  "Search by subject: Algebra openings",
+  "Search student record: Maya Thompson",
+  "Find contact info for John Park",
+  "Show Sarah Nguyen session history",
+  "Find open Chemistry slots this week",
 ]
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -439,20 +439,53 @@ export function CommandBar({
   const [result, setResult] = useState<Result | null>(null)
   const [isFocused, setIsFocused] = useState(false)
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [placeholderVisible, setPlaceholderVisible] = useState(true)
+  const [typedPlaceholder, setTypedPlaceholder] = useState('')
+  const [isDeletingPlaceholder, setIsDeletingPlaceholder] = useState(false)
+  const [showPlaceholderCaret, setShowPlaceholderCaret] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Rotating placeholder
+  // Typing placeholder animation while idle
   useEffect(() => {
-    if (isFocused || query) return
+    if (isFocused || query) {
+      setTypedPlaceholder('')
+      setIsDeletingPlaceholder(false)
+      return
+    }
+
+    const target = PLACEHOLDERS[placeholderIdx]
+    const timeout = setTimeout(() => {
+      if (!isDeletingPlaceholder && typedPlaceholder.length < target.length) {
+        setTypedPlaceholder(target.slice(0, typedPlaceholder.length + 1))
+        return
+      }
+
+      if (!isDeletingPlaceholder && typedPlaceholder.length === target.length) {
+        setIsDeletingPlaceholder(true)
+        return
+      }
+
+      if (isDeletingPlaceholder && typedPlaceholder.length > 0) {
+        setTypedPlaceholder(target.slice(0, typedPlaceholder.length - 1))
+        return
+      }
+
+      setIsDeletingPlaceholder(false)
+      setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length)
+    }, !isDeletingPlaceholder && typedPlaceholder.length === target.length ? 1300 : isDeletingPlaceholder ? 22 : 40)
+
+    return () => clearTimeout(timeout)
+  }, [isFocused, query, placeholderIdx, typedPlaceholder, isDeletingPlaceholder])
+
+  useEffect(() => {
+    if (isFocused || query) {
+      setShowPlaceholderCaret(false)
+      return
+    }
+    setShowPlaceholderCaret(true)
     const interval = setInterval(() => {
-      setPlaceholderVisible(false)
-      setTimeout(() => {
-        setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length)
-        setPlaceholderVisible(true)
-      }, 300)
-    }, 3000)
+      setShowPlaceholderCaret(v => !v)
+    }, 500)
     return () => clearInterval(interval)
   }, [isFocused, query])
 
@@ -532,7 +565,7 @@ export function CommandBar({
   const isStudentResult = result?.type === 'student_contact' || result?.type === 'student_sessions' || result?.type === 'student_profile'
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: '550px' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: '500px' }}>
       {showDropdown && (
         <div onClick={() => { setResult(null); setIsFocused(false) }}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
@@ -540,7 +573,7 @@ export function CommandBar({
 
       {/* ── Input bar ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', height: '36px',
+        display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', height: '34px',
         background: '#fff', borderRadius: 10,
         border: isFocused ? '1.5px solid #8b5cf6' : '1.5px solid #c4b5fd',
         transition: 'all 0.2s',
@@ -567,11 +600,10 @@ export function CommandBar({
             <span style={{
               position: 'absolute', left: 0, pointerEvents: 'none',
               fontSize: 13, color: C.textMuted, fontWeight: 400,
-              opacity: placeholderVisible ? 1 : 0,
-              transform: placeholderVisible ? 'translateY(0)' : 'translateY(4px)',
-              transition: 'opacity 0.25s ease, transform 0.25s ease',
+              display: 'inline-flex', alignItems: 'center',
             }}>
-              {PLACEHOLDERS[placeholderIdx]}
+              {typedPlaceholder}
+              <span style={{ opacity: showPlaceholderCaret ? 1 : 0, transition: 'opacity 0.12s linear' }}>|</span>
             </span>
           )}
         </div>
@@ -606,7 +638,7 @@ export function CommandBar({
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Try asking</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
                   {PLACEHOLDERS.map(s => (
-                    <button key={s} onClick={() => { setQuery(s.replace('...', '')); runQuery(s.replace('...', '')) }}
+                    <button key={s} onClick={() => { setQuery(s); runQuery(s) }}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '10px 14px', borderRadius: 9,
@@ -615,7 +647,7 @@ export function CommandBar({
                       }}
                       onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = C.accent; el.style.background = C.accentSoft }}
                       onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = C.border; el.style.background = C.surface }}>
-                      <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600 }}>{s.replace('...', '')}</span>
+                      <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600 }}>{s}</span>
                       <ChevronRight size={13} style={{ color: C.textTiny, flexShrink: 0 }} />
                     </button>
                   ))}
