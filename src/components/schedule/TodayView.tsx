@@ -968,7 +968,7 @@ export function TodayView({
                                   <div className="flex flex-col gap-1.5 min-h-[100px]">
 
                                     {/* booked students */}
-                                    {hasStudents && !isOnTimeOff && orderStudentsForDisplay(session!.students).map((student: any) => (
+                                    {hasStudents && orderStudentsForDisplay(session!.students).map((student: any) => (
                                       <div key={student.rowId || student.id}
                                         className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
                                         draggable={!!student.rowId}
@@ -1064,7 +1064,9 @@ export function TodayView({
                                         style={{ minHeight: 100, background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                         {isOnTimeOff ? (
                                           <>
-                                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: '#4f46e5' }}>OFF</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: hasStudents ? '#b91c1c' : '#4f46e5' }}>
+                                              {hasStudents ? 'OFF + BOOKED' : 'OFF'}
+                                            </span>
                                             {timeOffNote && <span className="text-[9px] font-medium text-center px-2" style={{ color: '#9ca3af' }}>{timeOffNote}</span>}
                                           </>
                                         ) : (
@@ -1124,7 +1126,7 @@ export function TodayView({
                                   <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
                                 </div>
                                 <div className="space-y-1" style={{ minHeight: 64 }}>
-                                  {hasStudents && !isOnTimeOff && (
+                                  {hasStudents && (
                                     <>
                                       {orderStudentsForDisplay(session!.students).map((student: any) => (
                                         <div key={student.rowId || student.id}
@@ -1221,7 +1223,7 @@ export function TodayView({
                                     <div className="w-full rounded-lg flex flex-col items-center justify-center gap-1"
                                       style={{ minHeight: 56, background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                       {isOnTimeOff
-                                        ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#475569' }}>OFF</span>
+                                        ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: hasStudents ? '#b91c1c' : '#475569' }}>{hasStudents ? 'OFF+BOOKED' : 'OFF'}</span>
                                         : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#d1d5db' }}>—</span>}
                                     </div>
                                   )}

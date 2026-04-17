@@ -11,6 +11,8 @@ import { logEvent } from '@/lib/analytics';
 const p        = process.env.NEXT_PUBLIC_TABLE_PREFIX ?? 'slake'
 const TUTORS   = `${p}_tutors`
 const TIME_OFF = `${p}_tutor_time_off`
+const SESSIONS = `${p}_sessions`
+const SS       = `${p}_session_students`
 
 // ── Subject definitions ───────────────────────────────────────────────────────
 export const SUBJECT_GROUPS = [
@@ -27,6 +29,9 @@ const ACTIVE_DAYS_INFO = [
 
 type TutorWithContact = Tutor & { email: string | null; phone: string | null; };
 type TimeOff = { id: string; tutor_id: string; date: string; note: string; };
+type TimeOffGroup = { ids: string[]; startDate: string; endDate: string; note: string; totalDays: number };
+type ScheduledStudent = { id: string; name: string; status: string; seriesId: string | null; };
+type ScheduledSession = { id: string; tutorId: string; date: string; time: string; students: ScheduledStudent[]; };
 
 const EMPTY_TUTOR: Omit<TutorWithContact, 'id'> = {
   name: '', subjects: [], cat: 'math', availability: [], availabilityBlocks: [],
@@ -70,6 +75,11 @@ function formatDateRangeLabel(startDate: string, endDate: string) {
   return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 }
 
+function formatSessionTimeLabel(time: string) {
+  const block = SESSION_BLOCKS.find(entry => entry.time === time);
+  return block ? `${block.label} · ${block.display}` : time;
+}
+
 function enumerateDateRange(startDate: string, endDate: string) {
   const start = toDateValue(startDate);
   const end = toDateValue(endDate);
@@ -102,10 +112,10 @@ function summarizeAvailability(blocks: string[]) {
   };
 }
 
-function groupTimeOffEntries(entries: TimeOff[]) {
+function groupTimeOffEntries(entries: TimeOff[]): TimeOffGroup[] {
   const sorted = [...entries].sort((left, right) => left.date.localeCompare(right.date));
 
-  return sorted.reduce<Array<{ ids: string[]; startDate: string; endDate: string; note: string; totalDays: number }>>((groups, entry) => {
+  return sorted.reduce<TimeOffGroup[]>((groups, entry) => {
     const lastGroup = groups[groups.length - 1];
     if (lastGroup && lastGroup.note === (entry.note ?? '') && areConsecutiveDays(lastGroup.endDate, entry.date)) {
       lastGroup.ids.push(entry.id);
@@ -123,6 +133,28 @@ function groupTimeOffEntries(entries: TimeOff[]) {
     });
     return groups;
   }, []);
+}
+
+function getConflictingSessions(tutorId: string, dates: string[], scheduledSessions: ScheduledSession[]) {
+  const dateSet = new Set(dates);
+
+  return scheduledSessions
+    .filter(session => session.tutorId === tutorId && dateSet.has(session.date))
+    .map(session => ({
+      ...session,
+      students: session.students.filter(student => student.status !== 'cancelled'),
+    }))
+    .filter(session => session.students.length > 0)
+    .sort((left, right) => {
+      const dateCompare = left.date.localeCompare(right.date);
+      return dateCompare !== 0 ? dateCompare : left.time.localeCompare(right.time);
+    });
+}
+
+function summarizeStudentNames(students: ScheduledStudent[]) {
+  if (students.length === 0) return 'No students';
+  if (students.length <= 2) return students.map(student => student.name).join(', ');
+  return `${students[0].name}, ${students[1].name} +${students.length - 2} more`;
 }
 
 function initials(name: string) {
@@ -221,7 +253,7 @@ function AvailabilityGrid({ blocks, onChange }: { blocks: string[]; onChange: (b
 
 // ── Time Off Panel ────────────────────────────────────────────────────────────
 function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
-  tutor: TutorWithContact; timeOffList: TimeOff[]; onRefetch: () => void;
+  tutor: TutorWithContact; timeOffList: TimeOff[]; onRefetch: () => Promise<void>;
 }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -241,6 +273,11 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
   const handleAdd = async () => {
     if (!startDate) return;
     const finalEndDate = endDate || startDate;
+    if (finalEndDate < startDate) {
+      setError('End date must be the same day or later than the start date.');
+      return;
+    }
+
     const datesToInsert = enumerateDateRange(startDate, finalEndDate).filter(date => !existingDateSet.has(date));
 
     if (datesToInsert.length === 0) {
@@ -253,9 +290,9 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
     const { error: insertError } = await supabase.from(TIME_OFF).insert(
       datesToInsert.map(date => ({ tutor_id: tutor.id, date, note: note.trim() }))
     );
-    setSaving(false);
 
     if (insertError) {
+      setSaving(false);
       setError(insertError.message);
       return;
     }
@@ -263,51 +300,55 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
     setStartDate('');
     setEndDate('');
     setNote('');
-    onRefetch();
+    await onRefetch();
+    setSaving(false);
   };
 
   const handleDelete = async (ids: string[]) => {
-    await supabase.from(TIME_OFF).delete().in('id', ids);
-    onRefetch();
+    setError(null);
+    setSaving(true);
+    const { error: deleteError } = await supabase.from(TIME_OFF).delete().in('id', ids);
+    if (deleteError) {
+      setSaving(false);
+      setError(deleteError.message);
+      return;
+    }
+
+    await onRefetch();
+    setSaving(false);
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-[#cbd5e1] bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Blocked days</p>
-          <p className="mt-2 text-2xl font-black text-[#0f172a]">{tutorTimeOff.length}</p>
-          <p className="mt-1 text-[11px] text-[#64748b]">Individual dates currently unavailable</p>
-        </div>
-        <div className="rounded-2xl border border-[#cbd5e1] bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Next time off</p>
-          <p className="mt-2 text-sm font-black text-[#0f172a]">{upcomingTimeOff ? formatDateRangeLabel(upcomingTimeOff.startDate, upcomingTimeOff.endDate) : 'None scheduled'}</p>
-          <p className="mt-1 text-[11px] text-[#64748b]">{upcomingTimeOff ? `${upcomingTimeOff.totalDays} day${upcomingTimeOff.totalDays === 1 ? '' : 's'} blocked` : 'This tutor is fully bookable right now.'}</p>
-        </div>
-        <div className="rounded-2xl border border-[#cbd5e1] bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Longest range</p>
-          <p className="mt-2 text-2xl font-black text-[#0f172a]">{longestRange || 0}</p>
-          <p className="mt-1 text-[11px] text-[#64748b]">Consecutive days in one time-off block</p>
+    <div className="space-y-2.5">
+      <div className="rounded-xl border border-[#cbd5e1] bg-white px-3.5 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.05)]">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Time off operations</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#475569]">
+              <span><span className="font-black text-[#0f172a]">{tutorTimeOff.length}</span> blocked</span>
+              <span><span className="font-black text-[#0f172a]">{longestRange || 0}</span> longest run</span>
+              <span>{upcomingTimeOff ? `Next ${formatDateRangeLabel(upcomingTimeOff.startDate, upcomingTimeOff.endDate)}` : 'No upcoming block'}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[#cbd5e1] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef2ff_100%)] p-5 shadow-[0_18px_36px_rgba(15,23,42,0.08)]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="rounded-xl border border-[#c7d2fe] bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_55%,#eef2ff_100%)] p-3.5 shadow-[0_14px_28px_rgba(15,23,42,0.07)]">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#4f46e5]">Schedule time off</p>
-            <h3 className="mt-2 text-lg font-black text-[#0f172a]">Block a single day or an entire range</h3>
-            <p className="mt-1 max-w-xl text-[12px] text-[#64748b]">The schedule still consumes individual dates, but you can now create them in bulk from one range.</p>
+            <h3 className="mt-1 text-[13px] font-black text-[#0f172a]">Block a day or date range</h3>
           </div>
           {requestedDates.length > 0 && (
-            <div className="rounded-2xl border border-[#c7d2fe] bg-white px-4 py-3 text-right shadow-[0_10px_22px_rgba(79,70,229,0.1)]">
+            <div className="rounded-lg border border-[#c7d2fe] bg-white px-3 py-2 text-right shadow-[0_8px_18px_rgba(79,70,229,0.1)]">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6366f1]">Pending block</p>
-              <p className="mt-1 text-sm font-black text-[#0f172a]">{formatDateRangeLabel(startDate, endDate || startDate)}</p>
-              <p className="mt-1 text-[11px] text-[#64748b]">{requestedDates.length} requested day{requestedDates.length === 1 ? '' : 's'}{overlappingDates > 0 ? ` · ${overlappingDates} already blocked` : ''}</p>
+              <p className="mt-0.5 text-[12px] font-black text-[#0f172a]">{formatDateRangeLabel(startDate, endDate || startDate)}</p>
+              <p className="mt-0.5 text-[10px] text-[#64748b]">{requestedDates.length} requested day{requestedDates.length === 1 ? '' : 's'}{overlappingDates > 0 ? ` · ${overlappingDates} already blocked` : ''}</p>
             </div>
           )}
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_1.7fr_auto]">
+        <div className="mt-3 grid gap-2 lg:grid-cols-[0.95fr_0.95fr_1.35fr_auto]">
           <div className={fieldCardCls}>
             <label className={fieldLabelCls}>From</label>
             <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); if (!endDate) setEndDate(e.target.value); setError(null); }} className={`${inputCls} mt-1.5`} />
@@ -321,7 +362,7 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
             <input value={note} onChange={e => setNote(e.target.value)} placeholder="Vacation, exams, sick day, conference" className={`${inputCls} mt-1.5`} />
           </div>
           <button onClick={handleAdd} disabled={!startDate || saving || requestedDates.length === 0}
-            className="flex items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-[0.16em] transition-all active:scale-95"
+            className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] transition-all active:scale-95 disabled:opacity-60"
             style={{
               background: startDate ? '#4f46e5' : '#e2e8f0',
               color: startDate ? 'white' : '#94a3b8',
@@ -333,39 +374,40 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
         </div>
 
         {error && (
-          <div className="mt-4 rounded-2xl border border-[#fda4af] bg-[#fff1f2] px-4 py-3 text-[12px] font-medium text-[#991b1b]">
+          <div className="mt-3 rounded-xl border border-[#fda4af] bg-[#fff1f2] px-3.5 py-2.5 text-[12px] font-medium text-[#991b1b]">
             {error}
           </div>
         )}
+
       </div>
 
       {groupedTimeOff.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] py-10 text-center">
+          <div className="rounded-xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] py-6 text-center">
           <CalendarOff size={18} className="mx-auto mb-2 text-[#cbd5e1]" />
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">No time off scheduled</p>
         </div>
       ) : (
-        <div className="space-y-3">
+          <div className="space-y-2">
           {groupedTimeOff.map(entry => (
-            <div key={`${entry.startDate}-${entry.endDate}-${entry.note}`} className="rounded-[22px] border border-[#cbd5e1] bg-white px-4 py-4 shadow-[0_14px_30px_rgba(15,23,42,0.06)]">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div key={`${entry.startDate}-${entry.endDate}-${entry.note}`} className="rounded-xl border border-[#cbd5e1] bg-white px-3 py-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.05)]">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: '#fff1f2' }}>
+                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: '#fff1f2' }}>
                     <CalendarOff size={14} style={{ color: '#dc2626' }} />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-black text-[#0f172a]">{formatDateRangeLabel(entry.startDate, entry.endDate)}</p>
+                      <p className="text-[13px] font-black text-[#0f172a]">{formatDateRangeLabel(entry.startDate, entry.endDate)}</p>
                       <span className="rounded-full bg-[#eef2ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#4338ca]">
                         {entry.totalDays} day{entry.totalDays === 1 ? '' : 's'}
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] text-[#64748b]">{entry.note || 'No reason added'}</p>
+                    <p className="mt-0.5 text-[10px] text-[#64748b]">{entry.note || 'No reason added'}</p>
                   </div>
                 </div>
-                <button onClick={() => handleDelete(entry.ids)}
-                  className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#fecaca] px-4 text-[10px] font-black uppercase tracking-[0.16em] text-[#dc2626] transition-all hover:bg-[#fff1f2]">
-                  <X size={13} /> Remove range
+                <button onClick={() => handleDelete(entry.ids)} disabled={saving}
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#fecaca] px-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#dc2626] transition-all hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:opacity-60">
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <X size={13} />} Remove
                 </button>
               </div>
             </div>
@@ -376,13 +418,362 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
   );
 }
 
-// ── Tutor Row ─────────────────────────────────────────────────────────────────
-function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, onRefetch }: {
-  tutor: TutorWithContact; selected: boolean; onToggle: () => void;
+function TutorListItem({
+  tutor,
+  isActive,
+  isSelected,
+  conflictCount,
+  onClick,
+  onToggle,
+}: {
+  tutor: TutorWithContact;
+  isActive: boolean;
+  isSelected: boolean;
+  conflictCount: number;
+  onClick: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      role="listitem"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="w-full rounded-xl border px-2 py-2 text-left transition-all"
+      style={{
+        borderColor: isActive ? '#1d4ed8' : isSelected ? '#fca5a5' : '#dbe4ee',
+        background: isActive
+          ? 'linear-gradient(135deg, #dbeafe 0%, #eff6ff 58%, #ffffff 100%)'
+          : isSelected
+            ? 'linear-gradient(135deg, #fff7f7 0%, #fff1f2 100%)'
+            : '#ffffff',
+        boxShadow: isActive ? '0 18px 34px rgba(37,99,235,0.14)' : '0 1px 2px rgba(15,23,42,0.04)',
+      }}>
+      <div className="flex items-start gap-2.5">
+        <button
+          type="button"
+          onClick={event => {
+            event.stopPropagation();
+            onToggle();
+          }}
+          className="mt-0.5 rounded-md border p-1 transition-colors"
+          style={{
+            borderColor: isActive ? '#c7d2fe' : '#cbd5e1',
+            background: isSelected ? '#fee2e2' : 'transparent',
+            color: isSelected ? '#dc2626' : isActive ? '#475569' : '#64748b',
+          }}>
+          {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+            <p className="truncate text-[12px] font-black leading-tight" style={{ color: '#0f172a' }}>{tutor.name || 'Unnamed tutor'}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
+              {tutor.cat === 'math' ? 'Math / Sci' : 'Eng / Hist'}
+            </p>
+            </div>
+            {conflictCount > 0 && (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-[#dc2626] text-[12px] font-black text-white"
+                title={`${conflictCount} booking${conflictCount === 1 ? '' : 's'} need movement`}>
+                !
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TutorDetailPanel({
+  tutor,
+  timeOffList,
+  scheduledSessions,
+  onSave,
+  onDelete,
+  onRefetch,
+}: {
+  tutor: TutorWithContact;
   timeOffList: TimeOff[];
+  scheduledSessions: ScheduledSession[];
   onSave: (u: TutorWithContact) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onRefetch: () => void;
+  onRefetch: () => Promise<void>;
+}) {
+  const [tab, setTab] = useState<'details' | 'timeoff'>('details');
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState<TutorWithContact>(tutor);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    setDraft(tutor);
+    setIsEditing(false);
+    setConfirmDelete(false);
+    setTab('details');
+  }, [tutor]);
+
+  const dirty =
+    tutor.name !== draft.name || tutor.cat !== draft.cat ||
+    tutor.email !== draft.email || tutor.phone !== draft.phone ||
+    JSON.stringify(tutor.subjects) !== JSON.stringify(draft.subjects) ||
+    JSON.stringify(tutor.availabilityBlocks) !== JSON.stringify(draft.availabilityBlocks);
+
+  const timeOffCount = timeOffList.filter(t => t.tutor_id === tutor.id).length;
+  const availabilitySummary = summarizeAvailability(draft.availabilityBlocks);
+  const tutorTimeOffDates = timeOffList.filter(t => t.tutor_id === tutor.id).map(entry => entry.date);
+  const conflictSessions = getConflictingSessions(
+    tutor.id,
+    tutorTimeOffDates,
+    scheduledSessions,
+  );
+  const conflictCount = conflictSessions.length;
+  const upcomingTimeOff = timeOffList
+    .filter(t => t.tutor_id === tutor.id)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .find(entry => entry.date >= toISODate(new Date()));
+  const busiestDay = ACTIVE_DAYS_INFO
+    .map(day => ({
+      label: day.label,
+      count: draft.availabilityBlocks.filter(block => Number.parseInt(block.split('-')[0], 10) === day.dow).length,
+    }))
+    .sort((left, right) => right.count - left.count)[0];
+  const catLabel = draft.cat === 'math' ? 'Math / Sci' : 'Eng / Hist';
+  const catColor = draft.cat === 'math' ? '#1d4ed8' : '#be185d';
+  const catBg = draft.cat === 'math' ? '#dbeafe' : '#fce7f3';
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[#b8c7da] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+      <div className="border-b border-[#dbe4ee] bg-[linear-gradient(135deg,#dfeafb_0%,#f6faff_48%,#ffffff_100%)] px-4 py-4 md:px-5">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black text-white" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)' }}>
+                {initials(draft.name)}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-lg font-black text-[#0f172a]">{draft.name || 'Unnamed tutor'}</h2>
+                  <span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]" style={{ background: catBg, color: catColor }}>
+                    {catLabel}
+                  </span>
+                  {dirty && <span className="rounded-full bg-[#fef3c7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#b45309]">Unsaved</span>}
+                  {conflictCount > 0 && <span className="rounded-full bg-[#fee2e2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#b91c1c]">Needs attention · {conflictCount}</span>}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#475569]">
+                  <span className="flex items-center gap-1.5"><Mail size={12} className="text-[#94a3b8]" /> {draft.email || 'No email on file'}</span>
+                  <span className="flex items-center gap-1.5"><Phone size={12} className="text-[#94a3b8]" /> {draft.phone || 'No phone on file'}</span>
+                </div>
+                <p className="mt-1.5 text-[11px] text-[#64748b]">{draft.subjects.slice(0, 3).join(' • ') || 'No subjects assigned yet'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isEditing ? (
+              <>
+                <button onClick={() => { setIsEditing(false); setDraft(tutor); }} className="rounded-xl border border-[#cbd5e1] bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setSaving(true);
+                    await onSave(draft);
+                    setSaving(false);
+                    setIsEditing(false);
+                  }}
+                  disabled={!dirty || saving}
+                  className="flex items-center gap-1.5 rounded-xl bg-[#4f46e5] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-40">
+                  {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setIsEditing(true)} className="rounded-xl border border-[#cbd5e1] bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                Edit tutor
+              </button>
+            )}
+            <button onClick={() => setConfirmDelete(true)} className="rounded-xl border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#dc2626]">
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2.5 lg:grid-cols-2">
+          <div className="rounded-xl border border-[#fecaca] bg-white px-3.5 py-3 shadow-[0_8px_18px_rgba(220,38,38,0.05)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">Conflicts</p>
+            <p className="mt-1 text-sm font-black text-[#0f172a]">{conflictCount} session{conflictCount === 1 ? '' : 's'} need movement</p>
+            <p className="mt-0.5 text-[11px] text-[#64748b]">{conflictCount > 0 ? 'See details tab list below.' : 'No blocked-date conflicts right now.'}</p>
+          </div>
+          <div className="rounded-xl border border-[#fecaca] bg-white px-3.5 py-3 shadow-[0_8px_18px_rgba(220,38,38,0.05)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">Time off</p>
+            <p className="mt-1 text-sm font-black text-[#0f172a]">{timeOffCount} blocked day{timeOffCount === 1 ? '' : 's'}</p>
+            <p className="mt-0.5 text-[11px] text-[#64748b]">{upcomingTimeOff ? `Next: ${formatDateLabel(upcomingTimeOff.date)}` : 'No upcoming blocks'}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-[rgba(148,163,184,0.18)] pt-3">
+          {(['details', 'timeoff'] as const).map(currentTab => (
+            <button
+              key={currentTab}
+              onClick={() => setTab(currentTab)}
+              className="rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition-all"
+              style={tab === currentTab
+                ? { background: '#1d4ed8', color: 'white', boxShadow: '0 10px 20px rgba(37,99,235,0.22)' }
+                : { background: '#e2e8f0', color: '#475569' }}>
+              {currentTab === 'details' ? 'Details' : `Time Off${timeOffCount > 0 ? ` · ${timeOffCount}` : ''}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-5">
+        {tab === 'details' ? (
+          <div className="space-y-5">
+            <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+              <div className="space-y-3 rounded-3xl border border-[#dbe4ee] bg-[#f8fafc] p-3.5">
+                {isEditing && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className={fieldCardCls}>
+                      <label className={fieldLabelCls}>Name</label>
+                      <input type="text" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} className={`${inputCls} mt-1.5`} />
+                    </div>
+                    <div className={fieldCardCls}>
+                      <label className={fieldLabelCls}>Category</label>
+                      <div className="mt-2 flex gap-2">
+                        {(['math', 'english'] as const).map(currentCat => (
+                          <button key={currentCat} onClick={() => setDraft({ ...draft, cat: currentCat })}
+                            className="flex-1 rounded-md py-2 text-[10px] font-black uppercase tracking-[0.12em]"
+                            style={draft.cat === currentCat
+                              ? { background: '#4f46e5', color: 'white', border: '1.5px solid #4f46e5' }
+                              : { background: 'white', color: '#475569', border: '1.5px solid #cbd5e1' }}>
+                            {currentCat === 'math' ? 'Math / Sci' : 'Eng / Hist'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className={fieldCardCls}>
+                      <label className={fieldLabelCls}>Email</label>
+                      <input type="email" value={draft.email ?? ''} onChange={e => setDraft({ ...draft, email: e.target.value })} className={`${inputCls} mt-1.5`} placeholder="tutor@email.com" />
+                    </div>
+                    <div className={fieldCardCls}>
+                      <label className={fieldLabelCls}>Phone</label>
+                      <input type="tel" value={draft.phone ?? ''} onChange={e => setDraft({ ...draft, phone: e.target.value })} className={`${inputCls} mt-1.5`} placeholder="(555) 000-0000" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-[#dbe4ee] bg-white p-3.5">
+                  {isEditing ? (
+                    <SubjectCheckboxes selected={draft.subjects} onChange={subjects => setDraft({ ...draft, subjects })} />
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Subjects</p>
+                          <p className="mt-1 text-[11px] text-[#64748b]">Core teaching coverage.</p>
+                        </div>
+                        <span className="rounded-full bg-[#eff6ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#1d4ed8]">{draft.subjects.length}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {draft.subjects.length > 0 ? draft.subjects.map(subject => (
+                          <span key={subject} className="rounded-full border border-[#dbeafe] bg-[#eff6ff] px-2.5 py-1 text-[10px] font-bold text-[#1d4ed8]">{subject}</span>
+                        )) : <span className="text-[12px] text-[#94a3b8]">No subjects assigned</span>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-[#dbe4ee] bg-white p-3.5 shadow-[0_16px_34px_rgba(15,23,42,0.05)]">
+                {isEditing ? (
+                  <AvailabilityGrid
+                    blocks={draft.availabilityBlocks}
+                    onChange={blocks => setDraft({
+                      ...draft,
+                      availabilityBlocks: blocks,
+                      availability: Array.from(new Set(blocks.map(value => parseInt(value.split('-')[0])))).sort((left, right) => left - right),
+                    })}
+                  />
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Schedule conflicts</p>
+                        <p className="mt-1 text-[12px] text-[#64748b]">Booked sessions currently overlapping blocked dates.</p>
+                      </div>
+                      {conflictCount > 0 ? (
+                        <span className="flex items-center gap-1.5 rounded-full bg-[#fee2e2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#b91c1c]">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#dc2626] text-[10px] text-white">!</span>
+                          Needs attention
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#166534]">Ready</span>
+                      )}
+                    </div>
+                    {conflictSessions.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {conflictSessions.map(session => (
+                          <div key={session.id} className="rounded-xl border border-[#fecaca] bg-[#fff7f7] px-3 py-2.5">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-[12px] font-black text-[#0f172a]">{formatDateLabel(session.date)} · {formatSessionTimeLabel(session.time)}</p>
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#b91c1c]">!
+                                {' '}Move {session.students.length}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-[11px] text-[#64748b]">{summarizeStudentNames(session.students)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-xl border border-[#d1fae5] bg-[#f0fdf4] px-3 py-2.5 text-[12px] font-medium text-[#166534]">
+                        No conflict sessions right now.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <TimeOffPanel tutor={tutor} timeOffList={timeOffList} onRefetch={onRefetch} />
+        )}
+      </div>
+
+      {confirmDelete && (
+        <div className="border-t border-[#fecaca] bg-[#fff7f7] px-5 py-4 md:px-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-black text-[#0f172a]">Delete {draft.name}?</p>
+              <p className="text-[12px] text-[#64748b]">This action cannot be undone.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="rounded-xl border border-[#cbd5e1] bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                Cancel
+              </button>
+              <button onClick={async () => { await onDelete(tutor.id); setConfirmDelete(false); }} className="rounded-xl bg-[#dc2626] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+                Confirm delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tutor Row ─────────────────────────────────────────────────────────────────
+function TutorRow({ tutor, selected, onToggle, timeOffList, scheduledSessions, onSave, onDelete, onRefetch }: {
+  tutor: TutorWithContact; selected: boolean; onToggle: () => void;
+  timeOffList: TimeOff[];
+  scheduledSessions: ScheduledSession[];
+  onSave: (u: TutorWithContact) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onRefetch: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'details' | 'timeoff'>('details');
@@ -399,6 +790,11 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
 
   const timeOffCount = timeOffList.filter(t => t.tutor_id === tutor.id).length;
   const availabilitySummary = summarizeAvailability(draft.availabilityBlocks);
+  const bookedConflictCount = getConflictingSessions(
+    tutor.id,
+    timeOffList.filter(t => t.tutor_id === tutor.id).map(entry => entry.date),
+    scheduledSessions,
+  ).length;
   const upcomingTimeOff = timeOffList
     .filter(t => t.tutor_id === tutor.id)
     .sort((left, right) => left.date.localeCompare(right.date))
@@ -409,7 +805,7 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
 
   return (
     <>
-      <div className="overflow-hidden rounded-3xl border shadow-[0_18px_40px_rgba(15,23,42,0.08)] transition-all"
+      <div className="overflow-hidden rounded-2xl border shadow-[0_12px_28px_rgba(15,23,42,0.07)] transition-all"
         style={{
           borderColor: selected ? '#fda4af' : expanded ? '#c7d2fe' : '#dbe4ee',
           background: selected
@@ -418,8 +814,8 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
               ? 'linear-gradient(135deg, #ffffff 0%, #f8fbff 58%, #eef2ff 100%)'
               : '#ffffff',
         }}>
-        <div className="p-4 md:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="p-3.5 md:p-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
             <div className="flex min-w-0 flex-1 gap-3">
               <div className="pt-1" onClick={e => e.stopPropagation()}>
                 <button onClick={onToggle} className="rounded-xl border border-[#cbd5e1] bg-white p-2 text-[#64748b] transition-colors hover:border-[#fda4af] hover:text-[#dc2626]">
@@ -427,8 +823,8 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
                 </button>
               </div>
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white"
-                style={{ background: '#dc2626', boxShadow: '0 12px 20px rgba(220,38,38,0.18)' }}>{initials(draft.name)}</div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black text-white"
+                style={{ background: '#dc2626', boxShadow: '0 8px 16px rgba(220,38,38,0.18)' }}>{initials(draft.name)}</div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -438,12 +834,13 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
                         <input type="text" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}
                           className={`${inputCls} max-w-sm`} placeholder="Full name" autoFocus onClick={e => e.stopPropagation()} />
                       ) : (
-                        <h3 className="truncate text-lg font-black text-[#0f172a]">{draft.name || 'Unnamed tutor'}</h3>
+                        <h3 className="truncate text-base font-black text-[#0f172a]">{draft.name || 'Unnamed tutor'}</h3>
                       )}
                       <span className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]" style={{ background: catBg, color: catColor }}>
                         {catLabel}
                       </span>
                       {dirty && <span className="rounded-full bg-[#fef3c7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#b45309]">Unsaved</span>}
+                      {bookedConflictCount > 0 && <span className="rounded-full bg-[#fee2e2] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#b91c1c]">{bookedConflictCount} to rearrange</span>}
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -459,7 +856,7 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
                       )}
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-[#475569]">
+                    <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-[#475569]">
                       <span className="flex items-center gap-1.5">
                         <Mail size={12} className="text-[#94a3b8]" /> {draft.email || 'No email on file'}
                       </span>
@@ -485,21 +882,21 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-[#e2e8f0] bg-white px-4 py-3">
+                <div className="mt-3 grid gap-2.5 xl:grid-cols-3">
+                  <div className="rounded-xl border border-[#e2e8f0] bg-white px-3.5 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">Availability</p>
                     <p className="mt-1 text-sm font-black text-[#0f172a]">{availabilitySummary.slotCount} slots across {availabilitySummary.dayCount || 0} day{availabilitySummary.dayCount === 1 ? '' : 's'}</p>
-                    <p className="mt-1 text-[11px] text-[#64748b]">{availabilitySummary.dayLabels.length > 0 ? availabilitySummary.dayLabels.join(' • ') : 'No weekly availability set'}</p>
+                    <p className="mt-0.5 text-[11px] text-[#64748b]">{availabilitySummary.dayLabels.length > 0 ? availabilitySummary.dayLabels.join(' • ') : 'No weekly availability set'}</p>
                   </div>
-                  <div className="rounded-2xl border border-[#e2e8f0] bg-white px-4 py-3">
+                  <div className="rounded-xl border border-[#e2e8f0] bg-white px-3.5 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">Time off</p>
                     <p className="mt-1 text-sm font-black text-[#0f172a]">{timeOffCount} blocked day{timeOffCount === 1 ? '' : 's'}</p>
-                    <p className="mt-1 text-[11px] text-[#64748b]">{upcomingTimeOff ? `Next: ${formatDateLabel(upcomingTimeOff.date)}` : 'No upcoming blocks'}</p>
+                    <p className="mt-0.5 text-[11px] text-[#64748b]">{bookedConflictCount > 0 ? `${bookedConflictCount} booked session${bookedConflictCount === 1 ? '' : 's'} need rearranging` : upcomingTimeOff ? `Next: ${formatDateLabel(upcomingTimeOff.date)}` : 'No upcoming blocks'}</p>
                   </div>
-                  <div className="rounded-2xl border border-[#e2e8f0] bg-white px-4 py-3">
+                  <div className="rounded-xl border border-[#e2e8f0] bg-white px-3.5 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">Profile status</p>
                     <p className="mt-1 text-sm font-black text-[#0f172a]">{draft.subjects.length > 0 && availabilitySummary.slotCount > 0 ? 'Ready for scheduling' : 'Needs setup'}</p>
-                    <p className="mt-1 text-[11px] text-[#64748b]">{draft.subjects.length > 0 && availabilitySummary.slotCount > 0 ? 'Subjects and weekly slots are in place.' : 'Add subjects and availability for cleaner scheduling.'}</p>
+                    <p className="mt-0.5 text-[11px] text-[#64748b]">{draft.subjects.length > 0 && availabilitySummary.slotCount > 0 ? 'Subjects and weekly slots are in place.' : 'Add subjects and availability for cleaner scheduling.'}</p>
                   </div>
                 </div>
               </div>
@@ -544,7 +941,7 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
             </div>
           </div>
 
-          <div className="px-6 py-5 max-h-[62vh] overflow-y-auto">
+          <div className="px-5 py-4 ">
             {tab === 'details' ? (
               <div className="space-y-6">
                 {/* Contact info row */}
@@ -678,6 +1075,7 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, onSave, onDelete, on
 export default function TutorManagementPage() {
   const [tutors, setTutors] = useState<TutorWithContact[]>([]);
   const [timeOffList, setTimeOffList] = useState<TimeOff[]>([]);
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [newTutor, setNewTutor] = useState<Omit<TutorWithContact, 'id'>>(EMPTY_TUTOR);
@@ -686,12 +1084,22 @@ export default function TutorManagementPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirmBulk, setConfirmBulk] = useState(false);
+  const [activeTutorId, setActiveTutorId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAll = async () => {
     setLoading(true);
-    const [tutorRes, timeOffRes] = await Promise.all([
+    setError(null);
+    const todayIso = toISODate(new Date());
+    const [tutorRes, timeOffRes, sessionRes] = await Promise.all([
       supabase.from(TUTORS).select('*').order('name'),
       supabase.from(TIME_OFF).select('*').order('date'),
+      (supabase
+        .from(SESSIONS)
+        .select(`id, session_date, tutor_id, time, ${SS} ( id, student_id, name, status, series_id )`)
+        .gte('session_date', todayIso)
+        .order('session_date')
+        .order('time') as any),
     ]);
     if (!tutorRes.error) {
       setTutors((tutorRes.data ?? []).map(r => ({
@@ -701,10 +1109,38 @@ export default function TutorManagementPage() {
       })));
     }
     if (!timeOffRes.error) setTimeOffList(timeOffRes.data ?? []);
+    if (!sessionRes.error) {
+      setScheduledSessions((sessionRes.data ?? []).map((row: any) => ({
+        id: row.id,
+        tutorId: row.tutor_id,
+        date: row.session_date,
+        time: row.time,
+        students: (row[SS] ?? []).map((student: any) => ({
+          id: student.student_id,
+          name: student.name,
+          status: student.status,
+          seriesId: student.series_id ?? null,
+        })),
+      })));
+    }
+    if (tutorRes.error) setError(tutorRes.error.message);
+    else if (timeOffRes.error) setError(timeOffRes.error.message);
+    else if (sessionRes.error) setError(sessionRes.error.message);
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  useEffect(() => {
+    if (tutors.length === 0) {
+      setActiveTutorId(null);
+      return;
+    }
+
+    if (!activeTutorId || !tutors.some(tutor => tutor.id === activeTutorId)) {
+      setActiveTutorId(tutors[0].id);
+    }
+  }, [tutors, activeTutorId]);
 
   const handleSave = async (updated: TutorWithContact) => {
     setError(null);
@@ -751,6 +1187,19 @@ export default function TutorManagementPage() {
   const allSelected = tutors.length > 0 && tutors.every(t => selected.has(t.id));
   const tutorsWithContact = tutors.filter(t => t.email || t.phone).length;
   const tutorsWithTimeOff = new Set(timeOffList.map(entry => entry.tutor_id)).size;
+  const filteredTutors = tutors.filter(tutor => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    return [tutor.name, tutor.email ?? '', tutor.phone ?? '', tutor.subjects.join(' ')].some(value =>
+      value.toLowerCase().includes(query)
+    );
+  });
+  const activeTutor = filteredTutors.find(tutor => tutor.id === activeTutorId)
+    ?? tutors.find(tutor => tutor.id === activeTutorId)
+    ?? filteredTutors[0]
+    ?? tutors[0]
+    ?? null;
   const toggleAll = () => {
     if (allSelected) { setSelected(new Set()); }
     else { setSelected(new Set(tutors.map(t => t.id))); }
@@ -766,18 +1215,18 @@ export default function TutorManagementPage() {
   );
 
   return (
-    <div className="tutor-admin h-[calc(100dvh-58px)] overflow-hidden md:h-dvh" style={{ background: 'linear-gradient(180deg, #dbe5f0 0%, #edf2f7 26%, #f6f8fb 100%)', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
-      <div className="h-full overflow-y-auto overscroll-contain">
+    <div className="tutor-admin h-[calc(100dvh-58px)] overflow-hidden md:h-dvh" style={{ background: 'linear-gradient(180deg, #dbe7f5 0%, #eef4fb 180px, #f8fafc 360px, #f8fafc 100%)', fontFamily: 'Inter, Segoe UI, ui-sans-serif, system-ui, sans-serif' }}>
+      <div className="flex h-full flex-col overflow-hidden overscroll-contain">
 
       {/* Top bar */}
-      <div className="sticky top-0 z-40 border-b border-[#e2e8f0] backdrop-blur-xl" style={{ background: 'rgba(255,255,255,0.92)' }}>
+      <div className="sticky top-0 z-40 border-b border-[#dbe4ee] backdrop-blur-xl" style={{ background: 'rgba(255,255,255,0.84)' }}>
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#c7d2fe] bg-[#eef2ff]">
-              <UserPlus size={18} style={{ color: '#4f46e5' }} />
+              <UserPlus size={18} style={{ color: '#2563eb' }} />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#4f46e5]">Tutor Admin</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2563eb]">Tutor Admin</p>
               <div className="flex items-center gap-2">
                 <span className="text-base font-black text-[#0f172a]">Tutors</span>
                 {!loading && <span className="rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#3730a3]">{tutors.length}</span>}
@@ -796,32 +1245,14 @@ export default function TutorManagementPage() {
             <button
               onClick={() => { setAdding(a => !a); setNewTutor(EMPTY_TUTOR); }}
               className="flex items-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-black uppercase tracking-[0.16em] text-white transition-all"
-              style={{ background: adding ? '#334155' : '#4f46e5', boxShadow: adding ? 'none' : '0 12px 24px rgba(79,70,229,0.24)' }}>
+              style={{ background: adding ? '#334155' : '#2563eb', boxShadow: adding ? 'none' : '0 12px 24px rgba(37,99,235,0.24)' }}>
               {adding ? <><X size={13} /> Cancel</> : <><UserPlus size={13} /> Add Tutor</>}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-5 py-5 space-y-4">
-
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-[22px] border border-[#cbd5e1] bg-white px-5 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Tutor roster</p>
-            <p className="mt-2 text-2xl font-black text-[#0f172a]">{tutors.length}</p>
-            <p className="mt-1 text-[11px] text-[#64748b]">Active tutor profiles in this workspace.</p>
-          </div>
-          <div className="rounded-[22px] border border-[#cbd5e1] bg-white px-5 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Reachable tutors</p>
-            <p className="mt-2 text-2xl font-black text-[#0f172a]">{tutorsWithContact}</p>
-            <p className="mt-1 text-[11px] text-[#64748b]">Tutors with email or phone on file.</p>
-          </div>
-          <div className="rounded-[22px] border border-[#cbd5e1] bg-white px-5 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Time-off coverage</p>
-            <p className="mt-2 text-2xl font-black text-[#0f172a]">{tutorsWithTimeOff}</p>
-            <p className="mt-1 text-[11px] text-[#64748b]">Tutors with at least one blocked date scheduled.</p>
-          </div>
-        </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-5 py-4">
 
         {error && (
           <div className="flex items-center gap-2 rounded-lg p-3 text-sm shadow-[0_12px_26px_rgba(15,23,42,0.08)]"
@@ -832,7 +1263,7 @@ export default function TutorManagementPage() {
 
         {/* Add new tutor */}
         {adding && (
-          <div className="space-y-5 rounded-xl bg-white p-6 shadow-[0_20px_44px_rgba(15,23,42,0.1)]"
+          <div className="space-y-4 rounded-xl bg-white p-4 shadow-[0_16px_32px_rgba(15,23,42,0.08)]"
             style={{ border: '1px solid #cbd5e1' }}>
             <div className="flex items-center gap-2">
               <div className="h-4 w-1 rounded-full" style={{ background: '#4f46e5' }} />
@@ -913,47 +1344,87 @@ export default function TutorManagementPage() {
 
         {/* Tutors list */}
         {tutors.length === 0 && !adding ? (
-          <div className="rounded-xl bg-white py-24 text-center shadow-[0_20px_44px_rgba(15,23,42,0.08)]" style={{ border: '1.5px dashed #cbd5e1' }}>
+          <div className="rounded-xl bg-white py-20 text-center shadow-[0_16px_32px_rgba(15,23,42,0.07)]" style={{ border: '1.5px dashed #cbd5e1' }}>
             <UserPlus size={28} className="mx-auto mb-3 text-[#cbd5e1]" />
             <p className="text-sm font-bold text-[#94a3b8]">No tutors yet</p>
             <p className="text-xs text-[#cbd5e1] mt-1">Add one above to get started</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="flex flex-col gap-3 rounded-[22px] border border-[#cbd5e1] bg-white px-5 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#64748b]">Bulk actions</p>
-                <p className="mt-1 text-sm font-black text-[#0f172a]">Select tutors first, then delete in one pass.</p>
+          <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[290px_minmax(0,1fr)]">
+            <div className="flex min-h-0 flex-col space-y-2.5 rounded-3xl border border-[#9fb4d1] bg-[linear-gradient(180deg,#dbe7f5_0%,#eef4fb_100%)] p-2.5 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+              <div className="rounded-xl border border-[#bfd0e6] bg-[linear-gradient(135deg,#ffffff_0%,#edf4ff_100%)] p-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.05)]">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563eb]">Roster</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-sm font-black text-[#0f172a]">{tutors.length} tutors</p>
+                  <span className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#1d4ed8]">{tutorsWithTimeOff} off</span>
+                </div>
+                <input
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder="Search name, subject, email"
+                  className="mt-2.5 w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm font-medium text-[#0f172a] placeholder:text-[#94a3b8] focus:border-[#60a5fa] focus:outline-none"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={toggleAll} className="flex items-center gap-2 rounded-xl border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#475569] transition-all hover:bg-white">
-                  {allSelected ? <CheckSquare size={14} style={{ color: '#dc2626' }} /> : <Square size={14} />}
+
+              <div className="flex items-center justify-between rounded-xl border border-[#bfd0e6] bg-white px-3 py-2 shadow-[0_6px_16px_rgba(15,23,42,0.04)]">
+                <button onClick={toggleAll} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#475569]">
+                  {allSelected ? <CheckSquare size={14} style={{ color: '#f87171' }} /> : <Square size={14} />}
                   {allSelected ? 'Clear selection' : 'Select all'}
                 </button>
-                <span className="rounded-full bg-[#eef2ff] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#3730a3]">
+                <span className="rounded-full bg-[#eef2ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#3730a3]">
                   {selected.size} selected
                 </span>
               </div>
+
+              <div className="min-h-0 space-y-2 overflow-y-auto pr-1">
+                {filteredTutors.length > 0 ? filteredTutors.map(tutor => {
+                  const conflictCount = getConflictingSessions(
+                    tutor.id,
+                    timeOffList.filter(entry => entry.tutor_id === tutor.id).map(entry => entry.date),
+                    scheduledSessions,
+                  ).length;
+
+                  return (
+                    <TutorListItem
+                      key={tutor.id}
+                      tutor={tutor}
+                      isActive={activeTutor?.id === tutor.id}
+                      isSelected={selected.has(tutor.id)}
+                      conflictCount={conflictCount}
+                      onClick={() => setActiveTutorId(tutor.id)}
+                      onToggle={() => {
+                        const newSelected = new Set(selected);
+                        if (newSelected.has(tutor.id)) newSelected.delete(tutor.id);
+                        else newSelected.add(tutor.id);
+                        setSelected(newSelected);
+                      }}
+                    />
+                  );
+                }) : (
+                  <div className="rounded-2xl border border-dashed border-[#cbd5e1] bg-white px-4 py-8 text-center">
+                    <p className="text-sm font-bold text-[#0f172a]">No tutors match this search.</p>
+                    <p className="mt-1 text-[11px] text-[#64748b]">Try a name, subject, email, or phone.</p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {tutors.map(t => (
-                <TutorRow
-                  key={t.id}
-                  tutor={t}
-                  selected={selected.has(t.id)}
-                  onToggle={() => {
-                    const newSelected = new Set(selected);
-                    if (newSelected.has(t.id)) newSelected.delete(t.id);
-                    else newSelected.add(t.id);
-                    setSelected(newSelected);
-                  }}
+            <div className="min-h-0">
+              {activeTutor ? (
+                <TutorDetailPanel
+                  tutor={activeTutor}
                   timeOffList={timeOffList}
+                  scheduledSessions={scheduledSessions}
                   onSave={handleSave}
                   onDelete={handleDelete}
                   onRefetch={fetchAll}
                 />
-              ))}
+              ) : (
+                <div className="rounded-[28px] border border-[#cbd5e1] bg-white px-6 py-16 text-center shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+                  <p className="text-lg font-black text-[#0f172a]">Pick a tutor</p>
+                  <p className="mt-2 text-[12px] text-[#64748b]">Select someone from the roster to manage availability, contact details, and time off.</p>
+                </div>
+              )}
             </div>
           </div>
         )}

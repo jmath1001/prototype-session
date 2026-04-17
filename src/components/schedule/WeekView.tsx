@@ -528,7 +528,7 @@ export function WeekView({
                                     <div className="flex flex-col gap-1.5 h-full min-h-20">
 
                                       {/* Booked students — same card style as TodayView */}
-                                      {hasStudents && !isOnTimeOff && session!.students.map((student: any) => {
+                                      {hasStudents && session!.students.map((student: any) => {
                                         const key = selectionKey(session.id, student.id);
                                         const isSelected = !!selectedRemovals[key];
                                         return (
@@ -640,7 +640,9 @@ export function WeekView({
                                           style={{ background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                           {isOnTimeOff ? (
                                             <>
-                                              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#475569' }}>OFF</span>
+                                              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: hasStudents ? '#b91c1c' : '#475569' }}>
+                                                {hasStudents ? 'OFF + BOOKED' : 'OFF'}
+                                              </span>
                                               {timeOffNote && <span className="text-[8px] font-medium text-center px-2 leading-tight" style={{ color: '#9ca3af' }}>{timeOffNote}</span>}
                                             </>
                                           ) : (
@@ -700,7 +702,7 @@ export function WeekView({
                                     <div className="text-[9px] font-semibold" style={{ color: '#9ca3af' }}>{block.display}</div>
                                   </div>
                                   <div className="space-y-1" style={{ minHeight: 90 }}>
-                                    {hasStudents && !isOnTimeOff && (
+                                    {hasStudents && (
                                       <>
                                         {session!.students.map((student: any) => {
                                           const key = selectionKey(session.id, student.id);
@@ -820,7 +822,7 @@ export function WeekView({
                                       <div className="w-full h-full min-h-24 rounded-lg flex flex-col items-center justify-center gap-1"
                                         style={{ background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                         {isOnTimeOff
-                                          ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>OFF</span>
+                                          ? <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#dc2626' }}>{hasStudents ? 'OFF+BOOKED' : 'OFF'}</span>
                                           : <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#d1d5db' }}>—</span>}
                                       </div>
                                     )}
