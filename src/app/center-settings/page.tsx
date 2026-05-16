@@ -155,7 +155,7 @@ export default function CenterSettingsPage() {
   const [newExceptionLabel, setNewExceptionLabel] = useState('')
   const [newExceptionClosed, setNewExceptionClosed] = useState(true)
 
-  const [tab, setTab] = useState<'general' | 'terms' | 'notifications' | 'portals' | 'subjects'>('general')
+  const [tab, setTab] = useState<'general' | 'terms' | 'notifications' | 'subjects'>('general')
 
   // ── cron-job.org live config ─────────────────────────────────────────────
   type CronSchedule = { hours: number[]; minutes: number[]; timezone: string }
@@ -597,7 +597,6 @@ export default function CenterSettingsPage() {
             { id: 'general',       label: 'General' },
             { id: 'terms',         label: 'Terms' },
             { id: 'notifications', label: 'Notifications' },
-            { id: 'portals',       label: 'Portals' },
             { id: 'subjects',      label: 'Subjects' },
           ] as const).map(t => (
             <button
@@ -865,7 +864,7 @@ export default function CenterSettingsPage() {
                   {/* ── Session Times by Day ── */}
                   <div className="mt-5 border-t border-slate-100 pt-4">
                     <p className="mb-1 text-xs font-black uppercase tracking-widest text-slate-800">Session Times by Day</p>
-                    <p className="mb-3 text-[11px] text-slate-400">Set the specific time slots available each day. Only open days are shown.</p>
+                    <p className="mb-3 text-[11px] text-slate-400">Set numbered session rows for each open day. Add more rows as needed, then set the start and end times.</p>
                     {ALL_DAYS.map(({ dow, label }) => {
                       const oh = termDraft.operating_hours[dow]
                       if (oh?.closed) return null
@@ -874,64 +873,122 @@ export default function CenterSettingsPage() {
                       return (
                         <div key={dow} className="mb-4">
                           <p className="mb-1.5 text-[11px] font-bold text-slate-600">{label}</p>
-                          {/* Existing slots */}
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {slots.length === 0 && (
-                              <span className="text-[11px] text-slate-400">No slots — add one below</span>
-                            )}
-                            {slots.map(slot => {
-                              const { start, end } = parseSlot(slot)
-                              return (
-                                <span key={slot} className="flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                                  {fmt12(start)}{end ? `–${fmt12(end)}` : ''}
-                                  <button
-                                    type="button"
-                                    onClick={() => setTermDraft(prev => ({
-                                      ...prev,
-                                      session_times_by_day: {
-                                        ...prev.session_times_by_day,
-                                        [dow]: (prev.session_times_by_day[dow] ?? []).filter(s => s !== slot),
-                                      },
-                                    }))}
-                                    className="ml-0.5 text-slate-300 hover:text-red-500 leading-none"
-                                  >&times;</button>
-                                </span>
-                              )
-                            })}
-                          </div>
-                          {/* Add new slot */}
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="time"
-                              value={pending.start}
-                              onChange={e => setNewTimeByDay(prev => ({ ...prev, [dow]: { ...pending, start: e.target.value } }))}
-                              className="rounded border border-slate-200 px-2 py-1 text-xs"
-                            />
-                            <span className="text-slate-400 text-xs">–</span>
-                            <input
-                              type="time"
-                              value={pending.end}
-                              onChange={e => setNewTimeByDay(prev => ({ ...prev, [dow]: { ...pending, end: e.target.value } }))}
-                              className="rounded border border-slate-200 px-2 py-1 text-xs"
-                            />
-                            <button
-                              type="button"
-                              disabled={!pending.start || !pending.end}
-                              onClick={() => {
-                                if (!pending.start || !pending.end) return
-                                const slot = `${pending.start}-${pending.end}`
-                                if (slots.includes(slot)) return
-                                setTermDraft(prev => ({
-                                  ...prev,
-                                  session_times_by_day: {
-                                    ...prev.session_times_by_day,
-                                    [dow]: [...(prev.session_times_by_day[dow] ?? []), slot],
-                                  },
-                                }))
-                                setNewTimeByDay(prev => ({ ...prev, [dow]: { start: pending.start, end: '' } }))
-                              }}
-                              className="rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
-                            >+ Add</button>
+                          <div className="overflow-hidden rounded border border-slate-200 bg-white">
+                            <table className="w-full border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                  <th className="px-3 py-2 text-left w-28">Session</th>
+                                  <th className="px-3 py-2 text-left">Start</th>
+                                  <th className="px-3 py-2 text-left">End</th>
+                                  <th className="px-3 py-2 text-left w-20"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {slots.length === 0 && (
+                                  <tr className="border-b border-slate-100">
+                                    <td colSpan={4} className="px-3 py-2 text-[11px] text-slate-400">No sessions yet. Add Session 1 below.</td>
+                                  </tr>
+                                )}
+                                {slots.map((slot, index) => {
+                                  const { start, end } = parseSlot(slot)
+                                  return (
+                                    <tr key={`${dow}-${index}`} className="border-b border-slate-100 last:border-b-0">
+                                      <td className="px-3 py-2 font-semibold text-slate-700">Session {index + 1}</td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="time"
+                                          value={start}
+                                          onChange={e => setTermDraft(prev => {
+                                            const nextSlots = [...(prev.session_times_by_day[dow] ?? [])]
+                                            const current = parseSlot(nextSlots[index] ?? '')
+                                            nextSlots[index] = `${e.target.value}-${current.end}`
+                                            return {
+                                              ...prev,
+                                              session_times_by_day: {
+                                                ...prev.session_times_by_day,
+                                                [dow]: nextSlots,
+                                              },
+                                            }
+                                          })}
+                                          className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="time"
+                                          value={end}
+                                          onChange={e => setTermDraft(prev => {
+                                            const nextSlots = [...(prev.session_times_by_day[dow] ?? [])]
+                                            const current = parseSlot(nextSlots[index] ?? '')
+                                            nextSlots[index] = `${current.start}-${e.target.value}`
+                                            return {
+                                              ...prev,
+                                              session_times_by_day: {
+                                                ...prev.session_times_by_day,
+                                                [dow]: nextSlots,
+                                              },
+                                            }
+                                          })}
+                                          className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => setTermDraft(prev => ({
+                                            ...prev,
+                                            session_times_by_day: {
+                                              ...prev.session_times_by_day,
+                                              [dow]: (prev.session_times_by_day[dow] ?? []).filter((_, slotIndex) => slotIndex !== index),
+                                            },
+                                          }))}
+                                          className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 hover:text-red-600"
+                                        >Remove</button>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                                <tr className="bg-slate-50/60">
+                                  <td className="px-3 py-2 font-semibold text-slate-500">Session {slots.length + 1}</td>
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="time"
+                                      value={pending.start}
+                                      onChange={e => setNewTimeByDay(prev => ({ ...prev, [dow]: { ...pending, start: e.target.value } }))}
+                                      className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="time"
+                                      value={pending.end}
+                                      onChange={e => setNewTimeByDay(prev => ({ ...prev, [dow]: { ...pending, end: e.target.value } }))}
+                                      className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <button
+                                      type="button"
+                                      disabled={!pending.start || !pending.end}
+                                      onClick={() => {
+                                        if (!pending.start || !pending.end) return
+                                        const nextSlot = `${pending.start}-${pending.end}`
+                                        if (slots.includes(nextSlot)) return
+                                        setTermDraft(prev => ({
+                                          ...prev,
+                                          session_times_by_day: {
+                                            ...prev.session_times_by_day,
+                                            [dow]: [...(prev.session_times_by_day[dow] ?? []), nextSlot],
+                                          },
+                                        }))
+                                        setNewTimeByDay(prev => ({ ...prev, [dow]: { start: pending.start, end: '' } }))
+                                      }}
+                                      className="rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
+                                    >+ Add</button>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       )
@@ -1045,24 +1102,6 @@ export default function CenterSettingsPage() {
           {tab === 'notifications' && (
             <div className="space-y-5">
               <div>
-                <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-800">Reminder Settings</p>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">Lead Time (hours)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={168}
-                      value={leadHours}
-                      onChange={e => setLeadHours(Number(e.target.value))}
-                      className={baseInputCls}
-                    />
-                    <p className="mt-1 text-[11px] text-slate-400">How many hours before a session reminders are sent (1–168).</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
                 <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-800">Email Template</p>
                 <p className="mb-3 text-[11px] text-slate-500">Variables: <code className="rounded bg-slate-100 px-1 text-slate-700">{'{{name}}'}</code> <code className="rounded bg-slate-100 px-1 text-slate-700">{'{{date}}'}</code> <code className="rounded bg-slate-100 px-1 text-slate-700">{'{{time}}'}</code></p>
                 <div className="space-y-3">
@@ -1171,56 +1210,6 @@ export default function CenterSettingsPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Portals ── */}
-          {tab === 'portals' && (
-            <div className="space-y-5">
-              <div>
-                <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-800">Scheduling</p>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">Default Session Duration (min)</label>
-                    <input
-                      type="number"
-                      min={30}
-                      max={240}
-                      step={5}
-                      value={sessionDurationMinutes}
-                      onChange={e => setSessionDurationMinutes(Number(e.target.value))}
-                      className={baseInputCls}
-                    />
-                    <p className="mt-1 text-[11px] text-slate-400">Used as the default when creating new sessions (30–240 min).</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-800">Portal Messages</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">Enrollment Form Instructions</label>
-                    <textarea
-                      value={enrollmentInstructions}
-                      onChange={e => setEnrollmentInstructions(e.target.value)}
-                      rows={3}
-                      className={baseInputCls + ' resize-y'}
-                      placeholder="Instructions shown at the top of the enrollment form sent to families."
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">Tutor Portal Welcome Message</label>
-                    <textarea
-                      value={tutorPortalMessage}
-                      onChange={e => setTutorPortalMessage(e.target.value)}
-                      rows={3}
-                      className={baseInputCls + ' resize-y'}
-                      placeholder="Message displayed at the top of the tutor availability portal."
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           )}
