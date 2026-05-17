@@ -499,6 +499,14 @@ export default function CenterSettingsPage() {
     setTermSaving(true)
     setError(null)
     try {
+      const sanitizedSessionTimesByDay = Object.fromEntries(
+        Object.entries(termDraft.session_times_by_day).filter(([dow, slots]) => {
+          const operatingHours = termDraft.operating_hours[dow]
+          if (operatingHours?.closed) return false
+          return Array.isArray(slots) && slots.length > 0
+        })
+      ) as Record<string, string[]>
+
       const method = termDraft.id ? 'PATCH' : 'POST'
       const res = await fetch('/api/terms', {
         method,
@@ -511,7 +519,7 @@ export default function CenterSettingsPage() {
           status: termDraft.status,
           sessionHours: Math.max(1, Number(termDraft.session_hours || 2)),
           operatingHours: termDraft.operating_hours,
-          sessionTimesByDay: termDraft.session_times_by_day,
+          sessionTimesByDay: sanitizedSessionTimesByDay,
           dateExceptions: termDraft.date_exceptions,
         }),
       })
@@ -969,7 +977,20 @@ export default function CenterSettingsPage() {
                                   <input
                                     type="checkbox"
                                     checked={!isClosed}
-                                    onChange={e => setTermDraft(prev => ({ ...prev, operating_hours: { ...prev.operating_hours, [dow]: { ...oh, closed: !e.target.checked } } }))}
+                                    onChange={e => setTermDraft(prev => {
+                                      const nextClosed = !e.target.checked
+                                      const nextSessionTimes = { ...prev.session_times_by_day }
+                                      if (nextClosed) delete nextSessionTimes[dow]
+
+                                      return {
+                                        ...prev,
+                                        operating_hours: {
+                                          ...prev.operating_hours,
+                                          [dow]: { ...oh, closed: nextClosed },
+                                        },
+                                        session_times_by_day: nextSessionTimes,
+                                      }
+                                    })}
                                   />
                                   {label}
                                 </label>

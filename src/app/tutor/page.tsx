@@ -33,7 +33,13 @@ type TimeOff = { id: string; tutor_id: string; date: string; note: string; };
 type TimeOffGroup = { ids: string[]; startDate: string; endDate: string; note: string; totalDays: number };
 type ScheduledStudent = { id: string; name: string; status: string; seriesId: string | null; };
 type ScheduledSession = { id: string; tutorId: string; date: string; time: string; students: ScheduledStudent[]; };
-type TermOption = { id: string; name: string; status: string; session_times_by_day?: SessionTimesByDay | null };
+type TermOption = {
+  id: string;
+  name: string;
+  status: string;
+  session_times_by_day?: SessionTimesByDay | null;
+  operating_hours?: Record<string, { open: string; close: string; closed?: boolean }> | null;
+};
 
 const EMPTY_TUTOR: Omit<TutorWithContact, 'id'> = {
   name: '', subjects: [], cat: 'math', availability: [], availabilityBlocks: [],
@@ -112,6 +118,21 @@ function summarizeAvailability(blocks: string[]) {
     dayCount: sortedDays.length,
     dayLabels: ACTIVE_DAYS_INFO.filter(day => sortedDays.includes(day.dow)).map(day => day.label),
   };
+}
+
+function filterSessionTimesByOperatingHours(
+  sessionTimesByDay: SessionTimesByDay | null | undefined,
+  operatingHours?: Record<string, { open: string; close: string; closed?: boolean }> | null,
+) {
+  if (!sessionTimesByDay) return null;
+  if (!operatingHours) return sessionTimesByDay;
+
+  return Object.fromEntries(
+    Object.entries(sessionTimesByDay).filter(([dow, slots]) => {
+      if (!Array.isArray(slots) || slots.length === 0) return false;
+      return !(operatingHours[dow]?.closed ?? false);
+    })
+  ) as SessionTimesByDay;
 }
 
 function groupTimeOffEntries(entries: TimeOff[]): TimeOffGroup[] {
@@ -1339,7 +1360,10 @@ export default function TutorManagementPage() {
   };
 
   const allSelected = tutors.length > 0 && tutors.every(t => selected.has(t.id));
-  const selectedTermSessionTimes = terms.find(t => t.id === selectedTermId)?.session_times_by_day ?? centerSessionTimes;
+  const selectedTerm = terms.find(t => t.id === selectedTermId);
+  const selectedTermSessionTimes = selectedTermId
+    ? filterSessionTimesByOperatingHours(selectedTerm?.session_times_by_day ?? centerSessionTimes, selectedTerm?.operating_hours)
+    : centerSessionTimes;
   const tutorsWithEmail = tutors.filter(t => !!t.email);
   const tutorsWithContact = tutors.filter(t => t.email || t.phone).length;
   const tutorsWithTimeOff = new Set(timeOffList.map(entry => entry.tutor_id)).size;
