@@ -543,7 +543,7 @@ export default function MasterDeployment() {
     return seats.sort((a, b) => { const dd = a.date.localeCompare(b.date); return dd !== 0 ? dd : a.time.localeCompare(b.time); });
   }, [tutors, localSessions, activeDates, timeOff, builderSessionTimesByDay]);
 
-  const handleInlineBook = useCallback(async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks }: {
+  const handleInlineBook = useCallback(async ({ tutorId, date, time, student, topic, notes, recurring, recurringWeeks, recurringMode }: {
     tutorId: string;
     date: string;
     time: string;
@@ -552,6 +552,7 @@ export default function MasterDeployment() {
     notes: string;
     recurring: boolean;
     recurringWeeks: number;
+    recurringMode?: 'weeks' | 'until_term_end';
   }) => {
     let previousSessions = localSessions;
     setLocalSessions(curr => {
@@ -926,6 +927,7 @@ export default function MasterDeployment() {
           onInlineBook={handleInlineBook}
           sessionTimesByDay={weekDisplaySessionTimesByDay}
           termName={weekDisplayTerm?.name ?? null}
+          currentTerm={weekDisplayTerm ?? null}
           dateExceptions={(weekDisplayTerm as any)?.date_exceptions ?? null}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
@@ -952,6 +954,7 @@ export default function MasterDeployment() {
           onInlineBook={handleInlineBook}
           sessionTimesByDay={weekDisplaySessionTimesByDay}
           termName={weekDisplayTerm?.name ?? null}
+          currentTerm={weekDisplayTerm ?? null}
           dateExceptions={(weekDisplayTerm as any)?.date_exceptions ?? null}
           onMoveStudent={async ({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime }) => {
             await moveStudentSession({ rowId, studentId, fromSessionId, toTutorId, toDate, toTime });
@@ -974,6 +977,7 @@ export default function MasterDeployment() {
               studentDatabase={students}
               initialStudentId={aiPrefilledStudentId}
               sessions={localSessions}
+              currentTerm={selectedBuilderTerm}
             />
           </div>
         </div>
@@ -992,6 +996,7 @@ export default function MasterDeployment() {
               studentDatabase={students}
               initialStudentId={aiPrefilledStudentId}
               sessions={localSessions}
+              currentTerm={selectedBuilderTerm}
             />
           </div>
         </div>

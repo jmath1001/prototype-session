@@ -20,6 +20,7 @@ export interface BookingConfirmData {
   slot: PrefilledSlot;
   recurring: boolean;
   recurringWeeks: number;
+  recurringMode?: 'weeks' | 'until_term_end';
   subject: string;
   topic: string;
   notes: string;
@@ -35,6 +36,7 @@ export interface BookingFormProps {
   studentDatabase: any[];
   initialStudentId?: string | null;
   sessions?: any[];
+  currentTerm?: { id: string; name: string; start_date: string; end_date: string } | null;
 }
 
 function StudentRow({ student, selected, onSelect, isUnassigned }: {
@@ -64,7 +66,7 @@ function StudentRow({ student, selected, onSelect, isUnassigned }: {
 
 export function BookingForm({
   prefilledSlot, onConfirm, onCancel, enrollCat, setEnrollCat,
-  allAvailableSeats, studentDatabase, sessions = [], initialStudentId = null,
+  allAvailableSeats, studentDatabase, sessions = [], initialStudentId = null, currentTerm = null,
 }: BookingFormProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -72,6 +74,7 @@ export function BookingForm({
   const [notes, setNotes] = useState('');
   const [recurring, setRecurring] = useState(false);
   const [recurringWeeks, setRecurringWeeks] = useState(4);
+  const [recurringMode, setRecurringMode] = useState<'weeks' | 'until_term_end'>('weeks');
   const [selectedSlot, setSelectedSlot] = useState<any>(prefilledSlot || null);
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const [showAllSlots, setShowAllSlots] = useState(false);
@@ -145,6 +148,15 @@ export function BookingForm({
   }, [slotsByDay, selectedStudent, studentHasAvailability, showAllSlots]);
 
   const selectStudent = (student: any) => { setSelectedStudent(student); setTopic(''); setNotes(''); setShowAllSlots(false); };
+
+  // Calculate weeks until term end from booking date
+  const weeksUntilTermEnd = useMemo(() => {
+    if (!currentTerm || !selectedSlot) return 0;
+    const bookingDate = new Date(selectedSlot.date + 'T00:00:00');
+    const termEndDate = new Date(currentTerm.end_date + 'T00:00:00');
+    const daysUntilEnd = Math.floor((termEndDate.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.ceil((daysUntilEnd + 1) / 7); // +1 to include the booking week
+  }, [currentTerm, selectedSlot]);
 
   // If parent passes an initial student id (AI flow), auto-select that student
   React.useEffect(() => {
@@ -241,23 +253,85 @@ export function BookingForm({
   const ConfirmFooter = () => (
     <div className="p-4 md:p-6 border-t border-[#f0ece8] bg-[#faf9f7]">
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-[#e7e3dd]">
+        {/* Recurring mode selector - only show if term exists */}
+        {currentTerm && weeksUntilTermEnd > 0 && (
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-[#e7e3dd]">
+            <div className="flex items-center gap-2">
+              <Repeat size={13} className={recurring ? 'text-[#4f46e5]' : 'text-[#a8a29e]'} />
+              <span className="text-xs font-bold text-[#1c1917]">Duration</span>
+            </div>
+            <div className="flex gap-1.5 ml-auto">
+              <button 
+                onClick={() => { setRecurring(true); setRecurringMode('weeks'); }}
+                className={`px-2.5 py-1 rounded text-[9px] font-bold border transition-all ${
+                  recurring && recurringMode === 'weeks' 
+                    ? 'bg-[#4f46e5] border-[#4f46e5] text-white' 
+                    : 'bg-white border-[#e7e3dd] text-[#78716c]'
+                }`}>
+                Select Weeks
+              </button>
+              <button 
+                onClick={() => { setRecurring(true); setRecurringMode('until_term_end'); }}
+                className={`px-2.5 py-1 rounded text-[9px] font-bold border transition-all ${
+                  recurring && recurringMode === 'until_term_end' 
+                    ? 'bg-[#4f46e5] border-[#4f46e5] text-white' 
+                    : 'bg-white border-[#e7e3dd] text-[#78716c]'
+                }`}>
+                Until Term End
+              </button>
+              {recurring && <button onClick={() => setRecurring(false)} className="ml-1 p-1 text-[#4f46e5] hover:bg-indigo-50 rounded"><X size={11} /></button>}
+            </div>
+          </div>
+        )}
+
+        {/* Week selector - show based on mode or when no term */}
+        <div className={`flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-[#e7e3dd] ${
+          (!currentTerm || weeksUntilTermEnd <= 0 || (recurring && recurringMode === 'weeks')) ? '' : 'opacity-50'
+        }`}>
           <div className="flex items-center gap-2">
             <Repeat size={13} className={recurring ? 'text-[#4f46e5]' : 'text-[#a8a29e]'} />
-            <span className="text-xs font-bold text-[#1c1917]">Recurring</span>
+            <span className="text-xs font-bold text-[#1c1917]">
+              {currentTerm && weeksUntilTermEnd > 0 ? 'Weeks' : 'Recurring'}
+            </span>
           </div>
           <div className="flex gap-1 ml-auto">
             {[2, 4, 8].map(w => (
-              <button key={w} onClick={() => { setRecurring(true); setRecurringWeeks(w); }}
-                className={`px-2.5 py-1 rounded text-[10px] font-bold border ${recurring && recurringWeeks === w ? 'bg-[#4f46e5] border-[#4f46e5] text-white' : 'bg-white border-[#e7e3dd] text-[#78716c]'}`}>
+              <button 
+                key={w} 
+                onClick={() => { setRecurring(true); setRecurringMode('weeks'); setRecurringWeeks(w); }}
+                disabled={currentTerm ? (weeksUntilTermEnd > 0 && recurring && recurringMode === 'until_term_end') : false}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold border disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                  recurring && recurringWeeks === w && recurringMode === 'weeks' 
+                    ? 'bg-[#4f46e5] border-[#4f46e5] text-white' 
+                    : 'bg-white border-[#e7e3dd] text-[#78716c]'
+                }`}>
                 {w}w
               </button>
             ))}
-            {recurring && <button onClick={() => setRecurring(false)} className="ml-1 p-1 text-[#4f46e5] hover:bg-indigo-50 rounded"><X size={11} /></button>}
+            {recurring && recurringMode === 'weeks' && (
+              <button onClick={() => setRecurring(false)} className="ml-1 p-1 text-[#4f46e5] hover:bg-indigo-50 rounded"><X size={11} /></button>
+            )}
           </div>
         </div>
+
+        {/* Term end info - show when until_term_end is selected */}
+        {currentTerm && weeksUntilTermEnd > 0 && recurring && recurringMode === 'until_term_end' && (
+          <div className="px-3.5 py-2.5 rounded-xl bg-[#f0fdf4] border border-[#86efac] text-[11px] text-[#15803d] font-bold">
+            Booking until {new Date(currentTerm.end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({weeksUntilTermEnd} week{weeksUntilTermEnd !== 1 ? 's' : ''})
+          </div>
+        )}
+
         <button disabled={!canConfirm}
-          onClick={() => onConfirm({ student: selectedStudent, slot: prefilledSlot || selectedSlot, recurring, recurringWeeks, subject: selectedStudent?.subject, topic, notes })}
+          onClick={() => onConfirm({ 
+            student: selectedStudent, 
+            slot: prefilledSlot || selectedSlot, 
+            recurring, 
+            recurringWeeks: recurringMode === 'until_term_end' ? weeksUntilTermEnd : recurringWeeks,
+            recurringMode,
+            subject: selectedStudent?.subject, 
+            topic, 
+            notes 
+          })}
           className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] ${canConfirm ? 'bg-[#4f46e5] text-white hover:bg-[#3730a3] shadow-lg shadow-indigo-100' : 'bg-[#e7e3dd] text-[#a8a29e] cursor-not-allowed'}`}>
           {canConfirm ? `Book ${topic} · ${selectedStudent.name}` : 'Select Student, Topic & Slot'}
         </button>

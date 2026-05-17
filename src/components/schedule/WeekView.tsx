@@ -17,6 +17,7 @@ interface InlineForm {
   notes: string;
   recurring: boolean;
   recurringWeeks: number;
+  recurringMode?: 'weeks' | 'until_term_end';
   creating: boolean;
   saving: boolean;
   error: string | null;
@@ -29,12 +30,20 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   notes: '',
   recurring: false,
   recurringWeeks: 4,
+  recurringMode: 'weeks',
   creating: false,
   saving: false,
   error: null,
 });
 
 const slotKey = (tutorId: string, date: string, time: string) => `${tutorId}|${date}|${time}`;
+
+const calculateWeeksUntilTermEnd = (bookingDate: string, termEndDate: string): number => {
+  const booking = new Date(bookingDate + 'T00:00:00');
+  const termEnd = new Date(termEndDate + 'T00:00:00');
+  const daysUntilEnd = Math.floor((termEnd.getTime() - booking.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((daysUntilEnd + 1) / 7);
+};
 
 interface WeekViewProps {
   activeDates: Date[];
@@ -55,6 +64,7 @@ interface WeekViewProps {
     notes: string;
     recurring: boolean;
     recurringWeeks: number;
+    recurringMode?: 'weeks' | 'until_term_end';
   }) => Promise<void>;
   bulkRemoveMode: boolean;
   selectedRemovals: Record<string, { sessionId: string; studentId: string; name: string }>;
@@ -70,6 +80,7 @@ interface WeekViewProps {
     toTime: string;
   }) => Promise<void>;
   termName?: string | null;
+  currentTerm?: { id: string; name: string; start_date: string; end_date: string } | null;
   dateExceptions?: Array<{ date: string; closed: boolean; label?: string }> | null;
 }
 
@@ -91,6 +102,7 @@ export function WeekView({
   onMoveStudent,
   sessionTimesByDay,
   termName,
+  currentTerm,
   dateExceptions,
 }: WeekViewProps) {
   const [forms, setForms]               = useState<Record<string, InlineForm>>({});
@@ -173,6 +185,7 @@ export function WeekView({
     if (!form?.student || !form.topic) return;
     patchForm(key, { saving: true, error: null });
     try {
+      const weeksToUse = form.recurringMode === 'until_term_end' && currentTerm && date ? calculateWeeksUntilTermEnd(date, currentTerm.end_date) : clampWeeks(form.recurringWeeks);
       await onInlineBook({
         tutorId: tutor.id,
         date,
@@ -181,7 +194,8 @@ export function WeekView({
         topic: form.topic,
         notes: form.notes,
         recurring: form.recurring,
-        recurringWeeks: form.recurring ? clampWeeks(form.recurringWeeks) : 1,
+        recurringWeeks: form.recurring ? weeksToUse : 1,
+        recurringMode: form.recurring ? form.recurringMode : undefined,
       });
       closeForm(key);
       logEvent('session_booked', { studentName: form.student.name, date, recurring: form.recurring, source: 'inline_week' });
@@ -396,17 +410,44 @@ export function WeekView({
             </div>
           </div>
           {form.recurring && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: '#64748b' }}>Weeks</span>
-              <input
-                type="number"
-                min={2}
-                max={24}
-                value={form.recurringWeeks}
-                onChange={e => patchForm(key, { recurringWeeks: clampWeeks(Number(e.target.value || 2)) })}
-                className="w-16 text-[10px] font-bold rounded px-2 py-1 outline-none"
-                style={{ background: 'white', border: '1px solid #d1d5db', color: '#334155' }}
-              />
+            <div className="mt-2 space-y-2">
+              {currentTerm && (
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => patchForm(key, { recurringMode: 'weeks' })}
+                    className="flex-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wide"
+                    style={form.recurringMode === 'weeks' ? { background: '#334155', border: '1px solid #334155', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}>
+                    Select Weeks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => patchForm(key, { recurringMode: 'until_term_end' })}
+                    className="flex-1 px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wide"
+                    style={form.recurringMode === 'until_term_end' ? { background: '#334155', border: '1px solid #334155', color: 'white' } : { background: 'white', border: '1px solid #d1d5db', color: '#6b7280' }}>
+                    Until End
+                  </button>
+                </div>
+              )}
+              {form.recurringMode === 'weeks' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: '#64748b' }}>Weeks</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={24}
+                    value={form.recurringWeeks}
+                    onChange={e => patchForm(key, { recurringWeeks: clampWeeks(Number(e.target.value || 2)) })}
+                    className="w-16 text-[10px] font-bold rounded px-2 py-1 outline-none"
+                    style={{ background: 'white', border: '1px solid #d1d5db', color: '#334155' }}
+                  />
+                </div>
+              )}
+              {form.recurringMode === 'until_term_end' && currentTerm && (
+                <div className="text-[8px] font-semibold rounded px-2 py-1.5" style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#15803d' }}>
+                  Until {new Date(currentTerm.end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ({calculateWeeksUntilTermEnd(date, currentTerm.end_date)} wk{calculateWeeksUntilTermEnd(date, currentTerm.end_date) !== 1 ? 's' : ''})
+                </div>
+              )}
             </div>
           )}
         </div>
