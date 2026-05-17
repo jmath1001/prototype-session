@@ -5,7 +5,7 @@ import { DB, withCenter } from '@/lib/db';
 import {
   Mail, Send, Clock, Check, AlertCircle, Edit3, Save,
   X, RefreshCw, ChevronDown, ChevronUp, Users, Calendar,
-  Megaphone, Loader2,
+  Megaphone, Loader2, Eye,
 } from 'lucide-react';
 import { logEvent } from '@/lib/analytics';
 
@@ -67,10 +67,26 @@ type BlastRecipient = {
   notifyDad: boolean;
 };
 
+type ScheduleEntry = {
+  date: string;
+  time: string;
+  students: { name: string; topic: string }[];
+};
+
+type EmailPreview = {
+  title: string;
+  subject: string;
+  html: string;
+  note?: string;
+};
+
 const baseInputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100';
+const BRAND_BLUE = '#0f172a';
+const BRAND_RED = '#991b1b';
 
 function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
 function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return toISODate(d); }
+function addDaysIso(iso: string, days: number) { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + days); return toISODate(d); }
 function formatSentAt(iso: string) {
   try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
   catch { return iso; }
@@ -78,6 +94,177 @@ function formatSentAt(iso: string) {
 
 function applyTemplate(template: string, values: Record<string, string>) {
   return template.replace(/{{\s*(name|date|time|link)\s*}}/gi, (_, key: string) => values[key.toLowerCase()] ?? '');
+}
+
+function buildAnnouncementHtml(centerName: string, bodyText: string, availabilityLink: string) {
+  const safeBody = bodyText.replace(/\n/g, '<br>').trim();
+  const linkSection = availabilityLink
+    ? `<table cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
+        <td style="border-radius:8px;background:${BRAND_BLUE};">
+          <a href="${availabilityLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">Submit Availability →</a>
+        </td>
+      </tr></table>
+      <p style="margin:14px 0 0;font-size:11px;color:#9ca3af;">If the button doesn't work: <a href="${availabilityLink}" style="color:${BRAND_BLUE};">${availabilityLink}</a></p>`
+    : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;">
+  <tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+    <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
+      <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
+      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.75);">Announcement</p>
+    </td></tr>
+    <tr><td style="padding:28px;">
+      <p style="margin:0 0 16px;font-size:15px;color:#111827;line-height:1.65;">${safeBody}</p>
+      ${linkSection}
+    </td></tr>
+    <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+    </td></tr>
+  </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+function fmt12(time: string): string {
+  const [hStr, mStr] = time.split(':');
+  const hour = Number(hStr);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${mStr} ${suffix}`;
+}
+
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function buildScheduleHtml(centerName: string, tutorName: string, schedule: ScheduleEntry[], periodLabel: string): string {
+  const byDate: Record<string, ScheduleEntry[]> = {};
+  for (const entry of schedule) {
+    if (!byDate[entry.date]) byDate[entry.date] = [];
+    byDate[entry.date].push(entry);
+  }
+
+  const totalSessions = schedule.length;
+  const totalStudents = schedule.reduce((sum, entry) => sum + entry.students.length, 0);
+
+  const dateBlocks = Object.entries(byDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, sessions]) => {
+      const rows = sessions
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .map((entry) => {
+          const studentList = entry.students.length === 0
+            ? `<span style="color:#9ca3af;font-style:italic;">No students</span>`
+            : entry.students
+                .map((student) => `${student.name}${student.topic ? ` <span style="color:#6b7280;font-size:11px;">(${student.topic})</span>` : ''}`)
+                .join(', ');
+
+          return `<tr>
+            <td style="padding:8px 12px;font-size:13px;font-weight:600;color:#374151;white-space:nowrap;border-right:1px solid #f3f4f6;">${fmt12(entry.time)}</td>
+            <td style="padding:8px 12px;font-size:13px;color:#374151;">${studentList}</td>
+          </tr>`;
+        })
+        .join('');
+
+      return `<div style="margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#6366f1;">${fmtDate(date)}</p>
+        <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;">
+          ${rows || `<tr><td colspan="2" style="padding:10px 12px;font-size:12px;color:#9ca3af;font-style:italic;">No sessions scheduled</td></tr>`}
+        </table>
+      </div>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;">
+    <tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+      <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
+        <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Schedule — ${periodLabel}</p>
+      </td></tr>
+      <tr><td style="padding:28px;">
+        <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#111827;">Hi ${tutorName},</p>
+        <p style="margin:0 0 24px;font-size:13px;color:#6b7280;">
+          Here's your schedule for <strong>${periodLabel}</strong>.
+          ${totalSessions > 0 ? `${totalSessions} session${totalSessions !== 1 ? 's' : ''}, ${totalStudents} student slot${totalStudents !== 1 ? 's' : ''}.` : 'No sessions scheduled for this period.'}
+        </p>
+        ${dateBlocks || `<p style="color:#9ca3af;font-size:13px;font-style:italic;">No sessions scheduled for this period.</p>`}
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildReminderStudentHtml(settings: Settings, studentName: string, sessionDate: string, sessionTime: string, confirmLink: string) {
+  const body = applyTemplate(settings.reminder_body, {
+    name: `<strong>${studentName}</strong>`,
+    date: `<strong>${sessionDate}</strong>`,
+    time: `<strong>${sessionTime}</strong>`,
+    link: `<a href="${confirmLink}" style="color:${BRAND_RED};text-decoration:underline;">${confirmLink}</a>`,
+  }).replace(/\n/g, '<br>').trim();
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;"><tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+    <tr><td style="background:${BRAND_RED};padding:20px 28px;">
+      <p style="margin:0;font-size:18px;font-weight:800;color:white;">${settings.center_name}</p>
+      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.8);">Session Reminder</p>
+    </td></tr>
+    <tr><td style="padding:28px;">
+      <p style="margin:0 0 16px;font-size:15px;color:#111827;line-height:1.6;">${body}</p>
+      <table cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
+        <td style="border-radius:8px;background:${BRAND_RED};">
+          <a href="${confirmLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">✓ Confirm Attendance</a>
+        </td>
+      </tr></table>
+      <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">If the button doesn't work: <a href="${confirmLink}" style="color:${BRAND_RED};">${confirmLink}</a></p>
+    </td></tr>
+    <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+    </td></tr>
+  </table></td></tr></table></body></html>`;
+}
+
+function buildReminderGuardianHtml(settings: Settings, guardianName: string, studentName: string, sessionDate: string, sessionTime: string) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;"><tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+    <tr><td style="background:${BRAND_RED};padding:20px 28px;">
+      <p style="margin:0;font-size:18px;font-weight:800;color:white;">${settings.center_name}</p>
+      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.8);">Parent Notification</p>
+    </td></tr>
+    <tr><td style="padding:28px;">
+      <p style="margin:0;font-size:15px;color:#111827;line-height:1.6;">
+        Hi <strong>${guardianName}</strong>,<br><br>
+        This is a heads-up that <strong>${studentName}</strong> has a tutoring session on
+        <strong>${sessionDate}</strong> at <strong>${sessionTime}</strong>.<br><br>
+        No action needed — this is for your records only.
+      </p>
+    </td></tr>
+    <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+    </td></tr>
+  </table></td></tr></table></body></html>`;
+}
+
+function buildPreviewFrameHtml(subject: string, html: string) {
+  return html;
 }
 
 export default function ContactCenter() {
@@ -134,6 +321,8 @@ export default function ContactCenter() {
   const [tutorsWithEmail, setTutorsWithEmail]         = useState<{ id: string; name: string; email: string }[]>([]);
   const [tutorSchedSending, setTutorSchedSending]     = useState(false);
   const [tutorSchedResult, setTutorSchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string } | null>(null);
+  const [previewModal, setPreviewModal]               = useState<EmailPreview | null>(null);
+  const [previewLoading, setPreviewLoading]           = useState(false);
 
   const formatSettingsError = (message: string) => {
     if (message.toLowerCase().includes('relation') || message.toLowerCase().includes('does not exist')) {
@@ -566,6 +755,152 @@ export default function ContactCenter() {
   const previewSubject = applyTemplate(draftSubject || DEFAULT_SETTINGS.reminder_subject, previewValues);
   const previewBody = applyTemplate(draftBody || DEFAULT_SETTINGS.reminder_body, previewValues);
 
+  const openAvailabilityPreview = () => {
+    setPreviewLoading(false);
+    const sampleName = blastRecipients[0]?.studentName ?? 'Alex Student';
+    const sampleLink = blastTermId
+      ? blastLinkPreview
+      : (typeof window !== 'undefined' ? `${window.location.origin}/booking?termId=preview` : 'https://example.com/booking?termId=preview');
+    const sampleCenter = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
+    const sampleTerm = selectedBlastTerm?.name ?? '';
+    const subject = applyTemplate(blastSubject || '', {
+      name: sampleName,
+      link: sampleLink,
+      term: sampleTerm,
+      center: sampleCenter,
+    });
+    const body = applyTemplate(blastBody || '', {
+      name: sampleName,
+      link: sampleLink,
+      term: sampleTerm,
+      center: sampleCenter,
+    });
+    setPreviewModal({
+      title: 'Availability Email Preview',
+      subject,
+      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, blastTermId ? sampleLink : '')),
+      note: `Previewing ${sampleName}${sampleTerm ? ` for ${sampleTerm}` : ''}.`,
+    });
+  };
+
+  const openGeneralPreview = () => {
+    setPreviewLoading(false);
+    const sampleName = blastRecipients[0]?.studentName ?? 'Alex Student';
+    const sampleCenter = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
+    const subject = applyTemplate(generalSubject || '', {
+      name: sampleName,
+      link: '',
+      term: '',
+      center: sampleCenter,
+    });
+    const body = applyTemplate(generalBody || '', {
+      name: sampleName,
+      link: '',
+      term: '',
+      center: sampleCenter,
+    });
+    setPreviewModal({
+      title: 'General Email Preview',
+      subject,
+      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, '')),
+      note: `Previewing ${sampleName}.`,
+    });
+  };
+
+  const openTutorSchedulePreview = async () => {
+    const previewTutor = tutorsWithEmail[0];
+    if (!previewTutor) {
+      setPreviewLoading(false);
+      setPreviewModal({
+        title: 'Tutor Weekly Schedule Preview',
+        subject: 'No tutor available',
+        html: buildPreviewFrameHtml('No tutor available', '<!DOCTYPE html><html><body style="margin:0;padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;background:#f8fafc;color:#0f172a;"><p style="font-size:14px;font-weight:700;">No tutors with email addresses are available to preview.</p></body></html>'),
+        note: 'Add a tutor email to preview a weekly schedule.',
+      });
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const fromDate = tutorSchedWeek;
+      const toDate = addDaysIso(fromDate, 6);
+      const startFmt = new Date(`${fromDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endFmt = new Date(`${toDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const periodLabel = `Week of ${startFmt}–${endFmt}`;
+      const { data, error } = await (withCenter(
+        supabase
+          .from(DB.sessions)
+          .select(`id, session_date, time, tutor_id, ${DB.sessionStudents}(id, name, topic, status)`)
+          .eq('tutor_id', previewTutor.id)
+          .gte('session_date', fromDate)
+          .lte('session_date', toDate)
+      ) as any);
+
+      if (error) throw error;
+
+      const schedule: ScheduleEntry[] = (data ?? []).map((session: any) => {
+        const sessionStudents = Array.isArray(session[DB.sessionStudents]) ? session[DB.sessionStudents] : [];
+        return {
+          date: session.session_date,
+          time: session.time,
+          students: sessionStudents
+            .filter((student: any) => student.status !== 'cancelled')
+            .map((student: any) => ({
+              name: student.name ?? '—',
+              topic: student.topic ?? '',
+            })),
+        };
+      });
+
+      const centerName = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
+      const subject = `Your weekly schedule — ${periodLabel}`;
+      const html = buildScheduleHtml(centerName, previewTutor.name ?? 'Tutor', schedule, periodLabel);
+      setPreviewModal({
+        title: 'Tutor Weekly Schedule Preview',
+        subject,
+        html: buildPreviewFrameHtml(subject, html),
+        note: `Previewing ${previewTutor.name ?? 'Tutor'} for ${periodLabel}.`,
+      });
+    } catch (error: any) {
+      setPreviewModal({
+        title: 'Tutor Weekly Schedule Preview',
+        subject: 'Preview unavailable',
+        html: buildPreviewFrameHtml('Preview unavailable', `<div style="padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;color:#991b1b;background:#fff;">${error?.message ?? 'Failed to load preview.'}</div>`),
+        note: error?.message ?? 'Failed to load preview.',
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const openReminderPreview = () => {
+    setPreviewLoading(false);
+    const sampleCandidate = candidates[0];
+    const sampleName = sampleCandidate?.studentName ?? 'Alex Student';
+    const sampleDate = sampleCandidate?.sessionDate ?? dispatchDate;
+    const sampleTime = sampleCandidate?.sessionTime ?? '16:30';
+    const sampleLink = typeof window !== 'undefined' ? `${window.location.origin}/confirm?token=preview-token` : 'https://example.com/confirm?token=preview-token';
+    const sampleSettings: Settings = {
+      center_name: settings?.center_name ?? DEFAULT_SETTINGS.center_name,
+      center_email: settings?.center_email ?? DEFAULT_SETTINGS.center_email,
+      reminder_subject: draftSubject || settings?.reminder_subject || DEFAULT_SETTINGS.reminder_subject,
+      reminder_body: draftBody || settings?.reminder_body || DEFAULT_SETTINGS.reminder_body,
+    };
+    const subject = applyTemplate(sampleSettings.reminder_subject, {
+      name: sampleName,
+      date: sampleDate,
+      time: sampleTime,
+      link: sampleLink,
+    });
+    const html = buildReminderStudentHtml(sampleSettings, sampleName, sampleDate, sampleTime, sampleLink);
+    setPreviewModal({
+      title: 'Reminder Email Preview',
+      subject,
+      html: buildPreviewFrameHtml(subject, html),
+      note: `Previewing ${sampleName} for ${sampleDate} at ${sampleTime}.`,
+    });
+  };
+
   return (
     <div className="min-h-screen px-4 py-5" style={{ background: '#f1f5f9' }}>
       <div className="mx-auto w-full max-w-5xl rounded-2xl bg-white" style={{ border: '1px solid #cbd5e1', boxShadow: '0 4px 20px rgba(15,23,42,0.08)' }}>
@@ -914,7 +1249,13 @@ export default function ContactCenter() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    onClick={openAvailabilityPreview}
+                    className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Eye size={12} /> View preview
+                  </button>
                   {!blastTermId && (
                     <p className="text-xs text-amber-600">Select a term to generate the availability link.</p>
                   )}
@@ -1081,7 +1422,13 @@ export default function ContactCenter() {
                   </div>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    onClick={openGeneralPreview}
+                    className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Eye size={12} /> View preview
+                  </button>
                   <button
                     onClick={handleGeneralSend}
                     disabled={generalSelected.size === 0 || generalSending || !generalSubject.trim() || !generalBody.trim()}
@@ -1154,7 +1501,13 @@ export default function ContactCenter() {
                   </div>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    onClick={() => void openTutorSchedulePreview()}
+                    className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Eye size={12} /> View preview
+                  </button>
                   <button
                     onClick={handleSendTutorSchedules}
                     disabled={tutorSchedSending || tutorsWithEmail.length === 0}
@@ -1177,23 +1530,31 @@ export default function ContactCenter() {
                 <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: '#4338ca' }}>Reminder Email Template</p>
                 <p className="text-xs text-slate-500">Subject and body used for session reminder emails.</p>
               </div>
-              {!editingTemplate ? (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => setEditingTemplate(true)}
+                  onClick={openReminderPreview}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  <Edit3 size={10} /> Edit
+                  <Eye size={10} /> View preview
                 </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={cancelEdit} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                    <X size={10} /> Cancel
+                {!editingTemplate ? (
+                  <button
+                    onClick={() => setEditingTemplate(true)}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Edit3 size={10} /> Edit
                   </button>
-                  <button onClick={saveTemplate} disabled={savingTemplate || loadingSettings || !!settingsError} className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
-                    {savingTemplate ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />} Save
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button onClick={cancelEdit} className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                      <X size={10} /> Cancel
+                    </button>
+                    <button onClick={saveTemplate} disabled={savingTemplate || loadingSettings || !!settingsError} className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+                      {savingTemplate ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />} Save
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {templateSaved && (
@@ -1299,6 +1660,47 @@ export default function ContactCenter() {
               </div>
             )}
           </div>
+
+          {previewModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-[1px]"
+              onClick={() => { if (!previewLoading) setPreviewModal(null); }}
+            >
+              <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-600">{previewModal.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{previewModal.note ?? 'Rendered with the current form values.'}</p>
+                    {previewModal.subject && (
+                      <p className="mt-2 text-[11px] font-semibold text-slate-700">Subject: {previewModal.subject}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setPreviewModal(null)}
+                    disabled={previewLoading}
+                    className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    <X size={12} /> Close
+                  </button>
+                </div>
+                <div className="bg-slate-100 p-4">
+                  {previewLoading ? (
+                    <div className="flex min-h-[72vh] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-slate-500">
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <Loader2 size={14} className="animate-spin" /> Building preview…
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      title={previewModal.title}
+                      srcDoc={previewModal.html}
+                      className="h-[72vh] w-full rounded-xl border border-slate-200 bg-white"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>{/* end space-y-5 p-5 */}
       </div>
