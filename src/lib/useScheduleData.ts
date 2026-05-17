@@ -263,14 +263,19 @@ export function useScheduleData(weekStart: Date, options?: { termId?: string | n
 
         const normalizedStatus = (value: unknown) => (typeof value === 'string' ? value.trim().toLowerCase() : '')
 
-        // Resolve the term by the week being loaded — just like operating hours use the date period.
-        // The week's date range takes priority; only fall back to status/order if no term covers it.
+        // Resolve the term explicitly chosen by the caller first.
+        // If no override is provided, fall back to the term covering the week,
+        // then to the currently active term.
         const weekStartIso = toISODate(weekStart)
         const weekEndLocal = new Date(weekStart)
         weekEndLocal.setDate(weekEndLocal.getDate() + 6)
         const weekEndIso = toISODate(weekEndLocal)
 
         const activeTerm =
+          (selectedTermId
+            ? terms.find((term: any) => term.id === selectedTermId)
+            : null)
+          ??
           terms.find((term: any) => {
             const start = typeof term.start_date === 'string' ? term.start_date : ''
             const end = typeof term.end_date === 'string' ? term.end_date : ''

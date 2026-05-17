@@ -594,6 +594,26 @@ export default function CenterSettingsPage() {
     }
   }
 
+    const handleDeleteTerm = async (termId: string) => {
+      if (!confirm('Are you sure you want to delete this term? This action cannot be undone.')) return
+      setTermSaving(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/terms', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: termId }),
+        })
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload?.error || 'Failed to delete term')
+        setTerms(prev => prev.filter(t => t.id !== termId))
+        setSuccess('Term deleted.')
+      } catch (err: any) {
+        setError(err?.message ?? 'Failed to delete term')
+      } finally {
+        setTermSaving(false)
+      }
+    }
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-5">
@@ -905,7 +925,13 @@ export default function CenterSettingsPage() {
                             >
                               Edit
                             </button>
-                          </div>
+                              <button
+                                onClick={() => handleDeleteTerm(term.id)}
+                                className="rounded border border-red-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
                         </div>
                       )
                     })

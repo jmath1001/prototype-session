@@ -126,13 +126,6 @@ export default function MasterDeployment() {
           if (prev && rows.some(t => t.id === prev)) return prev;
           const active = rows.find(t => (t.status ?? '').trim().toLowerCase() === 'active');
           const chosen = active ?? rows[0];
-          // Jump weekStart into the chosen term so the builder opens on the right week
-          if (chosen?.start_date && /^\d{4}-\d{2}-\d{2}$/.test(chosen.start_date)) {
-            const parsed = new Date(chosen.start_date + 'T00:00:00');
-            if (!Number.isNaN(parsed.getTime())) {
-              setWeekStart(getWeekStart(parsed));
-            }
-          }
           return chosen?.id ?? '';
         });
       } catch {

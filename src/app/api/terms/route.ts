@@ -136,6 +136,52 @@ export async function POST(req: NextRequest) {
   }
 }
 
+  export async function DELETE(req: NextRequest) {
+    try {
+      const { id } = await req.json()
+
+      if (!id) {
+        return NextResponse.json({ error: 'id is required' }, { status: 400 })
+      }
+
+      // Check if term has any enrollments
+      const { data: enrollments, error: enrollmentCheckError } = await withCenter(
+        supabase
+          .from(DB.termEnrollments)
+          .select('id')
+          .eq('term_id', id)
+          .limit(1)
+      )
+
+      if (enrollmentCheckError) {
+        return NextResponse.json({ error: enrollmentCheckError.message }, { status: 500 })
+      }
+
+      if (enrollments && enrollments.length > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete term with active enrollments' },
+          { status: 409 }
+        )
+      }
+
+      // Delete the term
+      const { error } = await withCenter(
+        supabase
+          .from(DB.terms)
+          .delete()
+          .eq('id', id)
+      )
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true })
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message ?? 'Invalid request body' }, { status: 400 })
+    }
+  }
+
 export async function PATCH(req: NextRequest) {
   try {
     const { id, name, startDate, endDate, status, operatingHours, sessionTimesByDay, dateExceptions } = await req.json()
