@@ -1,7 +1,7 @@
 'use client'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { withCenter } from '@/lib/db'
 
@@ -43,8 +43,10 @@ function parseSessionTimesForDay(dow: number, sessionTimesByDay: Record<string, 
 function EnrollForm() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') ?? ''
+  const isPreview = searchParams.get('preview') === '1'
+  const previewTermName = searchParams.get('term') ?? 'Upcoming term'
 
-  const [status, setStatus] = useState<'loading' | 'ready' | 'submitted' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
   const [studentName, setStudentName] = useState('')
   const [termName, setTermName] = useState('')
@@ -55,6 +57,8 @@ function EnrollForm() {
   const [recurring, setRecurring] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [enrollmentInstructions, setEnrollmentInstructions] = useState<string | null>(null)
+  const [lastSubmittedAt, setLastSubmittedAt] = useState<string | null>(null)
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null)
 
   useEffect(() => {
     withCenter(supabase.from('slake_center_settings').select('enrollment_instructions').limit(1))
@@ -66,6 +70,25 @@ function EnrollForm() {
   }, [])
 
   useEffect(() => {
+    if (isPreview) {
+      setStudentName('Alex Student')
+      setTermName(previewTermName)
+      setSessionTimesByDay({
+        '1': ['15:30-17:30', '17:30-19:30'],
+        '2': ['15:30-17:30', '17:30-19:30'],
+        '3': ['15:30-17:30', '17:30-19:30'],
+        '4': ['15:30-17:30', '17:30-19:30'],
+        '6': ['09:00-11:00', '11:00-13:00'],
+      })
+      setSelectedSubjects([])
+      setSubjectSessionsPerWeek({})
+      setSelectedBlocks([])
+      setLastSubmittedAt(null)
+      setSubmitNotice(null)
+      setStatus('ready')
+      return
+    }
+
     if (!token) { setErrorMsg('Missing enrollment token.'); setStatus('error'); return }
     fetch(`/api/enrollment-form?token=${encodeURIComponent(token)}`)
       .then(r => r.json())
@@ -78,11 +101,12 @@ function EnrollForm() {
         setSelectedSubjects(Array.isArray(enroll?.subjects) ? enroll.subjects : [])
         setSubjectSessionsPerWeek((enroll?.subject_sessions_per_week && typeof enroll.subject_sessions_per_week === 'object' && !Array.isArray(enroll.subject_sessions_per_week)) ? enroll.subject_sessions_per_week : {})
         setSelectedBlocks(Array.isArray(enroll?.availability_blocks) ? enroll.availability_blocks : [])
-        if (enroll?.form_submitted_at) setStatus('submitted')
-        else setStatus('ready')
+        setLastSubmittedAt(enroll?.form_submitted_at ?? null)
+        setSubmitNotice(null)
+        setStatus('ready')
       })
       .catch(() => { setErrorMsg('Failed to load form.'); setStatus('error') })
-  }, [token])
+  }, [token, isPreview, previewTermName])
 
   const toggleSubject = (s: string) =>
     setSelectedSubjects(prev => {
@@ -100,8 +124,14 @@ function EnrollForm() {
   }
 
   const handleSubmit = async () => {
+    if (isPreview) {
+      setLastSubmittedAt(new Date().toISOString())
+      setSubmitNotice('Preview saved. In live mode this updates the existing enrollment form submission.')
+      return
+    }
     if (selectedSubjects.length === 0) { alert('Please select at least one subject.'); return }
     setSubmitting(true)
+    setSubmitNotice(null)
     const res = await fetch('/api/enrollment-form', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -110,7 +140,8 @@ function EnrollForm() {
     const data = await res.json()
     setSubmitting(false)
     if (!res.ok) { alert(data.error ?? 'Failed to submit.'); return }
-    setStatus('submitted')
+    setLastSubmittedAt(new Date().toISOString())
+    setSubmitNotice('Availability saved. You can update and resubmit any time using this same link.')
   }
 
   if (status === 'loading') return (
@@ -125,20 +156,6 @@ function EnrollForm() {
       <div style={{ textAlign: 'center' }}>
         <p style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: '0 0 6px' }}>Invalid Link</p>
         <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{errorMsg}</p>
-      </div>
-    </div>
-  )
-
-  if (status === 'submitted') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: 24 }}>
-      <div style={{ maxWidth: 380, textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-          <Check size={22} style={{ color: '#16a34a' }} />
-        </div>
-        <p style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>All set!</p>
-        <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
-          We've received {studentName}'s availability for <strong>{termName}</strong>. The center will reach out to confirm scheduling.
-        </p>
       </div>
     </div>
   )
@@ -171,6 +188,24 @@ function EnrollForm() {
         {enrollmentInstructions && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
             <p style={{ fontSize: 12, color: '#1e40af', lineHeight: 1.6, margin: 0 }}>{enrollmentInstructions}</p>
+          </div>
+        )}
+
+        {lastSubmittedAt && (
+          <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+            <p style={{ fontSize: 12, color: '#155e75', lineHeight: 1.6, margin: 0 }}>
+              Previous submission detected.
+              {' '}
+              Last submitted: {new Date(lastSubmittedAt).toLocaleString()}.
+              {' '}
+              You can update fields and resubmit below.
+            </p>
+          </div>
+        )}
+
+        {submitNotice && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+            <p style={{ fontSize: 12, color: '#166534', lineHeight: 1.6, margin: 0 }}>{submitNotice}</p>
           </div>
         )}
 
@@ -295,7 +330,9 @@ function EnrollForm() {
         {/* Submit */}
         <button onClick={handleSubmit} disabled={submitting || selectedSubjects.length === 0}
           style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: selectedSubjects.length > 0 ? '#dc2626' : '#e2e8f0', color: selectedSubjects.length > 0 ? 'white' : '#94a3b8', fontSize: 13, fontWeight: 800, cursor: selectedSubjects.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {submitting ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Submitting…</> : 'Submit Availability'}
+          {submitting
+            ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Submitting…</>
+            : (lastSubmittedAt ? 'Resubmit Availability' : 'Submit Availability')}
         </button>
         <p style={{ textAlign: 'center', fontSize: 11, color: '#cbd5e1', marginTop: 8, marginBottom: 0 }}>You can resubmit if your schedule changes.</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
-import { DB, withCenter } from '@/lib/db';
+import { DB, withCenter, withCenterPayload } from '@/lib/db';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,7 +104,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: studentsError.message }, { status: 500 });
     }
 
-    const availabilityLink = termId ? `${baseUrl}/booking?termId=${termId}` : '';
+    const bodyBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
+    const requestOrigin = req.nextUrl?.origin?.trim() ?? '';
+    const appBaseUrl = bodyBaseUrl || requestOrigin || (process.env.NEXT_PUBLIC_BASE_URL ?? '').trim();
+
+    if (termId && !appBaseUrl) {
+      return NextResponse.json({ error: 'Could not determine app base URL for enrollment links.' }, { status: 500 });
+    }
+
     const guard = getDeliveryGuard();
 
     if (guard.mode === 'disabled') {
@@ -125,6 +132,47 @@ export async function POST(req: NextRequest) {
       const emails: string[] = [student.email, student.mom_email, student.dad_email].filter(Boolean) as string[];
 
       if (emails.length === 0) continue;
+
+      let availabilityLink = '';
+
+      if (termId) {
+        const token = crypto.randomUUID();
+        const { data: existingEnrollment, error: existingError } = await withCenter(
+          supabase.from(DB.termEnrollments).select('id').eq('student_id', student.id).eq('term_id', termId).maybeSingle()
+        );
+        if (existingError) {
+          failed++;
+          if (errors.length < 5) errors.push(`${recipientName}: failed to prepare enrollment token (${existingError.message})`);
+          continue;
+        }
+
+        if (existingEnrollment?.id) {
+          const { error: updateError } = await withCenter(
+            supabase.from(DB.termEnrollments).update({ form_token: token }).eq('id', existingEnrollment.id)
+          );
+          if (updateError) {
+            failed++;
+            if (errors.length < 5) errors.push(`${recipientName}: failed to update enrollment token (${updateError.message})`);
+            continue;
+          }
+        } else {
+          const { error: insertError } = await supabase.from(DB.termEnrollments).insert(withCenterPayload({
+            student_id: student.id,
+            term_id: termId,
+            subjects: [],
+            availability_blocks: [],
+            hours_purchased: 0,
+            form_token: token,
+          }));
+          if (insertError) {
+            failed++;
+            if (errors.length < 5) errors.push(`${recipientName}: failed to create enrollment row (${insertError.message})`);
+            continue;
+          }
+        }
+
+        availabilityLink = `${appBaseUrl}/enroll?token=${token}`;
+      }
 
       const resolvedSubject = applyTemplate(subject, {
         name: recipientName,

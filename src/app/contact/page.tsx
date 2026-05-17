@@ -77,6 +77,7 @@ type EmailPreview = {
   title: string;
   subject: string;
   html: string;
+  url?: string;
   note?: string;
 };
 
@@ -733,8 +734,8 @@ export default function ContactCenter() {
 
   const selectedBlastTerm = terms.find(t => t.id === blastTermId);
   const blastLinkPreview = typeof window !== 'undefined'
-    ? `${window.location.origin}/booking?termId=${blastTermId}`
-    : `https://example.com/booking?termId=${blastTermId}`;
+    ? `${window.location.origin}/enroll?token=preview-token`
+    : `https://example.com/enroll?token=preview-token`;
 
   const groupedLogs = logs.reduce<Record<string, Log[]>>((acc, log) => {
     const key = log.session_date;
@@ -760,7 +761,7 @@ export default function ContactCenter() {
     const sampleName = blastRecipients[0]?.studentName ?? 'Alex Student';
     const sampleLink = blastTermId
       ? blastLinkPreview
-      : (typeof window !== 'undefined' ? `${window.location.origin}/booking?termId=preview` : 'https://example.com/booking?termId=preview');
+      : (typeof window !== 'undefined' ? `${window.location.origin}/enroll?token=preview-token` : 'https://example.com/enroll?token=preview-token');
     const sampleCenter = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
     const sampleTerm = selectedBlastTerm?.name ?? '';
     const subject = applyTemplate(blastSubject || '', {
@@ -780,6 +781,19 @@ export default function ContactCenter() {
       subject,
       html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, blastTermId ? sampleLink : '')),
       note: `Previewing ${sampleName}${sampleTerm ? ` for ${sampleTerm}` : ''}.`,
+    });
+  };
+
+  const openAvailabilityFormPreview = () => {
+    setPreviewLoading(false);
+    const termName = selectedBlastTerm?.name ?? 'Upcoming term';
+    const previewUrl = `/enroll?preview=1&term=${encodeURIComponent(termName)}`;
+    setPreviewModal({
+      title: 'Availability Form Preview',
+      subject: '',
+      html: '',
+      url: previewUrl,
+      note: `Showing the same enrollment form flow used from Students (${termName}).`,
     });
   };
 
@@ -1250,12 +1264,21 @@ export default function ContactCenter() {
                 )}
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <button
-                    onClick={openAvailabilityPreview}
-                    className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <Eye size={12} /> View preview
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={openAvailabilityPreview}
+                      className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Eye size={12} /> View email preview
+                    </button>
+                    <button
+                      onClick={openAvailabilityFormPreview}
+                      disabled={!blastTermId}
+                      className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      View availability form
+                    </button>
+                  </div>
                   {!blastTermId && (
                     <p className="text-xs text-amber-600">Select a term to generate the availability link.</p>
                   )}
@@ -1693,7 +1716,8 @@ export default function ContactCenter() {
                   ) : (
                     <iframe
                       title={previewModal.title}
-                      srcDoc={previewModal.html}
+                      src={previewModal.url}
+                      srcDoc={previewModal.url ? undefined : previewModal.html}
                       className="h-[72vh] w-full rounded-xl border border-slate-200 bg-white"
                     />
                   )}
