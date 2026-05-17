@@ -367,7 +367,9 @@ export function useScheduleData(weekStart: Date, options?: { termId?: string | n
           subject:            r.subject ?? null,
           grade:              r.grade ?? null,
           hoursLeft:          r.hours_left ?? (typeof enrollment?.hours_purchased === 'number' ? enrollment.hours_purchased : null),
-          sessionHours:       typeof r.session_hours === 'number' ? r.session_hours : 2,
+          sessionHours:       (enrollment && typeof enrollment.session_hours === 'number')
+            ? enrollment.session_hours
+            : (typeof r.session_hours === 'number' ? r.session_hours : 2),
           availabilityBlocks: enrollmentAvailability ?? (r.availability_blocks ?? []),
           subjectSessionsPerWeek: (enrollment?.subject_sessions_per_week && typeof enrollment.subject_sessions_per_week === 'object' && !Array.isArray(enrollment.subject_sessions_per_week))
             ? enrollment.subject_sessions_per_week as Record<string, number>
