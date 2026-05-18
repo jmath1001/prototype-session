@@ -156,6 +156,7 @@ function StudentSlideOver({
     })).eq('id', student.id)
     setSaving(false)
     setEditing(false)
+    logEvent('student_edited', { studentId: student.id })
     onRefetch()
   }
 
@@ -178,6 +179,7 @@ function StudentSlideOver({
         }),
       })
       if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Failed to send'); return }
+      logEvent('enrollment_form_sent', { studentId: student.id })
       alert(`Enrollment form sent to ${email}`)
     } catch {
       alert('Failed to send enrollment form.')
@@ -651,7 +653,7 @@ export default function StudentAdminPage() {
       mom_name: newStudent.mom_name || null, mom_email: newStudent.mom_email || null, mom_phone: newStudent.mom_phone || null,
       dad_name: newStudent.dad_name || null, dad_email: newStudent.dad_email || null, dad_phone: newStudent.dad_phone || null,
     })])
-    setCreating(false); setShowAddForm(false); setNewStudent(EMPTY_FORM); fetchData()
+    setCreating(false); setShowAddForm(false); logEvent('student_created', { studentName: newStudent.name }); setNewStudent(EMPTY_FORM); fetchData()
   }
 
   const handleBulkDelete = async () => {
@@ -664,6 +666,7 @@ export default function StudentAdminPage() {
     await supabase.from(DB.recurringSeries).delete().in('student_id', ids)
     await supabase.from(DB.termEnrollments).delete().in('student_id', ids)
     await withCenter(supabase.from(STUDENTS).delete()).in('id', ids)
+    logEvent('students_bulk_deleted', { count: ids.length })
     setSelected(new Set()); setConfirmBulkDelete(false); setBulkDeleting(false); fetchData()
   }
 

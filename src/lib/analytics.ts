@@ -45,7 +45,16 @@ export type EventName =
   | 'command_search_input'
   | 'command_search_submitted'
   | 'hours_adjusted'
-  | 'session_record_corrected';
+  | 'session_record_corrected'
+  | 'term_created'
+  | 'term_updated'
+  | 'term_deleted'
+  | 'center_settings_saved'
+  | 'enrollment_form_sent'
+  | 'blast_sent'
+  | 'tutor_schedules_sent'
+  | 'auto_reminder_toggled'
+  | 'auto_reminder_time_saved';
 
 export async function logEvent(
   event_name: EventName,

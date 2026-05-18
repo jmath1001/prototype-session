@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { DB, withCenter } from '@/lib/db';
 import {
@@ -328,7 +328,18 @@ export default function ContactCenter() {
   const [loadingLogs, setLoadingLogs]   = useState(true);
   const [logsExpanded, setLogsExpanded] = useState(false);
 
-  // Availability email blast state (per-term, sends booking link)
+  // ── Auto-reminder schedule (cron) ──────────────────────────────────────────
+  type CronSchedule = { hours: number[]; minutes: number[]; timezone: string }
+  type CronJob = { enabled: boolean; nextExecution: number; lastExecution: number; lastStatus: number; schedule: CronSchedule }
+  type CronHistoryItem = { date: number; status: number; statusText: string; httpStatus: number; duration: number }
+  const DEFAULT_REMINDER_TIMEZONE = 'America/Chicago'
+  const [cronJob, setCronJob]             = useState<CronJob | null>(null);
+  const [cronHistory, setCronHistory]     = useState<CronHistoryItem[]>([]);
+  const [cronLoading, setCronLoading]     = useState(false);
+  const [cronSaving, setCronSaving]       = useState(false);
+  const [cronConfigured, setCronConfigured] = useState<boolean | null>(null);
+  const [reminderTime, setReminderTime]   = useState('07:00');
+  const cronFetchedRef = useRef(false);
   const [blastTermId, setBlastTermId]                       = useState('');
   const [blastSubject, setBlastSubject]                     = useState('');
   const [blastBody, setBlastBody]                           = useState('');
@@ -610,6 +621,79 @@ export default function ContactCenter() {
     })
   }, [spSelectedTermId])
 
+  useEffect(() => {
+    if (cronFetchedRef.current) return
+    cronFetchedRef.current = true
+    let cancelled = false
+    setCronLoading(true)
+    Promise.all([
+      fetch('/api/cron-config').then(r => r.json()),
+      fetch('/api/cron-config?history').then(r => r.json()),
+    ]).then(([jobRes, histRes]) => {
+      if (cancelled) return
+      if (jobRes?.error === 'CRONJOB_ORG_API_KEY or CRONJOB_ORG_JOB_ID is not configured') {
+        setCronConfigured(false)
+        return
+      }
+      setCronConfigured(true)
+      const details: CronJob = jobRes?.jobDetails ?? null
+      if (details) {
+        setCronJob(details)
+        const h = Array.isArray(details.schedule?.hours) && details.schedule.hours[0] !== -1 ? details.schedule.hours[0] : 7
+        const m = Array.isArray(details.schedule?.minutes) && details.schedule.minutes[0] !== -1 ? details.schedule.minutes[0] : 0
+        setReminderTime(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      }
+      setCronHistory(Array.isArray(histRes?.history) ? histRes.history.slice(0, 8) : [])
+    }).catch(() => { if (!cancelled) setCronConfigured(false) })
+      .finally(() => { if (!cancelled) setCronLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const saveReminderTime = async () => {
+    const [hStr, mStr] = reminderTime.split(':')
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr, 10)
+    const timezone = cronJob?.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_TIMEZONE
+    setCronSaving(true)
+    try {
+      const res = await fetch('/api/cron-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule: { hours: [h], minutes: [m], wdays: [-1], timezone } }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? 'Failed to save')
+      const updated = await fetch('/api/cron-config').then(r => r.json())
+      if (updated?.jobDetails) setCronJob(updated.jobDetails)
+      logEvent('auto_reminder_time_saved', { time: reminderTime })
+    } catch (err) {
+      console.error('saveReminderTime', err)
+    } finally {
+      setCronSaving(false)
+    }
+  }
+
+  const toggleCronEnabled = async () => {
+    if (!cronJob) return
+    setCronSaving(true)
+    try {
+      const res = await fetch('/api/cron-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !cronJob.enabled }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? 'Failed')
+      const updated = await fetch('/api/cron-config').then(r => r.json())
+      if (updated?.jobDetails) setCronJob(updated.jobDetails)
+      logEvent('auto_reminder_toggled', { enabled: !cronJob.enabled })
+    } catch (err) {
+      console.error('toggleCronEnabled', err)
+    } finally {
+      setCronSaving(false)
+    }
+  }
+
   const handleSendTutorSchedules = async () => {
     setTutorSchedSending(true);
     setTutorSchedResult(null);
@@ -621,7 +705,7 @@ export default function ContactCenter() {
       });
       const data = await res.json();
       if (!res.ok) setTutorSchedResult({ sent: 0, failed: tutorsWithEmail.length, errors: [data.error ?? 'Request failed'] });
-      else setTutorSchedResult(data);
+      else { setTutorSchedResult(data); logEvent('tutor_schedules_sent', { sent: data.sent ?? 0 }); }
     } catch (e: any) {
       setTutorSchedResult({ sent: 0, failed: 0, errors: [e?.message ?? 'Unknown error'] });
     } finally {
@@ -760,6 +844,7 @@ export default function ContactCenter() {
           redirectedTo: data.redirectedTo ?? null,
         });
         logEvent('reminder_sent', { sent: data.sent ?? 0, termId: blastTermId });
+        logEvent('blast_sent', { type: 'availability', sent: data.sent ?? 0, termId: blastTermId });
       }
     } catch (e: any) {
       setBlastResult({ sent: 0, failed: blastSelected.size, errors: [e.message ?? 'Request failed'] });
@@ -800,6 +885,7 @@ export default function ContactCenter() {
           redirectedTo: data.redirectedTo ?? null,
         });
         logEvent('reminder_sent', { sent: data.sent ?? 0 });
+        logEvent('blast_sent', { type: 'general', sent: data.sent ?? 0 });
       }
     } catch (e: any) {
       setGeneralResult({ sent: 0, failed: generalSelected.size, errors: [e.message ?? 'Request failed'] });
@@ -1087,6 +1173,84 @@ export default function ContactCenter() {
               title="Send Session Reminders"
               description="Select a date, pick the students to remind, and dispatch. A second click confirms before sending."
             />
+
+            {/* ── Auto Reminder Schedule ───────────────────────────────────── */}
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Auto Reminder Schedule</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Reminders send automatically every day at this time.</p>
+              </div>
+              {cronLoading && cronConfigured === null ? (
+                <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
+                  <Loader2 size={12} className="animate-spin" /> Checking reminder status…
+                </div>
+              ) : cronConfigured === false ? (
+                <div className="px-4 py-3 text-xs text-slate-500">
+                  Automatic reminders aren&apos;t connected. Configure{' '}
+                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_API_KEY</code> and{' '}
+                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_JOB_ID</code> to enable.
+                </div>
+              ) : cronConfigured ? (
+                <div className="space-y-4 p-4">
+                  {cronJob && (
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${cronJob.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${cronJob.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        {cronJob.enabled ? 'Auto reminders on' : 'Auto reminders off'}
+                      </span>
+                      <button
+                        onClick={toggleCronEnabled}
+                        disabled={cronSaving}
+                        className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {cronSaving ? 'Saving…' : cronJob.enabled ? 'Turn off' : 'Turn on'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">Send daily at</label>
+                      <input
+                        type="time"
+                        value={reminderTime}
+                        onChange={e => setReminderTime(e.target.value)}
+                        className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-slate-400 outline-none"
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400">Timezone: {cronJob?.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE}</p>
+                    </div>
+                    <button
+                      onClick={saveReminderTime}
+                      disabled={cronSaving}
+                      className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      <Save size={11} />
+                      {cronSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                  {cronJob && cronJob.nextExecution > 0 && (
+                    <p className="text-[11px] text-slate-400">
+                      Next send: {new Date(cronJob.nextExecution * 1000).toLocaleString(undefined, { timeZone: cronJob.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE })}
+                    </p>
+                  )}
+                  {cronHistory.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent sends</p>
+                      <div className="overflow-hidden rounded border border-slate-100">
+                        {cronHistory.map((h, i) => (
+                          <div key={i} className="flex items-center gap-3 border-b border-slate-50 px-3 py-1.5 last:border-0 text-xs">
+                            <span className={`w-12 shrink-0 rounded-full px-2 py-0.5 text-center font-semibold ${h.status === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                              {h.status === 1 ? 'Sent' : 'Failed'}
+                            </span>
+                            <span className="text-slate-500">{new Date(h.date * 1000).toLocaleString()}</span>
+                            <span className="ml-auto text-slate-400">{h.duration}ms</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
             {/* Controls row */}
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">

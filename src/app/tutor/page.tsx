@@ -1306,6 +1306,7 @@ export default function TutorManagementPage() {
       setTermAvailabilityByTutor(prev => ({ ...prev, [updated.id]: updated.availabilityBlocks }));
     }
     fetchAll();
+    logEvent('tutor_edited', { tutorId: updated.id, tutorName: updated.name });
   };
 
   const handleDelete = async (id: string) => {
@@ -1315,7 +1316,7 @@ export default function TutorManagementPage() {
     await withCenter(supabase.from(DB.timeOff).delete()).eq('tutor_id', id)
     const { error } = await withCenter(supabase.from(TUTORS).delete()).eq('id', id)
     if (error) setError(error.message)
-    else fetchAll()
+    else { logEvent('tutor_deleted', { tutorId: id }); fetchAll(); }
   }
 
   const handleBulkDelete = async () => {

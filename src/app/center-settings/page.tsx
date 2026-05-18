@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Clock, Loader2, Plus, Save, Settings, Trash2, Zap, Pencil } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { DB, withCenter, withCenterPayload } from '@/lib/db'
+import { logEvent } from '@/lib/analytics'
 
 type CenterSettingsRow = {
   id: string
@@ -97,7 +98,7 @@ function parseSlot(slot: string): { start: string; end: string } {
   return { start: slot, end: '' }
 }
 
-const TABS = ['general', 'notifications', 'subjects'] as const
+const TABS = ['general', 'subjects'] as const
 type Tab = typeof TABS[number]
 
 export default function CenterSettingsPage() {
@@ -151,6 +152,8 @@ export default function CenterSettingsPage() {
     date_exceptions: [],
   })
   const [newTimeByDay, setNewTimeByDay] = useState<Record<string, { start: string; end: string }>>({})
+  const [copyPickerDow, setCopyPickerDow] = useState<string | null>(null)
+  const [copyPickerTargets, setCopyPickerTargets] = useState<Set<string>>(new Set())
   const [termFormOpen, setTermFormOpen] = useState(false)
   const [newExceptionDate, setNewExceptionDate] = useState('')
   const [newExceptionLabel, setNewExceptionLabel] = useState('')
@@ -161,96 +164,6 @@ export default function CenterSettingsPage() {
   const [globalNewTimeByDay, setGlobalNewTimeByDay] = useState<Record<string, { start: string; end: string }>>({})
   const [globalSaving, setGlobalSaving] = useState(false)
   const [defaultOpen, setDefaultOpen] = useState(false)
-
-  // ── Reminder send time ───────────────────────────────────────────────────
-  type CronSchedule = { hours: number[]; minutes: number[]; timezone: string }
-  type CronJob = { enabled: boolean; nextExecution: number; lastExecution: number; lastStatus: number; schedule: CronSchedule }
-  type CronHistoryItem = { date: number; status: number; statusText: string; httpStatus: number; duration: number }
-  const DEFAULT_REMINDER_TIMEZONE = 'America/Chicago'
-  const [cronJob, setCronJob] = useState<CronJob | null>(null)
-  const [cronHistory, setCronHistory] = useState<CronHistoryItem[]>([])
-  const [cronLoading, setCronLoading] = useState(false)
-  const [cronSaving, setCronSaving] = useState(false)
-  const [cronConfigured, setCronConfigured] = useState<boolean | null>(null)
-  const [reminderTime, setReminderTime] = useState('07:00')
-  const cronFetchedRef = useRef(false)
-
-  useEffect(() => {
-    if (tab !== 'notifications') return
-    if (cronFetchedRef.current) return   // only fetch once per page load
-    cronFetchedRef.current = true
-    let cancelled = false
-    setCronLoading(true)
-    Promise.all([
-      fetch('/api/cron-config').then(r => r.json()),
-      fetch('/api/cron-config?history').then(r => r.json()),
-    ]).then(([jobRes, histRes]) => {
-      if (cancelled) return
-      if (jobRes?.error === 'CRONJOB_ORG_API_KEY or CRONJOB_ORG_JOB_ID is not configured') {
-        setCronConfigured(false)
-        return
-      }
-      setCronConfigured(true)
-      const details: CronJob = jobRes?.jobDetails ?? null
-      if (details) {
-        setCronJob(details)
-        const h = Array.isArray(details.schedule?.hours) && details.schedule.hours[0] !== -1 ? details.schedule.hours[0] : 7
-        const m = Array.isArray(details.schedule?.minutes) && details.schedule.minutes[0] !== -1 ? details.schedule.minutes[0] : 0
-        setReminderTime(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
-      }
-      setCronHistory(Array.isArray(histRes?.history) ? histRes.history.slice(0, 8) : [])
-    }).catch(() => { if (!cancelled) setCronConfigured(false) })
-      .finally(() => { if (!cancelled) setCronLoading(false) })
-    return () => { cancelled = true }
-  }, [tab])
-
-  const saveReminderTime = async () => {
-    const [hStr, mStr] = reminderTime.split(':')
-    const h = parseInt(hStr, 10)
-    const m = parseInt(mStr, 10)
-    const timezone = cronJob?.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_TIMEZONE
-    setCronSaving(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/cron-config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          schedule: { hours: [h], minutes: [m], wdays: [-1], timezone },
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? 'Failed to save')
-      const updated = await fetch('/api/cron-config').then(r => r.json())
-      if (updated?.jobDetails) setCronJob(updated.jobDetails)
-      setSuccess('Reminder time saved.')
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setCronSaving(false)
-    }
-  }
-
-  const toggleCronEnabled = async () => {
-    if (!cronJob) return
-    setCronSaving(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/cron-config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !cronJob.enabled }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? 'Failed')
-      const updated = await fetch('/api/cron-config').then(r => r.json())
-      if (updated?.jobDetails) setCronJob(updated.jobDetails)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setCronSaving(false)
-    }
-  }
 
   // ── Subjects ─────────────────────────────────────────────────────────────
   const [centerSubjects, setCenterSubjects] = useState<string[]>([])
@@ -451,6 +364,7 @@ export default function CenterSettingsPage() {
 
       if (updateErr) throw updateErr
       setSuccess('Settings saved.')
+      logEvent('center_settings_saved', {})
       setInitialSnapshot(snapshot)
       setEditing(false)
     } catch (err: any) {
@@ -543,6 +457,7 @@ export default function CenterSettingsPage() {
 
       const saved = payload?.term
       if (saved?.id) {
+        logEvent(termDraft.id ? 'term_updated' : 'term_created', { termName: termDraft.name })
         setTerms(prev => {
           const exists = prev.some(t => t.id === saved.id)
           if (exists) return prev.map(t => t.id === saved.id ? saved : t)
@@ -610,6 +525,7 @@ export default function CenterSettingsPage() {
         const payload = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(payload?.error || 'Failed to delete term')
         setTerms(prev => prev.filter(t => t.id !== termId))
+        logEvent('term_deleted', { termId })
         setSuccess('Term deleted.')
       } catch (err: any) {
         setError(err?.message ?? 'Failed to delete term')
@@ -678,9 +594,8 @@ export default function CenterSettingsPage() {
         {/* ── Tab bar ── */}
         <div className="flex gap-1 border-b border-slate-100 px-5 pt-1">
           {([
-            { id: 'general',       label: 'General' },
-            { id: 'notifications', label: 'Notifications' },
-            { id: 'subjects',      label: 'Subjects' },
+            { id: 'general',   label: 'General' },
+            { id: 'subjects',  label: 'Subjects' },
           ] as const).map(t => (
             <button
               key={t.id}
@@ -947,7 +862,24 @@ export default function CenterSettingsPage() {
                 {/* Term add/edit form */}
                 {termFormOpen && (
                   <div className="mt-4 rounded border border-slate-200 bg-white p-4">
-                    <p className="mb-3 text-xs font-bold text-slate-700">{termDraft.id ? 'Edit Term' : 'New Term'}</p>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-slate-700">{termDraft.id ? 'Edit Term' : 'New Term'}</p>
+                      {terms.filter(t => t.id !== termDraft.id && (t.session_times_by_day || t.operating_hours)).length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] text-slate-400">Copy schedule from:</span>
+                          {terms.filter(t => t.id !== termDraft.id).map(t => (
+                            <button key={t.id} type="button"
+                              onClick={() => setTermDraft(prev => ({
+                                ...prev,
+                                operating_hours: (t.operating_hours ?? DEFAULT_OPERATING_HOURS) as TermDraft['operating_hours'],
+                                session_times_by_day: (t.session_times_by_day ?? DEFAULT_SESSION_TIMES_BY_DAY) as TermDraft['session_times_by_day'],
+                              }))}
+                              className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 whitespace-nowrap"
+                            >{t.name}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                       <div className="md:col-span-2">
@@ -1072,7 +1004,50 @@ export default function CenterSettingsPage() {
                         const pending = newTimeByDay[dow] ?? { start: oh?.open ?? '09:00', end: '' }
                         return (
                           <div key={dow} className="mb-4">
-                            <p className="mb-1.5 text-[11px] font-bold text-slate-600">{label}</p>
+                            <div className="mb-1.5">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[11px] font-bold text-slate-600">{label}</p>
+                                {slots.length > 0 && copyPickerDow !== dow && (
+                                  <button type="button"
+                                    onClick={() => {
+                                      const openDays = new Set(ALL_DAYS.map(d => d.dow).filter(d => d !== dow && !termDraft.operating_hours[d]?.closed))
+                                      setCopyPickerDow(dow)
+                                      setCopyPickerTargets(openDays)
+                                    }}
+                                    className="text-[10px] font-semibold text-slate-400 hover:text-indigo-600"
+                                  >Copy to days →</button>
+                                )}
+                              </div>
+                              {copyPickerDow === dow && (
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded border border-indigo-100 bg-indigo-50 px-2.5 py-2">
+                                  {ALL_DAYS.filter(d => d.dow !== dow && !termDraft.operating_hours[d.dow]?.closed).map(d => (
+                                    <button key={d.dow} type="button"
+                                      onClick={() => setCopyPickerTargets(prev => {
+                                        const next = new Set(prev)
+                                        next.has(d.dow) ? next.delete(d.dow) : next.add(d.dow)
+                                        return next
+                                      })}
+                                      className={`rounded px-2 py-0.5 text-[10px] font-bold transition-colors ${copyPickerTargets.has(d.dow) ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'}`}
+                                    >{d.label.slice(0, 3)}</button>
+                                  ))}
+                                  <button type="button"
+                                    disabled={copyPickerTargets.size === 0}
+                                    onClick={() => {
+                                      setTermDraft(prev => {
+                                        const nextTimes = { ...prev.session_times_by_day }
+                                        copyPickerTargets.forEach(d => { nextTimes[d] = [...slots] })
+                                        return { ...prev, session_times_by_day: nextTimes }
+                                      })
+                                      setCopyPickerDow(null)
+                                    }}
+                                    className="ml-1 rounded bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700 disabled:opacity-40"
+                                  >Apply</button>
+                                  <button type="button" onClick={() => setCopyPickerDow(null)}
+                                    className="text-[10px] text-slate-400 hover:text-slate-600"
+                                  >Cancel</button>
+                                </div>
+                              )}
+                            </div>
                             <div className="overflow-hidden rounded border border-slate-200 bg-white">
                               <table className="w-full border-collapse text-xs">
                                 <thead>
@@ -1241,99 +1216,6 @@ export default function CenterSettingsPage() {
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* ── Notifications ── */}
-          {tab === 'notifications' && (
-            <div className="space-y-6">
-
-              {/* Reminder Send Time */}
-              <div>
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">Reminder Send Time</p>
-                <p className="mb-4 text-[11px] text-slate-500">
-                  Reminders are sent automatically every day at this time, for all sessions scheduled that day.
-                </p>
-
-                {cronConfigured === false && (
-                  <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    Automatic reminders aren't connected yet. Ask your developer to configure <code className="rounded bg-amber-100 px-1">CRONJOB_ORG_API_KEY</code> and <code className="rounded bg-amber-100 px-1">CRONJOB_ORG_JOB_ID</code>.
-                  </div>
-                )}
-
-                {cronLoading && cronConfigured === null && (
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Loader2 size={12} className="animate-spin" /> Checking reminder status…
-                  </div>
-                )}
-
-                {cronConfigured && (
-                  <div className="space-y-4">
-                    {/* On/off toggle — only when job details are loaded */}
-                    {cronJob && (
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${cronJob.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${cronJob.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                          {cronJob.enabled ? 'Reminders on' : 'Reminders off'}
-                        </span>
-                        <button
-                          onClick={toggleCronEnabled}
-                          disabled={cronSaving}
-                          className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          {cronSaving ? 'Saving…' : cronJob.enabled ? 'Turn off' : 'Turn on'}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Time picker — always available when configured */}
-                    <div className="flex items-end gap-3">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-600">Send reminders at</label>
-                        <input
-                          type="time"
-                          value={reminderTime}
-                          onChange={e => setReminderTime(e.target.value)}
-                          className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-slate-400 outline-none"
-                        />
-                        <p className="mt-1 text-[11px] text-slate-400">Timezone: {cronJob?.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_TIMEZONE}</p>
-                      </div>
-                      <button
-                        onClick={saveReminderTime}
-                        disabled={cronSaving}
-                        className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-                      >
-                        <Save size={11} />
-                        {cronSaving ? 'Saving…' : 'Save'}
-                      </button>
-                    </div>
-
-                    {cronJob && cronJob.nextExecution > 0 && (
-                      <p className="text-[11px] text-slate-400">
-                        Next send: {new Date(cronJob.nextExecution * 1000).toLocaleString(undefined, { timeZone: cronJob.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_TIMEZONE })}
-                      </p>
-                    )}
-
-                    {cronHistory.length > 0 && (
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent sends</p>
-                        <div className="overflow-hidden rounded border border-slate-100">
-                          {cronHistory.map((h, i) => (
-                            <div key={i} className="flex items-center gap-3 border-b border-slate-50 px-3 py-1.5 last:border-0 text-xs">
-                              <span className={`w-12 shrink-0 rounded-full px-2 py-0.5 text-center font-semibold ${h.status === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                                {h.status === 1 ? 'Sent' : 'Failed'}
-                              </span>
-                              <span className="text-slate-500">{new Date(h.date * 1000).toLocaleString()}</span>
-                              <span className="ml-auto text-slate-400">{h.duration}ms</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
             </div>
           )}
 

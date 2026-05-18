@@ -72,6 +72,15 @@ const FRIENDLY: Record<string, string> = {
   auto_book_used: 'Auto Book used',
   command_search_input: 'Command search input',
   command_search_submitted: 'Command search submitted',
+  term_created: 'Term created',
+  term_updated: 'Term updated',
+  term_deleted: 'Term deleted',
+  center_settings_saved: 'Settings saved',
+  enrollment_form_sent: 'Enrollment form sent',
+  blast_sent: 'Email blast sent',
+  tutor_schedules_sent: 'Tutor schedules sent',
+  auto_reminder_toggled: 'Auto reminder toggled',
+  auto_reminder_time_saved: 'Reminder time updated',
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -161,6 +170,13 @@ const OPERATION_FROM_EVENT: Record<string, OperationType> = {
   students_bulk_deleted: 'deletion',
   tutor_deleted: 'deletion',
   tutors_bulk_deleted: 'deletion',
+  term_created: 'addition',
+  term_updated: 'reschedule',
+  term_deleted: 'deletion',
+  center_settings_saved: 'other',
+  enrollment_form_sent: 'other',
+  blast_sent: 'other',
+  tutor_schedules_sent: 'other',
 };
 
 function getOperationType(eventName: string): OperationType {
@@ -446,6 +462,51 @@ export default function AnalyticsPage() {
 
   const maxDaily = Math.max(...dailyActivity.map(d => d.count), 1);
 
+  // ── Student & Tutor Management ─────────────────────────────────────────────
+  const mgmtActivity = useMemo(() => {
+    const studentEvents = ['student_created', 'student_edited', 'student_deleted', 'students_bulk_deleted', 'students_imported'];
+    const tutorEvents   = ['tutor_created', 'tutor_edited', 'tutor_deleted', 'tutors_bulk_deleted'];
+    const counts: Record<string, number> = {};
+    events.forEach(e => {
+      if (studentEvents.includes(e.event_name) || tutorEvents.includes(e.event_name)) {
+        counts[e.event_name] = (counts[e.event_name] ?? 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [events]);
+  const maxMgmt = mgmtActivity[0]?.[1] ?? 1;
+
+  // ── Communications breakdown ───────────────────────────────────────────────
+  const commsBreakdown = useMemo(() => {
+    const categories = [
+      { key: 'reminder_sent', label: 'Reminder emails', color: '#dc2626' },
+      { key: 'blast_sent',    label: 'Email blasts',    color: '#7c3aed' },
+      { key: 'tutor_schedules_sent', label: 'Tutor schedules', color: '#2563eb' },
+      { key: 'template_saved', label: 'Template saves', color: '#94a3b8' },
+    ];
+    return categories.map(c => ({
+      ...c,
+      count: events.filter(e => e.event_name === c.key).length,
+    })).filter(c => c.count > 0);
+  }, [events]);
+  const maxComms = commsBreakdown[0]?.count ?? 1;
+
+  // ── Center config activity ─────────────────────────────────────────────────
+  const centerActivity = useMemo(() => {
+    const cats = [
+      { key: 'term_created',        label: 'Terms created',   color: '#16a34a' },
+      { key: 'term_updated',        label: 'Terms updated',   color: '#f59e0b' },
+      { key: 'term_deleted',        label: 'Terms deleted',   color: '#dc2626' },
+      { key: 'center_settings_saved', label: 'Settings saved', color: '#2563eb' },
+      { key: 'enrollment_form_sent', label: 'Enrollment forms sent', color: '#7c3aed' },
+    ];
+    return cats.map(c => ({
+      ...c,
+      count: events.filter(e => e.event_name === c.key).length,
+    })).filter(c => c.count > 0);
+  }, [events]);
+  const maxCenter = centerActivity[0]?.count ?? 1;
+
   // ── Rate color ─────────────────────────────────────────────────────────────
   const rc = (v: number | null) => !v ? '#94a3b8' : v >= 80 ? '#16a34a' : v >= 60 ? '#f59e0b' : '#dc2626';
 
@@ -705,6 +766,42 @@ export default function AnalyticsPage() {
             </table>
           </div>
         </div>
+
+        {/* ── Student & Tutor Management ── */}
+        <Section title="Student & Tutor Management" sub="Creates, edits, and deletes for students and tutors">
+          {mgmtActivity.length === 0
+            ? <p className="text-xs text-[#94a3b8] italic">No management events yet</p>
+            : (
+              <div className="space-y-2.5">
+                {mgmtActivity.map(([name, count]) => (
+                  <HBar key={name} label={FRIENDLY[name] ?? name} value={count} max={maxMgmt} count={count}
+                    color={name.includes('deleted') ? '#dc2626' : name.includes('created') ? '#16a34a' : '#2563eb'}/>
+                ))}
+              </div>
+            )}
+        </Section>
+
+        {/* ── Communications ── */}
+        {commsBreakdown.length > 0 && (
+          <Section title="Communications" sub="Reminders, blasts, and tutor schedule sends">
+            <div className="space-y-2.5">
+              {commsBreakdown.map(c => (
+                <HBar key={c.key} label={c.label} value={c.count} max={maxComms} count={c.count} color={c.color}/>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ── Center Config Activity ── */}
+        {centerActivity.length > 0 && (
+          <Section title="Center Config Activity" sub="Term and settings changes">
+            <div className="space-y-2.5">
+              {centerActivity.map(c => (
+                <HBar key={c.key} label={c.label} value={c.count} max={maxCenter} count={c.count} color={c.color}/>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* ── Feature usage ── */}
         <Section title="Feature Usage" sub="Which parts of the app get used most">
