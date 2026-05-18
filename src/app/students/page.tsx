@@ -659,7 +659,9 @@ export default function StudentAdminPage() {
     setBulkDeleting(true)
     const ids = Array.from(selected)
     // Clear FK'd child rows before deleting students
-    // slake_term_enrollments has no center_id — filter by student_id directly
+    // slake_term_enrollments and slake_session_students have no center_id — filter by student_id directly
+    await supabase.from(DB.sessionStudents).delete().in('student_id', ids)
+    await supabase.from(DB.recurringSeries).delete().in('student_id', ids)
     await supabase.from(DB.termEnrollments).delete().in('student_id', ids)
     await withCenter(supabase.from(STUDENTS).delete()).in('id', ids)
     setSelected(new Set()); setConfirmBulkDelete(false); setBulkDeleting(false); fetchData()
