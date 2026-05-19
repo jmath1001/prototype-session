@@ -343,7 +343,7 @@ export function useScheduleData(weekStart: Date, options?: { termId?: string | n
             name:               r.name,
             subjects:           r.subjects ?? [],
             cat:                r.cat,
-            availability:       resolvedAvailabilityDays.length > 0 ? resolvedAvailabilityDays : (r.availability ?? []),
+            availability:       resolvedAvailabilityDays,
             availabilityBlocks: resolvedAvailabilityBlocks,
             email:              r.email ?? null,
           }
