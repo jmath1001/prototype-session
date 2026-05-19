@@ -327,7 +327,7 @@ export function useScheduleData(weekStart: Date, options?: { termId?: string | n
           const termAvailabilityBlocks = termAvailabilityByTutor[r.id]
           const resolvedAvailabilityBlocks: string[] = Array.isArray(termAvailabilityBlocks)
             ? termAvailabilityBlocks
-            : (Array.isArray(r.availability_blocks) ? r.availability_blocks : [])
+            : []
           const resolvedAvailabilityDays: number[] = Array.from(new Set<number>(
             resolvedAvailabilityBlocks
               .map((block: string) => {

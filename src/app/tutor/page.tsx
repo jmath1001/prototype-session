@@ -602,6 +602,18 @@ function TutorDetailPanel({
     setTab('details');
   }, [tutor]);
 
+  // Sync draft blocks when term availability loads asynchronously (or term selection changes),
+  // but only when not currently editing to avoid discarding in-progress changes.
+  useEffect(() => {
+    if (isEditing) return;
+    const blocks = selectedTermId ? (termAvailabilityBlocks ?? []) : (termAvailabilityBlocks ?? tutor.availabilityBlocks);
+    setDraft(prev => ({
+      ...prev,
+      availabilityBlocks: blocks,
+      availability: Array.from(new Set(blocks.map(b => parseInt(b.split('-')[0])))).sort((a, b) => a - b),
+    }));
+  }, [termAvailabilityBlocks, selectedTermId]);
+
   const hasTermOverride = termAvailabilityBlocks !== undefined;
 
   const dirty =

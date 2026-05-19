@@ -1191,8 +1191,8 @@ export function TodayView({
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
               {/* Desktop table */}
-              <div className="hidden md:block rounded-xl" style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0, overflow: 'auto' }}>
-                <div style={{ minWidth: 'max-content', width: '100%' }}>
+              <div className="hidden md:block rounded-xl schedule-scroll" style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0, overflow: 'auto' }}>
+                <div style={{ minWidth: filteredDaySessions.length * 260 + 180, width: '100%' }}>
                   <table className="border-collapse w-full">
                     <thead>
                       <tr style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
@@ -1203,7 +1203,7 @@ export function TodayView({
                         </th>
                         {filteredDaySessions.map(block => (
                           <th key={block.id} className="px-4 py-2.5 text-center"
-                            style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 200, position: 'sticky', top: 0, zIndex: 3, background: '#1f2937' }}>
+                            style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 260, position: 'sticky', top: 0, zIndex: 3, background: '#1f2937' }}>
                             <div className="text-sm font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.9)' }}>{block.label}</div>
                             <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{block.display}</div>
                           </th>
@@ -1257,7 +1257,7 @@ export function TodayView({
                                           : '#f3f4f6',
                                     borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                     borderBottom: '1px solid #cbd5e1',
-                                    minWidth: 200,
+                                    minWidth: 260,
                                   }}
                                   onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                   onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, todayIso, block.time); }}>

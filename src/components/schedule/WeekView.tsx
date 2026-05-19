@@ -692,10 +692,10 @@ export function WeekView({
             ) : (
               <>
                 {/* Desktop table */}
-                <div className="hidden md:block rounded-xl overflow-hidden"
-                  style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
-                  <div className="overflow-x-auto">
-                    <table className="border-collapse" style={{ minWidth: '100%', width: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <div className="hidden md:block rounded-xl"
+                  style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', overflow: 'clip' }}>
+                  <div className="overflow-x-auto schedule-scroll">
+                    <table className="border-collapse" style={{ minWidth: filteredDaySessions.length * 220 + 180, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                       <thead>
                         <tr style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
                           <th className="px-2 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider"
@@ -705,7 +705,7 @@ export function WeekView({
                           </th>
                           {filteredDaySessions.map(block => (
                             <th key={block.id} className="px-3 py-1.5 text-center"
-                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 172, position: 'sticky', top: 0, background: '#1f2937', zIndex: 3 }}>
+                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 220, position: 'sticky', top: 0, background: '#1f2937', zIndex: 3 }}>
                               <div className="text-xs font-black uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.9)' }}>{block.label}</div>
                               <div className="text-[11px] font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{block.display}</div>
                             </th>
@@ -756,7 +756,7 @@ export function WeekView({
                                             : '#f3f4f6',
                                       borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                       borderBottom: '1px solid #cbd5e1',
-                                      minWidth: 172,
+                                      minWidth: 220,
                                     }}
                                     onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                     onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, isoDate, block.time); }}>
@@ -943,7 +943,7 @@ export function WeekView({
                         <div className="p-2.5" style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
                           <p className="text-xs font-bold" style={{ color: 'white' }}>{tutor.name}</p>
                         </div>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto schedule-scroll">
                           <div className="flex">
                             {filteredDaySessions.map(block => {
                               const session     = sessions.find(s => s.date === isoDate && s.tutorId === tutor.id && s.time === block.time);

@@ -64,9 +64,9 @@ export function getSessionsForDay(dow: number, sessionTimesByDay?: SessionTimesB
       if (dayTimes.length > 0) {
         return buildBlocksFromTimes(dow, dayTimes)
       }
-      // Explicitly configured but empty means no sessions for this day.
-      return []
     }
+    // Term has a session config — any day not listed means no sessions.
+    return []
   }
   return SESSION_BLOCKS.filter(s => s.days.includes(dow))
 }
