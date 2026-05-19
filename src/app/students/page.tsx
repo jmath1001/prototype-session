@@ -102,7 +102,7 @@ function StudentSlideOver({
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [draft, setDraft] = useState(student)
   const [saving, setSaving] = useState(false)
-  const [editing, setEditing] = useState(false)
+  const [editingSection, setEditingSection] = useState<'student' | 'mom' | 'dad' | null>(null)
   const [enrollCat, setEnrollCat] = useState('math')
   const [sendingForm, setSendingForm] = useState(false)
 
@@ -141,21 +141,12 @@ function StudentSlideOver({
     return `${dayLabel} ${blockLabel}`
   })
 
-  const handleSave = async () => {
+  const handleSave = async (fields: Record<string, unknown>) => {
     setSaving(true)
-    await withCenter(supabase.from(STUDENTS).update({
-      name: draft.name, grade: draft.grade, school_name: draft.school_name || null,
-      email: draft.email || null, phone: draft.phone || null,
-      mom_name: draft.mom_name || null, mom_email: draft.mom_email || null,
-      mom_phone: draft.mom_phone || null,
-      dad_name: draft.dad_name || null, dad_email: draft.dad_email || null,
-      dad_phone: draft.dad_phone || null,
-      notify_student: draft.notify_student ?? true,
-      notify_mom:     draft.notify_mom     ?? true,
-      notify_dad:     draft.notify_dad     ?? true,
-    })).eq('id', student.id)
+    await withCenter(supabase.from(STUDENTS).update(fields)).eq('id', student.id)
+    setDraft((p: any) => ({ ...p, ...fields }))
     setSaving(false)
-    setEditing(false)
+    setEditingSection(null)
     logEvent('student_edited', { studentId: student.id })
     onRefetch()
   }
@@ -317,44 +308,115 @@ function StudentSlideOver({
                 ))}
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Contact</p>
-                  <button onClick={() => setEditing(e => !e)} className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
-                    {editing ? 'Cancel' : 'Edit'}
-                  </button>
-                </div>
-                {editing ? (
-                  <div className="space-y-2">
-                    {[['Email', 'email', 'email'], ['Phone', 'phone', 'tel'], ['Grade', 'grade', 'text'], ['School', 'school_name', 'text']].map(([label, field, type]) => (
-                      <div key={field}>
-                        <label className="text-[10px] font-semibold text-slate-400 mb-1 block">{label}</label>
-                        <input type={type} value={draft[field] ?? ''} onChange={e => setDraft((p: any) => ({ ...p, [field]: e.target.value }))} className={inputCls} />
-                      </div>
-                    ))}
-                    <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
-                      <input type="checkbox" checked={draft.notify_student ?? true}
-                        onChange={e => setDraft((p: any) => ({ ...p, notify_student: e.target.checked }))}
-                        className="h-3.5 w-3.5 rounded border-slate-300 accent-slate-800" />
-                      <span className="text-[10px] font-semibold text-slate-500">Send reminders to student email</span>
-                    </label>
-                    <div className="pt-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Mother</p>
-                      {[['Name', 'mom_name', 'text'], ['Email', 'mom_email', 'email'], ['Phone', 'mom_phone', 'tel']].map(([label, field, type]) => (
-                        <div key={field} className="mb-2">
+              <div className="space-y-4">
+                {/* Student */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Student</p>
+                    <button onClick={() => setEditingSection(s => s === 'student' ? null : 'student')}
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
+                      {editingSection === 'student' ? 'Cancel' : 'Edit'}
+                    </button>
+                  </div>
+                  {editingSection === 'student' ? (
+                    <div className="space-y-2">
+                      {([['Name', 'name', 'text'], ['Grade', 'grade', 'text'], ['School', 'school_name', 'text'], ['Email', 'email', 'email'], ['Phone', 'phone', 'tel']] as [string, string, string][]).map(([label, field, type]) => (
+                        <div key={field}>
                           <label className="text-[10px] font-semibold text-slate-400 mb-1 block">{label}</label>
                           <input type={type} value={draft[field] ?? ''} onChange={e => setDraft((p: any) => ({ ...p, [field]: e.target.value }))} className={inputCls} />
                         </div>
                       ))}
-                      <label className="flex items-center gap-2 mt-1 mb-3 cursor-pointer select-none">
+                      <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
+                        <input type="checkbox" checked={draft.notify_student ?? true}
+                          onChange={e => setDraft((p: any) => ({ ...p, notify_student: e.target.checked }))}
+                          className="h-3.5 w-3.5 rounded border-slate-300 accent-slate-800" />
+                        <span className="text-[10px] font-semibold text-slate-500">Send reminders to student email</span>
+                      </label>
+                      <button onClick={() => handleSave({ name: draft.name, grade: draft.grade || null, school_name: draft.school_name || null, email: draft.email || null, phone: draft.phone || null, notify_student: draft.notify_student ?? true })}
+                        disabled={saving} className="w-full rounded bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 mt-1">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 text-xs">
+                      {[
+                        { label: 'Email', icon: Mail, value: draft.email },
+                        { label: 'Phone', icon: Phone, value: draft.phone },
+                      ].map(({ label, icon: Icon, value }) => (
+                        <div key={label} className="flex items-center gap-2.5 rounded border border-slate-100 px-3 py-2">
+                          <Icon size={11} className="text-slate-300 shrink-0" />
+                          <span className="text-slate-400 w-10 shrink-0">{label}</span>
+                          <span className="font-medium text-slate-700 truncate flex-1">{value ?? 'Not on file'}</span>
+                          {label === 'Email' && value && draft.notify_student === false && (
+                            <span className="text-[9px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">No emails</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Mother */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Mother</p>
+                    <button onClick={() => setEditingSection(s => s === 'mom' ? null : 'mom')}
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
+                      {editingSection === 'mom' ? 'Cancel' : 'Edit'}
+                    </button>
+                  </div>
+                  {editingSection === 'mom' ? (
+                    <div className="space-y-2">
+                      {([['Name', 'mom_name', 'text'], ['Email', 'mom_email', 'email'], ['Phone', 'mom_phone', 'tel']] as [string, string, string][]).map(([label, field, type]) => (
+                        <div key={field}>
+                          <label className="text-[10px] font-semibold text-slate-400 mb-1 block">{label}</label>
+                          <input type={type} value={draft[field] ?? ''} onChange={e => setDraft((p: any) => ({ ...p, [field]: e.target.value }))} className={inputCls} />
+                        </div>
+                      ))}
+                      <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
                         <input type="checkbox" checked={draft.notify_mom ?? true}
                           onChange={e => setDraft((p: any) => ({ ...p, notify_mom: e.target.checked }))}
                           className="h-3.5 w-3.5 rounded border-slate-300 accent-slate-800" />
                         <span className="text-[10px] font-semibold text-slate-500">Send reminders to mom&apos;s email</span>
                       </label>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 mt-3">Father</p>
-                      {[['Name', 'dad_name', 'text'], ['Email', 'dad_email', 'email'], ['Phone', 'dad_phone', 'tel']].map(([label, field, type]) => (
-                        <div key={field} className="mb-2">
+                      <button onClick={() => handleSave({ mom_name: draft.mom_name || null, mom_email: draft.mom_email || null, mom_phone: draft.mom_phone || null, notify_mom: draft.notify_mom ?? true })}
+                        disabled={saving} className="w-full rounded bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 mt-1">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 text-xs">
+                      {[
+                        { label: 'Name', icon: GraduationCap, value: draft.mom_name },
+                        { label: 'Email', icon: Mail, value: draft.mom_email },
+                        { label: 'Phone', icon: Phone, value: draft.mom_phone },
+                      ].map(({ label, icon: Icon, value }) => (
+                        <div key={label} className="flex items-center gap-2.5 rounded border border-slate-100 px-3 py-2">
+                          <Icon size={11} className="text-slate-300 shrink-0" />
+                          <span className="text-slate-400 w-10 shrink-0">{label}</span>
+                          <span className="font-medium text-slate-700 truncate flex-1">{value ?? 'Not on file'}</span>
+                          {label === 'Email' && value && draft.notify_mom === false && (
+                            <span className="text-[9px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">No emails</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Father */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Father</p>
+                    <button onClick={() => setEditingSection(s => s === 'dad' ? null : 'dad')}
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">
+                      {editingSection === 'dad' ? 'Cancel' : 'Edit'}
+                    </button>
+                  </div>
+                  {editingSection === 'dad' ? (
+                    <div className="space-y-2">
+                      {([['Name', 'dad_name', 'text'], ['Email', 'dad_email', 'email'], ['Phone', 'dad_phone', 'tel']] as [string, string, string][]).map(([label, field, type]) => (
+                        <div key={field}>
                           <label className="text-[10px] font-semibold text-slate-400 mb-1 block">{label}</label>
                           <input type={type} value={draft[field] ?? ''} onChange={e => setDraft((p: any) => ({ ...p, [field]: e.target.value }))} className={inputCls} />
                         </div>
@@ -365,31 +427,30 @@ function StudentSlideOver({
                           className="h-3.5 w-3.5 rounded border-slate-300 accent-slate-800" />
                         <span className="text-[10px] font-semibold text-slate-500">Send reminders to dad&apos;s email</span>
                       </label>
+                      <button onClick={() => handleSave({ dad_name: draft.dad_name || null, dad_email: draft.dad_email || null, dad_phone: draft.dad_phone || null, notify_dad: draft.notify_dad ?? true })}
+                        disabled={saving} className="w-full rounded bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 mt-1">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
                     </div>
-                    <button onClick={handleSave} disabled={saving}
-                      className="w-full rounded bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 mt-1">
-                      {saving ? 'Saving…' : 'Save Changes'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 text-xs">
-                    {[
-                      { label: 'Student', icon: Mail, value: student.email, notifyKey: 'notify_student' },
-                      { label: 'Phone', icon: Phone, value: student.phone, notifyKey: null },
-                      { label: 'Mom', icon: Mail, value: student.mom_email, notifyKey: 'notify_mom' },
-                      { label: 'Dad', icon: Mail, value: student.dad_email, notifyKey: 'notify_dad' },
-                    ].map(({ label, icon: Icon, value, notifyKey }) => (
-                      <div key={label} className="flex items-center gap-2.5 rounded border border-slate-100 px-3 py-2">
-                        <Icon size={11} className="text-slate-300 shrink-0" />
-                        <span className="text-slate-400 w-10 shrink-0">{label}</span>
-                        <span className="font-medium text-slate-700 truncate flex-1">{value ?? 'Not on file'}</span>
-                        {notifyKey && value && student[notifyKey] === false && (
-                          <span className="text-[9px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">No emails</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-1.5 text-xs">
+                      {[
+                        { label: 'Name', icon: GraduationCap, value: draft.dad_name },
+                        { label: 'Email', icon: Mail, value: draft.dad_email },
+                        { label: 'Phone', icon: Phone, value: draft.dad_phone },
+                      ].map(({ label, icon: Icon, value }) => (
+                        <div key={label} className="flex items-center gap-2.5 rounded border border-slate-100 px-3 py-2">
+                          <Icon size={11} className="text-slate-300 shrink-0" />
+                          <span className="text-slate-400 w-10 shrink-0">{label}</span>
+                          <span className="font-medium text-slate-700 truncate flex-1">{value ?? 'Not on file'}</span>
+                          {label === 'Email' && value && draft.notify_dad === false && (
+                            <span className="text-[9px] font-bold uppercase text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">No emails</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

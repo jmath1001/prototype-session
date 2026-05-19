@@ -9,10 +9,25 @@ const supabase = createClient(
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, hours_left } = await req.json()
+    const body = await req.json()
+    const { id } = body
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-    const { error } = await withCenter(supabase.from(DB.students).update({ hours_left: Number(hours_left ?? 0) }).eq('id', id))
+    const updates: Record<string, unknown> = {}
+    if ('hours_left' in body) updates.hours_left = Number(body.hours_left ?? 0)
+    if ('subjects' in body) updates.subjects = Array.isArray(body.subjects) ? body.subjects : []
+
+    const stringFields = ['name', 'grade', 'school_name', 'email', 'phone',
+      'mom_name', 'mom_email', 'mom_phone', 'dad_name', 'dad_email', 'dad_phone', 'bluebook_url']
+    stringFields.forEach(f => {
+      if (f in body) updates[f] = typeof body[f] === 'string' ? body[f].trim() || null : null
+    })
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const { error } = await withCenter(supabase.from(DB.students).update(updates).eq('id', id))
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     return NextResponse.json({ success: true })

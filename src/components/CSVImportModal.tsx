@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Upload, FileText, ChevronRight, Loader2, ClipboardPaste } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { DB, withCenterPayload, withCenter } from '@/lib/db';
@@ -10,6 +10,7 @@ const STUDENTS = DB.students
 const DB_FIELDS = [
   { key: 'name',         label: 'Name',          required: true },
   { key: 'grade',        label: 'Grade' },
+  { key: 'school_name',  label: 'School Name' },
   { key: 'subjects',     label: 'Subjects' }, // Added target field
   { key: 'email',        label: 'Student Email' },
   { key: 'phone',        label: 'Student Phone' },
@@ -42,6 +43,7 @@ function autoMap(headers: string[]): Record<string, string> {
         (!hl.includes('parent') && !hl.includes('mom') && !hl.includes('mother') && !hl.includes('dad') && !hl.includes('father') && hl.includes('email') && f.key === 'email') ||
         (!hl.includes('parent') && !hl.includes('mom') && !hl.includes('mother') && !hl.includes('dad') && !hl.includes('father') && (hl.includes('phone') || hl.includes('cell')) && f.key === 'phone') ||
         (hl.includes('grade') && f.key === 'grade') ||
+        ((hl.includes('school') || hl.includes('schoolname')) && f.key === 'school_name') ||
         ((hl === 'name' || hl === 'studentname' || hl === 'fullname') && f.key === 'name') ||
         (hl.includes('hour') && f.key === 'hours_left') ||
         (hl.includes('bluebook') && f.key === 'bluebook_url') ||
@@ -79,7 +81,17 @@ export function CSVImportModal({ onClose, onImported }: Props) {
   const [pasteText, setPasteText] = useState('')
   const [error, setError] = useState('')
   const [dupStrategy, setDupStrategy] = useState<DupStrategy>('skip')
+  const [centerSubjects, setCenterSubjects] = useState<string[]>([])
+  const [existingNames, setExistingNames] = useState<Map<string, string>>(new Map())
+  const [loadingExisting, setLoadingExisting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch('/api/center-subjects')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d?.subjects)) setCenterSubjects(d.subjects) })
+      .catch(() => {})
+  }, [])
 
   const ingest = (text: string) => {
     setError('')
@@ -90,6 +102,17 @@ export function CSVImportModal({ onClose, onImported }: Props) {
     setRows(rows)
     setMapping(autoMap(headers))
     setStep('map')
+    // Pre-fetch existing student names so we can show a live breakdown
+    setLoadingExisting(true)
+    withCenter(supabase.from(STUDENTS).select('id, name'))
+      .then(({ data }: { data: Array<{ id: string; name: string }> | null }) => {
+        const map = new Map<string, string>(
+          (data ?? []).map((s: { id: string; name: string }) => [s.name?.toLowerCase().trim(), s.id])
+        )
+        setExistingNames(map)
+      })
+      .catch(() => {})
+      .finally(() => setLoadingExisting(false))
   }
 
   const handleFile = (file: File) => {
@@ -152,7 +175,11 @@ export function CSVImportModal({ onClose, onImported }: Props) {
         } else if (typeof val === 'string' && val) {
           allSubjects = val.split(/[,;|]/).map(s => s.trim()).filter(Boolean)
         }
-        rec[f.key] = allSubjects
+        // Canonicalize against center subjects list (case-insensitive)
+        rec[f.key] = allSubjects.map(s => {
+          const lower = s.toLowerCase()
+          return centerSubjects.find(cs => cs.toLowerCase() === lower) ?? s
+        })
       } else {
         rec[f.key] = Array.isArray(val) ? (val.find(Boolean) || null) : (val || null)
       }
@@ -165,20 +192,20 @@ export function CSVImportModal({ onClose, onImported }: Props) {
     const records = buildRecords()
 
     if (dupStrategy === 'add') {
-      // Insert everything, no duplicate check
+      // Insert everything, no duplicate check (intentional — user explicitly chose this)
       const { error } = await supabase.from(STUDENTS).insert(records.map(r => withCenterPayload(r)))
       if (error) { setError(error.message); setStep('map'); return }
     } else {
-      // Fetch existing students by name for this center
-      const { data: existing, error: fetchErr } = await withCenter(supabase.from(STUDENTS).select('id, name'))
-      if (fetchErr) { setError(fetchErr.message); setStep('map'); return }
+      // Use pre-fetched names; fall back to a fresh fetch if somehow not loaded yet
+      let byName = existingNames
+      if (byName.size === 0 && !loadingExisting) {
+        const { data, error: fetchErr } = await withCenter(supabase.from(STUDENTS).select('id, name'))
+        if (fetchErr) { setError(fetchErr.message); setStep('map'); return }
+        byName = new Map((data ?? []).map((s: { id: string; name: string }) => [s.name?.toLowerCase().trim(), s.id]))
+      }
 
-      const existingByName = new Map<string, string>(
-        (existing ?? []).map((s: { id: string; name: string }) => [s.name?.toLowerCase().trim(), s.id])
-      )
-
-      const newRecords = records.filter(r => !existingByName.has((r.name ?? '').toLowerCase().trim()))
-      const updateRecords = records.filter(r => existingByName.has((r.name ?? '').toLowerCase().trim()))
+      const newRecords = records.filter(r => !byName.has((r.name ?? '').toLowerCase().trim()))
+      const updateRecords = records.filter(r => byName.has((r.name ?? '').toLowerCase().trim()))
 
       if (newRecords.length > 0) {
         const { error } = await supabase.from(STUDENTS).insert(newRecords.map(r => withCenterPayload(r)))
@@ -187,11 +214,19 @@ export function CSVImportModal({ onClose, onImported }: Props) {
 
       if (dupStrategy === 'update' && updateRecords.length > 0) {
         // Only patch the fields actually mapped in this import (don't null-out unmapped columns)
+        // Also skip any field whose value is null/empty — never overwrite real data with a blank cell
         const mappedFields = [...new Set(Object.values(mapping).filter(Boolean))]
         for (const rec of updateRecords) {
-          const id = existingByName.get((rec.name ?? '').toLowerCase().trim())
+          const id = byName.get((rec.name ?? '').toLowerCase().trim())
           const patch: any = {}
-          mappedFields.forEach(f => { if (f !== 'name') patch[f] = rec[f] })
+          mappedFields.forEach(f => {
+            if (f === 'name') return
+            const v = rec[f]
+            // Skip nulls and empty arrays — don't clobber existing data with blank CSV cells
+            if (v === null || v === undefined) return
+            if (Array.isArray(v) && v.length === 0) return
+            patch[f] = v
+          })
           if (Object.keys(patch).length > 0) {
             const { error } = await supabase.from(STUDENTS).update(patch).eq('id', id)
             if (error) { setError(error.message); setStep('map'); return }
@@ -206,6 +241,19 @@ export function CSVImportModal({ onClose, onImported }: Props) {
   }
 
   const hasMappedName = Object.values(mapping).includes('name')
+
+  // Live breakdown: how many of the valid rows are new vs already exist
+  const importBreakdown = useMemo(() => {
+    if (dupStrategy === 'add') return null
+    const names = validRows.map(r => {
+      const v = getMapped(r, 'name')
+      const raw = Array.isArray(v) ? (v.find(Boolean) ?? '') : (v ?? '')
+      return (raw as string).toLowerCase().trim()
+    })
+    const matchCount = names.filter(n => n && existingNames.has(n)).length
+    const newCount = names.filter(n => n && !existingNames.has(n)).length
+    return { newCount, matchCount }
+  }, [validRows, existingNames, mapping, dupStrategy])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -385,9 +433,9 @@ export function CSVImportModal({ onClose, onImported }: Props) {
                 <p className="text-xs font-black text-[#1e293b]">If a student name already exists…</p>
                 <div className="flex gap-2">
                   {([
-                    { value: 'skip',   label: 'Skip duplicate',  desc: 'Leave existing record untouched' },
-                    { value: 'update', label: 'Update existing',  desc: 'Patch only the mapped columns' },
-                    { value: 'add',    label: 'Add anyway',       desc: 'Insert a second row regardless' },
+                    { value: 'skip',   label: 'Skip existing',   desc: 'Leave existing record untouched' },
+                    { value: 'update', label: 'Update existing',  desc: 'Patch only mapped, non-blank columns' },
+                    { value: 'add',    label: 'Force add all',    desc: '⚠️ Inserts a new row regardless — use only for same-name different students' },
                   ] as { value: DupStrategy; label: string; desc: string }[]).map(opt => (
                     <button key={opt.value}
                       onClick={() => setDupStrategy(opt.value)}
@@ -400,6 +448,24 @@ export function CSVImportModal({ onClose, onImported }: Props) {
                     </button>
                   ))}
                 </div>
+                {/* Live breakdown */}
+                {hasMappedName && (
+                  <div className="mt-2 pt-2 border-t border-[#f1f5f9]">
+                    {loadingExisting ? (
+                      <p className="text-[10px] text-[#94a3b8]">Checking for existing students…</p>
+                    ) : dupStrategy === 'add' ? (
+                      <p className="text-[10px] text-[#dc2626] font-semibold">All {validRows.length} rows will be inserted as new records.</p>
+                    ) : importBreakdown ? (
+                      <p className="text-[10px] text-[#475569]">
+                        <span className="font-bold text-[#16a34a]">{importBreakdown.newCount} new</span>
+                        {' '}student{importBreakdown.newCount !== 1 ? 's' : ''} will be added
+                        {importBreakdown.matchCount > 0 && (
+                          <> · <span className="font-bold text-[#dc2626]">{importBreakdown.matchCount} existing</span> will be {dupStrategy === 'update' ? 'updated (mapped non-blank fields only)' : 'skipped'}</>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
               </div>
 
               {error && <p className="text-xs text-[#dc2626] font-medium">{error}</p>}
@@ -433,7 +499,14 @@ export function CSVImportModal({ onClose, onImported }: Props) {
                 <button onClick={handleImport} disabled={!hasMappedName || validRows.length === 0}
                   className="px-5 py-2 rounded-lg text-xs font-black text-white disabled:opacity-40 transition-all"
                   style={{ background: '#dc2626' }}>
-                  Import {validRows.length} Students
+                  {dupStrategy === 'add'
+                    ? `Add all ${validRows.length}`
+                    : importBreakdown
+                      ? [
+                          importBreakdown.newCount > 0 && `Add ${importBreakdown.newCount}`,
+                          importBreakdown.matchCount > 0 && (dupStrategy === 'update' ? `Update ${importBreakdown.matchCount}` : `Skip ${importBreakdown.matchCount}`),
+                        ].filter(Boolean).join(' · ') || `Import ${validRows.length}`
+                      : `Import ${validRows.length}`}
                 </button>
               </div>
             </div>

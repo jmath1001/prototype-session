@@ -116,7 +116,8 @@ export async function POST(req: NextRequest) {
         await withCenter(supabase.from(DB.students).update({ session_hours: Math.max(1, sessionHours) }).eq('id', studentId))
       }
       if (Array.isArray(subjects)) {
-        await withCenter(supabase.from(DB.students).update({ subjects }).eq('id', studentId))
+        const { error: stuErr } = await withCenter(supabase.from(DB.students).update({ subjects }).eq('id', studentId))
+        if (stuErr) console.error('[term-enrollment] failed to sync subjects to student record (update):', stuErr)
       }
 
       return NextResponse.json({ enrollment: data })
@@ -152,7 +153,8 @@ export async function POST(req: NextRequest) {
       await withCenter(supabase.from(DB.students).update({ session_hours: Math.max(1, sessionHours) }).eq('id', studentId))
     }
     if (Array.isArray(subjects)) {
-      await withCenter(supabase.from(DB.students).update({ subjects }).eq('id', studentId))
+      const { error: stuErr } = await withCenter(supabase.from(DB.students).update({ subjects }).eq('id', studentId))
+      if (stuErr) console.error('[term-enrollment] failed to sync subjects to student record (insert):', stuErr)
     }
 
     return NextResponse.json({ enrollment: data })

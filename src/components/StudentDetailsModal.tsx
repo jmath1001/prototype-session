@@ -84,6 +84,23 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
   const [subjectSessionsPerWeek, setSubjectSessionsPerWeek] = useState<Record<string, number>>({})
   const [allowSameDayDouble, setAllowSameDayDouble] = useState(false)
   const [subjectTutorPreference, setSubjectTutorPreference] = useState<Record<string, string>>({})
+  const [isEditingInfo, setIsEditingInfo] = useState(false)
+  const [isSavingInfo, setIsSavingInfo] = useState(false)
+  const [infoEdit, setInfoEdit] = useState({
+    name:       student.name        ?? '',
+    grade:      student.grade       ?? '',
+    school_name: student.school_name ?? '',
+    email:      student.email       ?? '',
+    phone:      student.phone       ?? '',
+    mom_name:   student.mom_name    ?? '',
+    mom_email:  student.mom_email   ?? '',
+    mom_phone:  student.mom_phone   ?? '',
+    dad_name:   student.dad_name    ?? '',
+    dad_email:  student.dad_email   ?? '',
+    dad_phone:  student.dad_phone   ?? '',
+    bluebook_url: student.bluebook_url ?? '',
+  })
+  const [originalInfo, setOriginalInfo] = useState({ ...infoEdit })
   const tutors = tutorsProp
 
   useEffect(() => {
@@ -239,7 +256,8 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
         if (!res.ok) throw new Error(payload?.error || 'Failed to load term enrollment')
 
         const enrollment = payload?.enrollment
-        const nextSubjects = Array.isArray(enrollment?.subjects) ? enrollment.subjects : fallbackSubjects
+        const enrollSubjects = Array.isArray(enrollment?.subjects) ? enrollment.subjects : null
+        const nextSubjects = enrollSubjects && enrollSubjects.length > 0 ? enrollSubjects : fallbackSubjects
         const nextAvailability = Array.isArray(enrollment?.availability_blocks)
           ? enrollment.availability_blocks
           : fallbackAvailability
@@ -305,6 +323,14 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
       const nextHours = typeof serverEnrollment?.hours_purchased === 'number'
         ? serverEnrollment.hours_purchased
         : Number(hoursPurchased || 0)
+
+      // Always explicitly write subjects back to the student record so it stays
+      // in sync regardless of whether the term-enrollment route synced it.
+      await fetch('/api/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: student.id, subjects: nextSubjects }),
+      })
 
       setEditSubjects(nextSubjects)
       setOriginalSubjects(nextSubjects)
@@ -421,6 +447,35 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
       alert((err as Error).message || 'Failed to save hours.')
     } finally {
       setIsSavingHours(false)
+    }
+  }
+
+  const handleSaveInfo = async () => {
+    setIsSavingInfo(true)
+    try {
+      const patch: Record<string, unknown> = { id: student.id }
+      ;(Object.keys(infoEdit) as Array<keyof typeof infoEdit>).forEach(k => {
+        const v = infoEdit[k].trim()
+        const orig = originalInfo[k].trim()
+        if (v !== orig) patch[k] = v
+      })
+      if (Object.keys(patch).length <= 1) { setIsEditingInfo(false); return }
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || 'Failed to save')
+      const saved = { ...infoEdit, ...Object.fromEntries(Object.entries(patch).filter(([k]) => k !== 'id').map(([k, v]) => [k, v as string])) }
+      setInfoEdit(saved)
+      setOriginalInfo(saved)
+      setIsEditingInfo(false)
+      if (onSave) onSave({ ...student, ...saved })
+    } catch (err) {
+      alert((err as Error).message || 'Failed to save.')
+    } finally {
+      setIsSavingInfo(false)
     }
   }
 
@@ -557,13 +612,13 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
                         key={s}
                         type="button"
                         onClick={() => handleAddSubject(s)}
-                        disabled={editSubjects.includes(s)}
+                        disabled={editSubjects.some(es => es.toLowerCase() === s.toLowerCase())}
                         className="text-[11px] font-medium px-2 py-0.5 rounded border transition-colors"
-                        style={editSubjects.includes(s)
+                        style={editSubjects.some(es => es.toLowerCase() === s.toLowerCase())
                           ? { background: '#f3f4f6', color: '#d1d5db', borderColor: '#e5e7eb', cursor: 'default' }
                           : { background: '#fff', color: '#374151', borderColor: '#d1d5db' }}
                       >
-                        {editSubjects.includes(s) ? '✓' : '+'} {s}
+                        {editSubjects.some(es => es.toLowerCase() === s.toLowerCase()) ? '✓' : '+'} {s}
                       </button>
                     ))}
                     {filteredSubjects.length === 0 && (
@@ -628,19 +683,20 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
                             </div>
                           )
                         })}
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={allowSameDayDouble}
-                            onChange={e => setAllowSameDayDouble(e.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600"
-                          />
-                          <span className="text-[11px] text-gray-700">Allow two sessions on the same day</span>
-                        </label>
                       </div>
                     )}
                   </div>
                 )}
+
+                <label className="flex items-center gap-2 cursor-pointer select-none py-1">
+                  <input
+                    type="checkbox"
+                    checked={allowSameDayDouble}
+                    onChange={e => setAllowSameDayDouble(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600"
+                  />
+                  <span className="text-[11px] text-gray-700">Allow two sessions on the same day</span>
+                </label>
 
                 <div className="flex gap-2">
                   <button
@@ -777,6 +833,84 @@ export default function StudentDetailsModal({ student, tutors: tutorsProp = [], 
             {student.tutor && <p><strong className="text-xs font-bold text-gray-500 uppercase">Tutor:</strong> <span className="text-sm text-gray-900">{student.tutor}</span></p>}
             {student.day && <p><strong className="text-xs font-bold text-gray-500 uppercase">Day:</strong> <span className="text-sm text-gray-900">{student.day}</span></p>}
             {student.time && <p><strong className="text-xs font-bold text-gray-500 uppercase">Time:</strong> <span className="text-sm text-gray-900">{student.time}</span></p>}
+          </div>
+
+          {/* Student Info */}
+          <div className="pt-2 border-t border-gray-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Student Info</p>
+              {!isEditingInfo && (
+                <button
+                  onClick={() => setIsEditingInfo(true)}
+                  className="px-3 py-1 text-xs font-bold bg-purple-50 border border-purple-300 text-purple-700 rounded hover:bg-purple-100">
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {!isEditingInfo ? (
+              <div className="space-y-1">
+                {([
+                  { label: 'Name',        value: originalInfo.name },
+                  { label: 'Grade',       value: originalInfo.grade },
+                  { label: 'School',      value: originalInfo.school_name },
+                  { label: 'Email',       value: originalInfo.email },
+                  { label: 'Phone',       value: originalInfo.phone },
+                  { label: 'Mom',         value: [originalInfo.mom_name, originalInfo.mom_email, originalInfo.mom_phone].filter(Boolean).join(' · ') },
+                  { label: 'Dad',         value: [originalInfo.dad_name, originalInfo.dad_email, originalInfo.dad_phone].filter(Boolean).join(' · ') },
+                  { label: 'Bluebook',    value: originalInfo.bluebook_url },
+                ] as { label: string; value: string }[]).filter(r => r.value).map(row => (
+                  <p key={row.label} className="text-xs text-gray-700">
+                    <strong className="font-bold text-gray-500 uppercase text-[10px]">{row.label}:</strong>{' '}
+                    {row.label === 'Bluebook'
+                      ? <a href={row.value} target="_blank" rel="noopener noreferrer" className="text-purple-600 underline truncate">{row.value}</a>
+                      : row.value}
+                  </p>
+                ))}
+                {!originalInfo.name && !originalInfo.grade && !originalInfo.school_name && !originalInfo.email &&
+                  <p className="text-xs text-gray-400 italic">No info set</p>}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {([
+                  { key: 'name',        label: 'Name',          type: 'text' },
+                  { key: 'grade',       label: 'Grade',         type: 'text' },
+                  { key: 'school_name', label: 'School',        type: 'text' },
+                  { key: 'email',       label: 'Email',         type: 'email' },
+                  { key: 'phone',       label: 'Phone',         type: 'tel' },
+                  { key: 'mom_name',    label: "Mom's Name",    type: 'text' },
+                  { key: 'mom_email',   label: "Mom's Email",   type: 'email' },
+                  { key: 'mom_phone',   label: "Mom's Phone",   type: 'tel' },
+                  { key: 'dad_name',    label: "Dad's Name",    type: 'text' },
+                  { key: 'dad_email',   label: "Dad's Email",   type: 'email' },
+                  { key: 'dad_phone',   label: "Dad's Phone",   type: 'tel' },
+                  { key: 'bluebook_url', label: 'Bluebook URL', type: 'url' },
+                ] as { key: keyof typeof infoEdit; label: string; type: string }[]).map(field => (
+                  <div key={field.key}>
+                    <label className="block text-[10px] font-bold uppercase text-gray-500 mb-0.5">{field.label}</label>
+                    <input
+                      type={field.type}
+                      value={infoEdit[field.key]}
+                      onChange={e => setInfoEdit(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      className="w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-800"
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => { setInfoEdit({ ...originalInfo }); setIsEditingInfo(false) }}
+                    className="flex-1 px-3 py-1.5 text-xs font-bold border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveInfo}
+                    disabled={isSavingInfo}
+                    className="flex-1 px-3 py-1.5 text-xs font-bold rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+                    {isSavingInfo ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
