@@ -234,6 +234,7 @@ export default function MasterDeployment() {
         notes: notes || null,
         confirmationStatus: null,
         seriesId: null,
+        isVirtual: false,
       };
 
       const existingIdx = next.findIndex(s => s.date === isoDate && s.tutorId === tutorId && s.time === time);
@@ -278,6 +279,7 @@ export default function MasterDeployment() {
         notes: row.notes,
         confirmationStatus: null,
         seriesId: row.seriesId,
+        isVirtual: false,
       };
 
       if (idx >= 0) {
