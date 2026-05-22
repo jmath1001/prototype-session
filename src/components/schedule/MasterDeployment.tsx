@@ -38,6 +38,16 @@ import { ScheduleOptimizerController, type OptimizerScope } from '@/components/o
 import { ConfirmWeekModal } from './ConfirmWeekModal';
 
 const SCHEDULE_VIEW_STORAGE_KEY = 'schedule:viewMode';
+const SCHEDULE_WEEK_START_STORAGE_KEY = 'schedule:lastWeekStart';
+
+const readStoredWeekStart = (): Date | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(SCHEDULE_WEEK_START_STORAGE_KEY);
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const parsed = new Date(raw + 'T00:00:00');
+  if (Number.isNaN(parsed.getTime())) return null;
+  return getWeekStart(parsed);
+};
 
 type TermOption = {
   id: string;
@@ -54,7 +64,13 @@ export default function MasterDeployment() {
   const optimizerRunRef = useRef<(scope?: OptimizerScope) => void>(() => {});
   const weekBeforeTodayRef = useRef<Date | null>(null);
   const [todayDate, setTodayDate] = useState<Date>(() => getCentralTimeNow());
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(getCentralTimeNow()));
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const now = getCentralTimeNow();
+    if (typeof window === 'undefined') return getWeekStart(now);
+    const storedView = window.localStorage.getItem(SCHEDULE_VIEW_STORAGE_KEY);
+    if (storedView === 'today') return getWeekStart(now);
+    return readStoredWeekStart() ?? getWeekStart(now);
+  });
   const [isScheduleBuilderOpen, setIsScheduleBuilderOpen] = useState(false);
   const [scheduleBuilderMode, setScheduleBuilderMode] = useState<'batch' | 'single'>('batch');
   const [builderTerms, setBuilderTerms] = useState<TermOption[]>([]);
@@ -327,6 +343,9 @@ export default function MasterDeployment() {
     if (v) {
       // Save current week before jumping to today
       weekBeforeTodayRef.current = weekStart;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(SCHEDULE_WEEK_START_STORAGE_KEY, toISODate(weekStart));
+      }
       const now = getCentralTimeNow();
       setTodayDate(now);
       setWeekStart(getWeekStart(now));
@@ -335,6 +354,9 @@ export default function MasterDeployment() {
       if (weekBeforeTodayRef.current) {
         setWeekStart(weekBeforeTodayRef.current);
         weekBeforeTodayRef.current = null;
+      } else {
+        const storedWeek = readStoredWeekStart();
+        if (storedWeek) setWeekStart(storedWeek);
       }
     }
     setTodayView(v);
@@ -411,6 +433,11 @@ export default function MasterDeployment() {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(SCHEDULE_VIEW_STORAGE_KEY, todayView ? 'today' : 'week');
   }, [todayView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || todayView) return;
+    window.localStorage.setItem(SCHEDULE_WEEK_START_STORAGE_KEY, toISODate(weekStart));
+  }, [todayView, weekStart]);
 
   const tutorPaletteMap = useMemo(() => {
     const map: Record<string, number> = {};

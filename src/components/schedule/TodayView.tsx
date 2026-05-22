@@ -56,6 +56,8 @@ const addSubjectToCenter = async (subject: string) => {
 
 // unique per tutor + date + time block
 const slotKey = (tutorId: string, date: string, time: string) => `${tutorId}|${date}|${time}`;
+const isCardControlTarget = (target: EventTarget | null) =>
+  target instanceof Element && !!target.closest('button,input,textarea,select,a,label');
 
 const calculateWeeksUntilTermEnd = (bookingDate: string, termEndDate: string): number => {
   const booking = new Date(bookingDate + 'T00:00:00');
@@ -389,6 +391,7 @@ export function TodayView({
   // which slot's student-suggestion dropdown is open
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
+  const cardDragInProgressRef = useRef(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [topicDropdownRowId, setTopicDropdownRowId] = useState<string | null>(null);
   const [topicDropdownPos, setTopicDropdownPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
@@ -1329,6 +1332,7 @@ export function TodayView({
                                         draggable={!!student.rowId}
                                         onDragStart={(e) => {
                                           if (!student.rowId) return;
+                                          cardDragInProgressRef.current = true;
                                           const payload: DragStudentPayload = {
                                             rowId: student.rowId,
                                             studentId: student.id,
@@ -1339,13 +1343,20 @@ export function TodayView({
                                           e.dataTransfer.effectAllowed = 'move';
                                           setDraggingTopic(student.topic ?? null);
                                         }}
-                                        onDragEnd={() => setDraggingTopic(null)}
+                                        onDragEnd={() => {
+                                          cardDragInProgressRef.current = false;
+                                          setDraggingTopic(null);
+                                        }}
                                         style={
                                           student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
                                           : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.14), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
                                           :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                         }
-                                        onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                        onPointerUp={(e) => {
+                                          if (cardDragInProgressRef.current) return;
+                                          if (isCardControlTarget(e.target)) return;
+                                          setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block });
+                                        }}>
                                         <div className="flex justify-between items-start mb-1">
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <p className="text-sm font-bold leading-tight truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}{student.grade ? ` (${student.grade})` : ''}</p>
@@ -1528,6 +1539,7 @@ export function TodayView({
                                           draggable={!!student.rowId}
                                           onDragStart={(e) => {
                                             if (!student.rowId) return;
+                                            cardDragInProgressRef.current = true;
                                             const payload: DragStudentPayload = {
                                               rowId: student.rowId,
                                               studentId: student.id,
@@ -1538,7 +1550,10 @@ export function TodayView({
                                             e.dataTransfer.effectAllowed = 'move';
                                             setDraggingTopic(student.topic ?? null);
                                           }}
-                                          onDragEnd={() => setDraggingTopic(null)}
+                                          onDragEnd={() => {
+                                            cardDragInProgressRef.current = false;
+                                            setDraggingTopic(null);
+                                          }}
                                           style={
                                             student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
                                             : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.14), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
@@ -1574,7 +1589,11 @@ export function TodayView({
                                             <Trash2 size={8} strokeWidth={2} />
                                           </button>
                                           <div className="flex-1 min-w-0 cursor-pointer"
-                                            onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                            onPointerUp={(e) => {
+                                              if (cardDragInProgressRef.current) return;
+                                              if (isCardControlTarget(e.target)) return;
+                                              setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block });
+                                            }}>
                                             <div className="flex items-center gap-1">
                                               <p className="text-[10px] font-bold leading-none truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}</p>
                                               {attendanceBadge(student.status) && (

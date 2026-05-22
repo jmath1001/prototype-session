@@ -38,6 +38,10 @@ const emptyForm = (tutor: Tutor): InlineForm => ({
   topicSaved: false,
 });
 
+const WEEKVIEW_SCROLL_STORAGE_KEY = 'schedule:weekviewTodayScrollLeft';
+const isCardControlTarget = (target: EventTarget | null) =>
+  target instanceof Element && !!target.closest('button,input,textarea,select,a,label');
+
 const addSubjectToCenter = async (subject: string) => {
   try {
     const existing = await fetch('/api/center-subjects').then(r => r.json()).catch(() => ({ subjects: [] }));
@@ -125,6 +129,7 @@ export function WeekView({
   const [forms, setForms]               = useState<Record<string, InlineForm>>({});
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
+  const cardDragInProgressRef = useRef(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [topicEditRowId, setTopicEditRowId] = useState<string | null>(null);
   const [topicEditValue, setTopicEditValue] = useState('');
@@ -199,11 +204,10 @@ export function WeekView({
   };
 
   const todayTableScrollRef = useRef<HTMLDivElement | null>(null);
-  const setTodayScrollEl = useCallback((el: HTMLDivElement | null) => { todayTableScrollRef.current = el; }, []);
+  const restoredTodayScrollRef = useRef(false);
 
-  const scrollToNow = useCallback(() => {
-    const el = todayTableScrollRef.current;
-    if (!el || !sessionTimesByDay) return;
+  const getTodayAutoScrollLeft = useCallback(() => {
+    if (!sessionTimesByDay) return 0;
     const now = getCentralTimeNow();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const todayDow = dayOfWeek(toISODate(now));
@@ -214,8 +218,30 @@ export function WeekView({
       if (h * 60 + m > currentMinutes) { targetIndex = Math.max(0, i - 1); break; }
       targetIndex = i;
     }
-    el.scrollTo({ left: targetIndex * 220, behavior: 'smooth' });
+    return targetIndex * 220;
   }, [sessionTimesByDay]);
+
+  const setTodayScrollEl = useCallback((el: HTMLDivElement | null) => {
+    todayTableScrollRef.current = el;
+    if (!el || restoredTodayScrollRef.current) return;
+    if (typeof window !== 'undefined') {
+      const storedRaw = window.localStorage.getItem(WEEKVIEW_SCROLL_STORAGE_KEY);
+      const stored = Number(storedRaw);
+      if (storedRaw !== null && Number.isFinite(stored) && stored >= 0) {
+        el.scrollLeft = stored;
+        restoredTodayScrollRef.current = true;
+        return;
+      }
+    }
+    el.scrollLeft = getTodayAutoScrollLeft();
+    restoredTodayScrollRef.current = true;
+  }, [getTodayAutoScrollLeft]);
+
+  const scrollToNow = useCallback(() => {
+    const el = todayTableScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: getTodayAutoScrollLeft(), behavior: 'smooth' });
+  }, [getTodayAutoScrollLeft]);
 
   const currentTimeBlockTime = useMemo(() => {
     const now = getCentralTimeNow();
@@ -232,21 +258,14 @@ export function WeekView({
   }, [sessionTimesByDay]);
 
   useEffect(() => {
-    if (!sessionTimesByDay) return;
     const el = todayTableScrollRef.current;
-    if (!el) return;
-    const now = getCentralTimeNow();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const todayDow = dayOfWeek(toISODate(now));
-    const blocks = getSessionsForDay(todayDow, sessionTimesByDay);
-    let targetIndex = 0;
-    for (let i = 0; i < blocks.length; i++) {
-      const [h, m] = blocks[i].time.split(':').map(Number);
-      if (h * 60 + m > currentMinutes) { targetIndex = Math.max(0, i - 1); break; }
-      targetIndex = i;
-    }
-    if (targetIndex > 0) el.scrollLeft = targetIndex * 220;
-  }, [sessionTimesByDay]);
+    if (!el || typeof window === 'undefined') return;
+    const onScroll = () => {
+      window.localStorage.setItem(WEEKVIEW_SCROLL_STORAGE_KEY, String(Math.round(el.scrollLeft)));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  });
 
   const handleSave = async (key: string, tutor: Tutor, date: string, block: any) => {
     const form = forms[key];
@@ -833,6 +852,7 @@ export function WeekView({
                                             draggable={!!student.rowId && !bulkRemoveMode}
                                             onDragStart={(e) => {
                                               if (!student.rowId || bulkRemoveMode) return;
+                                              cardDragInProgressRef.current = true;
                                               const payload: DragStudentPayload = {
                                                 rowId: student.rowId,
                                                 studentId: student.id,
@@ -843,14 +863,19 @@ export function WeekView({
                                               e.dataTransfer.effectAllowed = 'move';
                                               setDraggingTopic(student.topic ?? null);
                                             }}
-                                            onDragEnd={() => setDraggingTopic(null)}
+                                            onDragEnd={() => {
+                                              cardDragInProgressRef.current = false;
+                                              setDraggingTopic(null);
+                                            }}
                                             style={
                                               student.status === 'no-show'  ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
                                               : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.16), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
                                               :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                             }
-                                            onClick={(e) => {
+                                            onPointerUp={(e) => {
                                               e.stopPropagation();
+                                              if (cardDragInProgressRef.current) return;
+                                              if (isCardControlTarget(e.target)) return;
                                               if (bulkRemoveMode) {
                                                 toggleRemovalSelection(session.id, student.id, student.name);
                                                 return;
@@ -1070,6 +1095,7 @@ export function WeekView({
                                               draggable={!!student.rowId && !bulkRemoveMode}
                                               onDragStart={(e) => {
                                                 if (!student.rowId || bulkRemoveMode) return;
+                                                cardDragInProgressRef.current = true;
                                                 const payload: DragStudentPayload = {
                                                   rowId: student.rowId,
                                                   studentId: student.id,
@@ -1080,7 +1106,10 @@ export function WeekView({
                                                 e.dataTransfer.effectAllowed = 'move';
                                                 setDraggingTopic(student.topic ?? null);
                                               }}
-                                              onDragEnd={() => setDraggingTopic(null)}
+                                              onDragEnd={() => {
+                                                cardDragInProgressRef.current = false;
+                                                setDraggingTopic(null);
+                                              }}
                                               style={{
                                                 ...(student.status === 'no-show'
                                                   ? { background: '#f8fafc', border: '1.5px solid #94a3b8', opacity: 0.65, boxShadow: '0 4px 10px rgba(148,163,184,0.16), inset 0 0 0 1px rgba(148,163,184,0.2)' }
@@ -1089,8 +1118,10 @@ export function WeekView({
                                                     : { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }),
                                                 ...(bulkRemoveMode ? { outline: isSelected ? '2px solid rgba(124,58,237,0.32)' : 'none', outlineOffset: 0 } : {}),
                                               }}
-                                              onClick={(e) => {
+                                              onPointerUp={(e) => {
                                                 e.stopPropagation();
+                                                if (cardDragInProgressRef.current) return;
+                                                if (isCardControlTarget(e.target)) return;
                                                 if (bulkRemoveMode) {
                                                   toggleRemovalSelection(session.id, student.id, student.name);
                                                   return;
