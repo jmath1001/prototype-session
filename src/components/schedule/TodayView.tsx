@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { PlusCircle, Check, Clock, Calendar as CalendarIcon, X, Loader2, Trash2, Search, ChevronDown, Monitor } from 'lucide-react';
+import { PlusCircle, Check, Clock, Calendar as CalendarIcon, X, Loader2, Trash2, Search, ChevronDown, Monitor, PanelRightClose, PanelRight } from 'lucide-react';
 import { createInlineStudent, updateAttendance, removeStudentFromSession, updateSessionTopic, toggleStudentVirtual, toggleSeriesVirtual, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay, type SessionTimesByDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
@@ -132,6 +132,15 @@ function SidePanel({
   pendingStudents,
   setSelectedSessionWithNotes,
   refetch,
+  todayStudentCount,
+  scheduledSessionCount,
+  studentsPerSession,
+  density,
+  setDensity,
+  filteredDaySessions,
+  filteredTodayTutors,
+  todaySessionByTutorTime,
+  onCollapse,
 }: {
   todayIso: string;
   sessions: any[];
@@ -141,6 +150,15 @@ function SidePanel({
   pendingStudents: any[];
   setSelectedSessionWithNotes: (s: any) => void;
   refetch: () => void;
+  todayStudentCount: number;
+  scheduledSessionCount: number;
+  studentsPerSession: number;
+  density: 'normal' | 'compact';
+  setDensity: (d: 'normal' | 'compact') => void;
+  filteredDaySessions: any[];
+  filteredTodayTutors: any[];
+  todaySessionByTutorTime: Map<string, any>;
+  onCollapse: () => void;
 }) {
   const [tab, setTab] = useState<SidePanelTab>('attendance');
   const [attFilter, setAttFilter] = useState<AttendanceFilter>('all');
@@ -214,6 +232,15 @@ function SidePanel({
               )}
             </button>
           ))}
+          {/* Collapse button */}
+          <button
+            onClick={onCollapse}
+            title="Hide panel"
+            className="shrink-0 px-2.5 flex items-center justify-center transition-colors hover:bg-slate-100"
+            style={{ color: '#94a3b8', borderBottom: '3px solid transparent', borderLeft: '1px solid #f1f5f9' }}
+          >
+            <span style={{ fontSize: 14, lineHeight: 1 }}>›</span>
+          </button>
         </div>
 
         {/* ── CONFIRMATION TAB ── */}
@@ -260,7 +287,6 @@ function SidePanel({
           </div>
         )}
 
-        {/* ── ATTENDANCE TAB ── */}
         {tab === 'attendance' && (
           <>
             {/* Filter pills */}
@@ -365,6 +391,14 @@ function SidePanel({
             </div>
           </>
         )}
+
+        {/* Footer — stats only */}
+        <div className="shrink-0 px-3 py-2" style={{ borderTop: '1.5px solid #e2e8f0', background: '#f8fafc' }}>
+          <p className="text-center text-[10px] font-semibold" style={{ color: '#64748b' }}>
+            {todayStudentCount} students · {scheduledSessionCount} sessions
+            <span className="ml-1" style={{ color: '#94a3b8' }}>({studentsPerSession.toFixed(1)}/session)</span>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -404,6 +438,20 @@ export function TodayView({
   const [topicCustomValue, setTopicCustomValue] = useState('');
   const [slotFilterQuery, setSlotFilterQuery] = useState('');
   const [optimisticVirtual, setOptimisticVirtual] = useState<Record<string, boolean>>({});
+  const [density, setDensity] = useState<'normal' | 'compact'>('normal');
+  useEffect(() => {
+    const saved = localStorage.getItem('schedule:todayViewDensity') as 'normal' | 'compact' | null;
+    if (saved === 'compact' || saved === 'normal') setDensity(saved);
+  }, []);
+  useEffect(() => { localStorage.setItem('schedule:todayViewDensity', density); }, [density]);
+  const isCompact = density === 'compact';
+
+  const [showSidePanel, setShowSidePanel] = useState(true);
+  useEffect(() => {
+    const saved = localStorage.getItem('schedule:todayViewSidePanel');
+    if (saved === 'false') setShowSidePanel(false);
+  }, []);
+  useEffect(() => { localStorage.setItem('schedule:todayViewSidePanel', String(showSidePanel)); }, [showSidePanel]);
 
   const todayIso  = toISODate(selectedDate);
   const todayDow  = dayOfWeek(todayIso);
@@ -1085,16 +1133,6 @@ export function TodayView({
   </button>
 </div>
           </div>
-          <div className="px-3.5 py-2 rounded-xl"
-            style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)', border: '1.5px solid #cbd5e1', minWidth: 180 }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.11em]" style={{ color: '#64748b' }}>Students / Session</p>
-            <p className="text-sm font-bold" style={{ color: '#0f172a', marginTop: 2 }}>
-              {todayStudentCount} students in {scheduledSessionCount} sessions
-              <span className="ml-2 text-xs font-semibold" style={{ color: '#334155' }}>
-                ({studentsPerSession.toFixed(1)} per session)
-              </span>
-            </p>
-          </div>
           
           {isToday && (
             <button onClick={scrollToCurrent}
@@ -1103,14 +1141,6 @@ export function TodayView({
               Current
             </button>
           )}
-          <PrintDailyButton
-            todayIso={todayIso}
-            dayLabel={dayLabel}
-            todayStudentCount={todayStudentCount}
-            filteredDaySessions={filteredDaySessions}
-            filteredTodayTutors={filteredTodayTutors}
-            todaySessionByTutorTime={todaySessionByTutorTime}
-          />
 
           {/* Filter — lives in header row, zero extra height */}
           <div className="relative flex-1 min-w-0" data-inline-form>
@@ -1255,9 +1285,43 @@ export function TodayView({
             {/* ── GRID ── */}
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
+              {/* Grid toolbar — density + print + panel toggle */}
+              <div className="hidden md:flex items-center justify-end gap-2 mb-2 shrink-0">
+                <div className="flex rounded-lg overflow-hidden" style={{ border: '1.5px solid #e2e8f0' }}>
+                  {(['normal', 'compact'] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDensity(d)}
+                      className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors"
+                      style={density === d ? { background: '#1e293b', color: 'white' } : { background: 'white', color: '#64748b' }}
+                    >
+                      {d === 'normal' ? 'Normal' : 'Compact'}
+                    </button>
+                  ))}
+                </div>
+                <PrintDailyButton
+                  todayIso={todayIso}
+                  dayLabel={dayLabel}
+                  todayStudentCount={todayStudentCount}
+                  filteredDaySessions={filteredDaySessions}
+                  filteredTodayTutors={filteredTodayTutors}
+                  todaySessionByTutorTime={todaySessionByTutorTime}
+                />
+                <button
+                  onClick={() => setShowSidePanel(p => !p)}
+                  title={showSidePanel ? 'Hide side panel' : 'Show side panel'}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-slate-100"
+                  style={{ border: '1.5px solid #e2e8f0', background: 'white', color: '#64748b' }}
+                >
+                  {showSidePanel
+                    ? <PanelRightClose size={14} />
+                    : <PanelRight size={14} />}
+                </button>
+              </div>
+
               {/* Desktop table */}
               <div className="hidden md:block rounded-xl schedule-scroll" ref={isToday ? setTableScrollEl : undefined} style={{ background: 'white', border: '2px solid #94a3b8', boxShadow: '0 1px 8px rgba(0,0,0,0.06)', flex: 1, minHeight: 0, overflow: 'auto' }}>
-                <div style={{ minWidth: filteredDaySessions.length * 260 + 180, width: '100%' }}>
+                <div style={{ minWidth: filteredDaySessions.length * (isCompact ? 160 : 260) + (isCompact ? 140 : 180), width: '100%' }}>
                   <table className="border-collapse w-full">
                     <thead>
                       <tr style={{ background: '#1f2937', borderBottom: '1px solid #111827' }}>
@@ -1270,7 +1334,7 @@ export function TodayView({
                           const isCurrentBlock = block.time === currentTimeBlockTime;
                           return (
                             <th key={block.id} className="px-4 py-2.5 text-center"
-                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 260, position: 'sticky', top: 0, zIndex: 3, background: isCurrentBlock ? '#3730a3' : '#1f2937' }}>
+                              style={{ borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: isCompact ? 160 : 260, position: 'sticky', top: 0, zIndex: 3, background: isCurrentBlock ? '#3730a3' : '#1f2937' }}>
                               <div className="text-sm font-black uppercase tracking-wider" style={{ color: isCurrentBlock ? '#c7d2fe' : 'rgba(255,255,255,0.9)' }}>{block.label}</div>
                               <div className="text-xs font-semibold mt-0.5" style={{ color: isCurrentBlock ? '#818cf8' : 'rgba(255,255,255,0.45)' }}>{block.display}</div>
                             </th>
@@ -1289,12 +1353,12 @@ export function TodayView({
                             <td className="px-3 py-3 align-middle"
                               style={{ background: '#e2e8f0', borderRight: '1px solid #94a3b8', borderBottom: '1px solid #cbd5e1', position: 'sticky', left: 0, zIndex: 1, width: 1, whiteSpace: 'nowrap' }}>
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                <div className={`${isCompact ? 'w-6 h-6 text-[9px]' : 'w-8 h-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0`}
                                   style={{ background: palette.bg, color: palette.text, border: `1.5px solid ${palette.border}` }}>
                                   {tutor.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                                 <div>
-                                  <p className="text-sm font-bold leading-tight" style={{ color: '#1f2937' }}>{tutor.name}</p>
+                                  <p className={`${isCompact ? 'text-[11px]' : 'text-sm'} font-bold leading-tight`} style={{ color: '#1f2937' }}>{tutor.name}</p>
                                   <span className="text-[8px] font-bold px-1.5 py-0.5 rounded mt-0.5 inline-block"
                                     style={{ background: tutor.cat === 'math' ? '#dbeafe' : '#fce7f3', color: tutor.cat === 'math' ? '#1d4ed8' : '#be185d' }}>
                                     {tutor.cat === 'math' ? 'Math' : 'English'}
@@ -1314,7 +1378,7 @@ export function TodayView({
                               const timeOffNote = isOnTimeOff ? timeOff.find(t => t.tutorId === tutor.id && t.date === todayIso)?.note : null;
 
                               return (
-                                <td key={block.id} className="p-2 align-top"
+                                <td key={block.id} className={`${isCompact ? 'p-1.5' : 'p-2'} align-top`}
                                   style={{
                                     background: isOutside
                                       ? 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)'
@@ -1325,7 +1389,7 @@ export function TodayView({
                                           : '#f3f4f6',
                                     borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                     borderBottom: '1px solid #cbd5e1',
-                                    minWidth: 260,
+                                    minWidth: isCompact ? 160 : 260,
                                   }}
                                   onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                   onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, todayIso, block.time); }}>
@@ -1334,7 +1398,7 @@ export function TodayView({
                                     {/* booked students */}
                                     {hasStudents && orderStudentsForDisplay(session!.students).map((student: any) => (
                                       <div key={student.rowId || student.id}
-                                        className="p-2.5 rounded-xl cursor-pointer transition-all hover:shadow-md"
+                                        className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-xl cursor-pointer transition-all hover:shadow-md`}
                                         draggable={!!student.rowId}
                                         onDragStart={(e) => {
                                           if (!student.rowId) return;
@@ -1357,7 +1421,7 @@ export function TodayView({
                                         onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
                                         <div className="flex justify-between items-start mb-1">
                                           <div className="flex items-center gap-1.5 min-w-0">
-                                            <p className="text-sm font-bold leading-tight truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}{student.grade ? ` (${student.grade})` : ''}</p>
+                                            <p className={`${isCompact ? 'text-[11px]' : 'text-sm'} font-bold leading-tight truncate`} style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}{student.grade ? ` (${student.grade})` : ''}</p>
                                             {attendanceBadge(student.status) && (
                                               <span
                                                 className="text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider"
@@ -1455,16 +1519,16 @@ export function TodayView({
                                             <span className="text-[8px] font-black px-1 py-0.5 rounded" style={{ background: '#ede9fe', color: '#7c3aed', letterSpacing: '0.02em' }}>↺ REC</span>
                                           )}
                                         </div>
-                                        {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
+                                        {!isCompact && student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
                                       </div>
                                     ))}
 
                                     {/* add-more / available / blocked */}
                                     {hasStudents && !isOnTimeOff && !isFull && renderAddMore(tutor, block, session, palette)}
-                                    {isAvail && renderAvailableSlot(tutor, block, palette)}
+                                    {isAvail && renderAvailableSlot(tutor, block, palette, isCompact ? 56 : 100)}
                                     {isOutside && (
                                       <div className="flex-1 rounded-xl flex flex-col items-center justify-center gap-1"
-                                        style={{ minHeight: 100, background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
+                                        style={{ minHeight: isCompact ? 56 : 100, background: 'repeating-linear-gradient(45deg,#e9ebee,#e9ebee 4px,#dfe2e6 4px,#dfe2e6 8px)' }}>
                                         {isOnTimeOff ? (
                                           <>
                                             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: hasStudents ? '#b91c1c' : '#4f46e5' }}>
@@ -1825,16 +1889,27 @@ export function TodayView({
             </div>
 
             {/* ── SIDE PANEL ── */}
-            <SidePanel
-              todayIso={todayIso}
-              sessions={sessions}
-              tutors={tutors}
-              daySessions={daySessions}
-              dayLabel={dayLabel}
-              pendingStudents={pendingStudents}
-              setSelectedSessionWithNotes={setSelectedSessionWithNotes}
-              refetch={refetch}
-            />
+            {showSidePanel && (
+              <SidePanel
+                todayIso={todayIso}
+                sessions={sessions}
+                tutors={tutors}
+                daySessions={daySessions}
+                dayLabel={dayLabel}
+                pendingStudents={pendingStudents}
+                setSelectedSessionWithNotes={setSelectedSessionWithNotes}
+                refetch={refetch}
+                todayStudentCount={todayStudentCount}
+                scheduledSessionCount={scheduledSessionCount}
+                studentsPerSession={studentsPerSession}
+                density={density}
+                setDensity={setDensity}
+                filteredDaySessions={filteredDaySessions}
+                filteredTodayTutors={filteredTodayTutors}
+                todaySessionByTutorTime={todaySessionByTutorTime}
+                onCollapse={() => setShowSidePanel(false)}
+              />
+            )}
 
           </div>
         )}
