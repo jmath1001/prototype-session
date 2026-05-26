@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
 import { DB, withCenter, withCenterPayload } from '@/lib/db';
@@ -35,6 +35,7 @@ function buildAnnouncementHtml(
   recipientName: string,
   bodyText: string,
   availabilityLink: string,
+  centerPhone?: string | null
 ): string {
   const BRAND = '#0f172a';
   const safeBody = bodyText.replace(/\n/g, '<br>').trim();
@@ -61,6 +62,7 @@ function buildAnnouncementHtml(
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+      ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table>
   </td></tr>
@@ -81,9 +83,11 @@ export async function POST(req: NextRequest) {
 
     // Load center settings for center name
     const { data: settingsData } = await withCenter(
-      supabase.from(DB.centerSettings).select('center_name').limit(1)
+      supabase.from(DB.centerSettings).select('center_name, center_email, center_phone').limit(1)
     ).maybeSingle();
     const centerName: string = settingsData?.center_name ?? 'Tutoring Center';
+    const centerEmail: string | null = settingsData?.center_email ?? null;
+    const centerPhone: string | null = settingsData?.center_phone ?? null;
 
     // Load term name (optional)
     let termName = '';
@@ -186,13 +190,14 @@ export async function POST(req: NextRequest) {
         term: termName,
         center: centerName,
       });
-      const html = buildAnnouncementHtml(centerName, recipientName, resolvedBody, availabilityLink);
+      const html = buildAnnouncementHtml(centerName, recipientName, resolvedBody, availabilityLink, centerPhone);
 
       const to = guard.mode === 'live' ? emails.join(', ') : guard.redirectTo!;
 
       try {
         await transporter.sendMail({
           from: `"${centerName}" <${process.env.GOOGLE_EMAIL}>`,
+          replyTo: centerEmail ?? undefined,
           to,
           subject: resolvedSubject,
           text: resolvedBody,

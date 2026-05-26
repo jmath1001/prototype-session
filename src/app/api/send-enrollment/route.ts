@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
       }))
     }
 
+    const { data: settingsData } = await withCenter(
+      supabase.from(DB.centerSettings).select('center_name, center_email, center_phone').limit(1)
+    ).maybeSingle()
+    const centerName: string = settingsData?.center_name ?? 'C2 Education'
+    const centerEmail: string | null = settingsData?.center_email ?? null
+    const centerPhone: string | null = settingsData?.center_phone ?? null
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -44,7 +51,8 @@ export async function POST(req: NextRequest) {
     })
 
     await transporter.sendMail({
-      from: `"C2 Education" <${process.env.GOOGLE_EMAIL}>`,
+      from: `"${centerName}" <${process.env.GOOGLE_EMAIL}>`,
+      replyTo: centerEmail ?? undefined,
       to: recipientEmail,
       subject: `${termName ?? 'Upcoming Term'} Enrollment Form – ${studentName ?? 'Your Student'}`,
       html: `
@@ -54,7 +62,7 @@ export async function POST(req: NextRequest) {
           <a href="${formUrl}" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#dc2626;color:white;border-radius:8px;text-decoration:none;font-weight:bold;">
             Fill Out Form
           </a>
-          <p style="margin-top:24px;color:#64748b;font-size:13px;">This link is unique to your student. If you have questions, contact the center directly.</p>
+          <p style="margin-top:24px;color:#64748b;font-size:13px;">This link is unique to your student. If you have questions, do not reply to this email—${centerPhone ? ` call us at ${centerPhone}` : ' contact the center directly'}.</p>
         </div>
       `,
     })

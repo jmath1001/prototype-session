@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { DB, withCenter } from "@/lib/db";
@@ -52,7 +52,8 @@ function buildStudentScheduleHtml(
   centerName: string,
   studentName: string,
   termName: string,
-  series: SeriesRow[]
+  series: SeriesRow[],
+  centerPhone?: string | null
 ): string {
   const BRAND = "#0f172a";
 
@@ -119,6 +120,7 @@ function buildStudentScheduleHtml(
       </td></tr>
       <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
         <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
       </td></tr>
     </table>
     </td></tr>
@@ -160,9 +162,11 @@ export async function POST(req: NextRequest) {
 
     // Load center name
     const { data: settingsData } = await withCenter(
-      supabase.from(DB.centerSettings).select("center_name").limit(1)
+      supabase.from(DB.centerSettings).select("center_name, center_email, center_phone").limit(1)
     ).maybeSingle();
     const centerName: string = settingsData?.center_name ?? "Tutoring Center";
+    const centerEmail: string | null = settingsData?.center_email ?? null;
+    const centerPhone: string | null = settingsData?.center_phone ?? null;
 
     // Load term
     const { data: termData, error: termError } = await supabase
@@ -235,7 +239,7 @@ export async function POST(req: NextRequest) {
           tutor_name: tutorMap[s.tutor_id] ?? "—",
         }));
 
-      const html = buildStudentScheduleHtml(centerName, student.name ?? "Student", termName, studentSeries);
+      const html = buildStudentScheduleHtml(centerName, student.name ?? "Student", termName, studentSeries, centerPhone);
       const subject = `Your tutoring schedule for ${termName}`;
 
       const toAddresses = guard.mode === "live" ? emails : [guard.redirectTo!];
@@ -243,6 +247,7 @@ export async function POST(req: NextRequest) {
       try {
         await transporter.sendMail({
           from: `"${centerName}" <${process.env.GOOGLE_EMAIL}>`,
+          replyTo: centerEmail ?? undefined,
           to: toAddresses.join(", "),
           subject,
           html,

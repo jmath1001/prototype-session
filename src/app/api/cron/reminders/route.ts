@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
@@ -100,6 +100,7 @@ function buildStudentHtml(settings: any, studentName: string, session: any, conf
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }
@@ -122,6 +123,7 @@ function buildGuardianHtml(settings: any, guardianName: string, studentName: str
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }

@@ -23,6 +23,7 @@ type Log = {
 type Settings = {
   center_name: string;
   center_email: string;
+  center_phone: string;
   reminder_subject: string;
   reminder_body: string;
 };
@@ -30,6 +31,7 @@ type Settings = {
 const DEFAULT_SETTINGS: Settings = {
   center_name: 'Tutoring Center',
   center_email: '',
+  center_phone: '',
   reminder_subject: 'Reminder: Upcoming tutoring session for {{name}}',
   reminder_body: 'Hi {{name}},\n\nThis is a reminder that you have a tutoring session on {{date}} at {{time}}.\n\nPlease confirm here: {{link}}\n\nThank you.',
 };
@@ -133,7 +135,7 @@ function applyTemplate(template: string, values: Record<string, string>) {
   return template.replace(/{{\s*(name|date|time|link)\s*}}/gi, (_, key: string) => values[key.toLowerCase()] ?? '');
 }
 
-function buildAnnouncementHtml(centerName: string, bodyText: string, availabilityLink: string) {
+function buildAnnouncementHtml(centerName: string, bodyText: string, availabilityLink: string, centerPhone?: string | null) {
   const safeBody = bodyText.replace(/\n/g, '<br>').trim();
   const linkSection = availabilityLink
     ? `<table cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
@@ -158,6 +160,7 @@ function buildAnnouncementHtml(centerName: string, bodyText: string, availabilit
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+      ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table>
   </td></tr>
@@ -181,7 +184,7 @@ function fmtDate(iso: string): string {
   });
 }
 
-function buildScheduleHtml(centerName: string, tutorName: string, schedule: ScheduleEntry[], periodLabel: string): string {
+function buildScheduleHtml(centerName: string, tutorName: string, schedule: ScheduleEntry[], periodLabel: string, centerPhone?: string | null): string {
   const byDate: Record<string, ScheduleEntry[]> = {};
   for (const entry of schedule) {
     if (!byDate[entry.date]) byDate[entry.date] = [];
@@ -240,12 +243,77 @@ function buildScheduleHtml(centerName: string, tutorName: string, schedule: Sche
       </td></tr>
       <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
         <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
       </td></tr>
     </table>
     </td></tr>
   </table>
 </body>
 </html>`;
+}
+
+const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+type StudentSeriesRow = {
+  day_of_week: number;
+  time: string;
+  topic: string;
+  start_date: string;
+  end_date: string;
+  tutor_name: string;
+};
+
+function buildStudentScheduleHtml(centerName: string, studentName: string, termName: string, series: StudentSeriesRow[], centerPhone?: string | null): string {
+  const rows = series
+    .sort((a, b) => a.day_of_week - b.day_of_week || a.time.localeCompare(b.time))
+    .map(s => {
+      const dayLabel = DOW_NAMES[s.day_of_week] ?? `Day ${s.day_of_week}`;
+      const startFmt = new Date(`${s.start_date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endFmt   = new Date(`${s.end_date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `<tr>
+        <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f3f4f6;">${dayLabel}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;white-space:nowrap;border-right:1px solid #f3f4f6;">${fmt12(s.time)}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;border-right:1px solid #f3f4f6;">${s.topic || '—'}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#6b7280;white-space:nowrap;border-right:1px solid #f3f4f6;">${s.tutor_name}</td>
+        <td style="padding:10px 14px;font-size:11px;color:#9ca3af;white-space:nowrap;">${startFmt} – ${endFmt}</td>
+      </tr>`;
+    })
+    .join('');
+  const tableBody = rows || `<tr><td colspan="5" style="padding:14px;font-size:12px;color:#9ca3af;font-style:italic;">No recurring sessions scheduled for this term.</td></tr>`;
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;">
+    <tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+      <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
+        <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Your Recurring Schedule — ${termName}</p>
+      </td></tr>
+      <tr><td style="padding:28px;">
+        <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#111827;">Hi ${studentName},</p>
+        <p style="margin:0 0 24px;font-size:13px;color:#6b7280;">Here is your confirmed recurring tutoring schedule for <strong>${termName}</strong>. These sessions repeat every week on the days listed below.</p>
+        <div style="overflow-x:auto;">
+          <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;">
+            <thead><tr style="background:#f3f4f6;">
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Day</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Time</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Subject</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Tutor</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;">Dates</th>
+            </tr></thead>
+            <tbody>${tableBody}</tbody>
+          </table>
+        </div>
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body></html>`;
 }
 
 function buildReminderStudentHtml(settings: Settings, studentName: string, sessionDate: string, sessionTime: string, confirmLink: string) {
@@ -274,6 +342,7 @@ function buildReminderStudentHtml(settings: Settings, studentName: string, sessi
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }
@@ -296,6 +365,7 @@ function buildReminderGuardianHtml(settings: Settings, guardianName: string, stu
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
       <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }
@@ -969,7 +1039,7 @@ export default function ContactCenter() {
     setPreviewModal({
       title: 'Availability Email Preview',
       subject,
-      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, blastTermId ? sampleLink : '')),
+      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, blastTermId ? sampleLink : '', settings?.center_phone)),
       note: `Previewing ${sampleName}${sampleTerm ? ` for ${sampleTerm}` : ''}.`,
     });
   };
@@ -1006,7 +1076,7 @@ export default function ContactCenter() {
     setPreviewModal({
       title: 'General Email Preview',
       subject,
-      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, '')),
+      html: buildPreviewFrameHtml(subject, buildAnnouncementHtml(sampleCenter, body, '', settings?.center_phone)),
       note: `Previewing ${sampleName}.`,
     });
   };
@@ -1043,7 +1113,7 @@ export default function ContactCenter() {
 
     if (!previewTutor) {
       const dummySchedule = buildDummySchedule();
-      const html = buildScheduleHtml(centerName, 'Sample Tutor', dummySchedule, periodLabel);
+      const html = buildScheduleHtml(centerName, 'Sample Tutor', dummySchedule, periodLabel, settings?.center_phone);
       setPreviewModal({
         title: previewTitle,
         subject: subjectLine,
@@ -1083,7 +1153,7 @@ export default function ContactCenter() {
       const displaySchedule = schedule.length > 0 ? schedule : buildDummySchedule();
       const isDummy = schedule.length === 0;
 
-      const html = buildScheduleHtml(centerName, previewTutor.name ?? 'Tutor', displaySchedule, periodLabel);
+      const html = buildScheduleHtml(centerName, previewTutor.name ?? 'Tutor', displaySchedule, periodLabel, settings?.center_phone);
       setPreviewModal({
         title: previewTitle,
         subject: subjectLine,
@@ -1098,6 +1168,85 @@ export default function ContactCenter() {
         subject: 'Preview unavailable',
         html: buildPreviewFrameHtml('Preview unavailable', `<div style="padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;color:#991b1b;background:#fff;">${error?.message ?? 'Failed to load preview.'}</div>`),
         note: error?.message ?? 'Failed to load preview.',
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const openStudentSchedulePreview = async () => {
+    const previewStudent = blastRecipients[0];
+    const centerName = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
+    const previewTerm = terms.find(t => t.id === studentSchedTermId);
+    const termName = previewTerm?.name ?? 'Selected Term';
+    const subject = `Your tutoring schedule for ${termName}`;
+
+    const buildDummySeries = (): StudentSeriesRow[] => [
+      { day_of_week: 1, time: '15:00', topic: 'Algebra II',  start_date: previewTerm?.start_date ?? toISODate(new Date()), end_date: previewTerm?.end_date ?? toISODate(new Date()), tutor_name: 'Sample Tutor' },
+      { day_of_week: 3, time: '16:30', topic: 'SAT Math',    start_date: previewTerm?.start_date ?? toISODate(new Date()), end_date: previewTerm?.end_date ?? toISODate(new Date()), tutor_name: 'Sample Tutor' },
+      { day_of_week: 5, time: '14:00', topic: 'Pre-Calculus', start_date: previewTerm?.start_date ?? toISODate(new Date()), end_date: previewTerm?.end_date ?? toISODate(new Date()), tutor_name: 'Sample Tutor' },
+    ];
+
+    if (!previewStudent || !studentSchedTermId) {
+      const html = buildStudentScheduleHtml(centerName, previewStudent?.studentName ?? 'Sample Student', termName, buildDummySeries(), settings?.center_phone);
+      setPreviewModal({
+        title: 'Student Schedule Email Preview',
+        subject,
+        html: buildPreviewFrameHtml(subject, html),
+        note: studentSchedTermId ? 'Sample preview — no students found.' : 'Sample preview — select a term to see real data.',
+      });
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const term = previewTerm;
+      const { data: seriesData, error: seriesError } = await (withCenter(
+        supabase
+          .from(DB.recurringSeries)
+          .select('day_of_week, time, topic, start_date, end_date, tutor_id')
+          .eq('student_id', previewStudent.studentId)
+          .eq('status', 'active')
+          .lte('start_date', term?.end_date ?? '9999-12-31')
+          .gte('end_date',   term?.start_date ?? '0000-01-01')
+      ) as any);
+      if (seriesError) throw seriesError;
+
+      const tutorIds = [...new Set((seriesData ?? []).map((s: any) => s.tutor_id as string))];
+      let tutorMap: Record<string, string> = {};
+      if (tutorIds.length > 0) {
+        const { data: tutorData } = await (withCenter(
+          supabase.from(DB.tutors).select('id, name').in('id', tutorIds)
+        ) as any);
+        for (const t of tutorData ?? []) tutorMap[t.id] = t.name ?? '—';
+      }
+
+      const series: StudentSeriesRow[] = (seriesData ?? []).map((s: any) => ({
+        day_of_week: s.day_of_week,
+        time: s.time,
+        topic: s.topic ?? '',
+        start_date: s.start_date,
+        end_date: s.end_date,
+        tutor_name: tutorMap[s.tutor_id] ?? '—',
+      }));
+
+      const displaySeries = series.length > 0 ? series : buildDummySeries();
+      const isDummy = series.length === 0;
+      const html = buildStudentScheduleHtml(centerName, previewStudent.studentName, termName, displaySeries, settings?.center_phone);
+      setPreviewModal({
+        title: 'Student Schedule Email Preview',
+        subject,
+        html: buildPreviewFrameHtml(subject, html),
+        note: isDummy
+          ? `Sample preview for ${previewStudent.studentName} — no active recurring series found for ${termName}.`
+          : `Previewing ${previewStudent.studentName} for ${termName}.`,
+      });
+    } catch (err: any) {
+      setPreviewModal({
+        title: 'Student Schedule Email Preview',
+        subject: 'Preview unavailable',
+        html: buildPreviewFrameHtml('Preview unavailable', `<div style="padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;color:#991b1b;background:#fff;">${err?.message ?? 'Failed to load preview.'}</div>`),
+        note: err?.message ?? 'Failed to load preview.',
       });
     } finally {
       setPreviewLoading(false);
@@ -1153,6 +1302,7 @@ export default function ContactCenter() {
     const sampleSettings: Settings = {
       center_name: settings?.center_name ?? DEFAULT_SETTINGS.center_name,
       center_email: settings?.center_email ?? DEFAULT_SETTINGS.center_email,
+      center_phone: settings?.center_phone ?? DEFAULT_SETTINGS.center_phone,
       reminder_subject: draftSubject || settings?.reminder_subject || DEFAULT_SETTINGS.reminder_subject,
       reminder_body: draftBody || settings?.reminder_body || DEFAULT_SETTINGS.reminder_body,
     };
@@ -2003,7 +2153,13 @@ export default function ContactCenter() {
                   />
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    onClick={() => void openStudentSchedulePreview()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Eye size={12} /> Preview schedule email
+                  </button>
                   <SendButton
                     onClick={handleSendStudentSchedules}
                     loading={studentSchedSending}

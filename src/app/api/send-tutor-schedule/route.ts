@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { DB, withCenter } from "@/lib/db";
@@ -62,7 +62,8 @@ function buildScheduleHtml(
   centerName: string,
   tutorName: string,
   schedule: SessionEntry[],
-  periodLabel: string
+  periodLabel: string,
+  centerPhone?: string | null
 ): string {
   const BRAND = "#0f172a";
 
@@ -128,6 +129,7 @@ function buildScheduleHtml(
       </td></tr>
       <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
         <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
       </td></tr>
     </table>
     </td></tr>
@@ -195,9 +197,11 @@ export async function POST(req: NextRequest) {
 
     // Center name
     const { data: settingsData } = await withCenter(
-      supabase.from(DB.centerSettings).select("center_name").limit(1)
+      supabase.from(DB.centerSettings).select("center_name, center_email, center_phone").limit(1)
     ).maybeSingle();
     const centerName: string = settingsData?.center_name ?? "Tutoring Center";
+    const centerEmail: string | null = settingsData?.center_email ?? null;
+    const centerPhone: string | null = settingsData?.center_phone ?? null;
 
     // Fetch tutors (only those in the provided list)
     const safeIds = (tutorIds as unknown[]).filter(
@@ -256,7 +260,7 @@ export async function POST(req: NextRequest) {
     for (const tutor of tutors ?? []) {
       if (!tutor.email) continue;
       const schedule = scheduleByTutor[tutor.id] ?? [];
-      const html = buildScheduleHtml(centerName, tutor.name ?? "Tutor", schedule, periodLabel);
+      const html = buildScheduleHtml(centerName, tutor.name ?? "Tutor", schedule, periodLabel, centerPhone);
       const subject = `Your ${mode === "daily" ? "daily" : "weekly"} schedule — ${periodLabel}`;
       const textLines =
         schedule.length === 0
@@ -279,6 +283,7 @@ export async function POST(req: NextRequest) {
       try {
         await transporter.sendMail({
           from: `"${centerName}" <${process.env.GOOGLE_EMAIL}>`,
+          replyTo: centerEmail ?? undefined,
           to,
           subject,
           text,
