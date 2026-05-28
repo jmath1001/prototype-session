@@ -186,7 +186,7 @@ function getOperationType(eventName: string): OperationType {
   return OPERATION_FROM_EVENT[eventName] ?? 'other';
 }
 
-// â”€â”€ Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Bar ─────────────────────────────────────────────────────────────────────────────────────────────────────
 function Bar({ value, max, color, label, count }: { value: number; max: number; color: string; label: string; count: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
@@ -200,7 +200,7 @@ function Bar({ value, max, color, label, count }: { value: number; max: number; 
   );
 }
 
-// â”€â”€ KPI card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── KPI card ────────────────────────────────────────────────────────────────────────────────────────────────
 function KPI({ label, value, sub, color, icon }: { label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode }) {
   return (
     <div className="rounded-2xl p-5" style={{ background: 'white', border: '2px solid #e5e7eb' }}>
@@ -214,7 +214,7 @@ function KPI({ label, value, sub, color, icon }: { label: string; value: string 
   );
 }
 
-// â”€â”€ Collapsible section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Collapsible section ──────────────────────────────────────────────────────────────────────────────────────
 function Collapsible({ title, sub, badge, badgeColor = '#dc2626', children, defaultOpen = true }: {
   title: string; sub?: string; badge?: number | string; badgeColor?: string;
   children: React.ReactNode; defaultOpen?: boolean;
@@ -242,7 +242,7 @@ function Collapsible({ title, sub, badge, badgeColor = '#dc2626', children, defa
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -319,7 +319,7 @@ export default function AnalyticsPage() {
   const today = toISODate(getCentralTimeNow());
   const currentWeek = toISODate(getWeekStart(getCentralTimeNow()));
 
-  // â”€â”€ Core derived data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Core derived data ─────────────────────────────────────────────────────────────────────────────
 
   const { totalEvents, last7, bookings, attendanceMarks, uniqueDays } = useMemo(() => {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
@@ -335,7 +335,7 @@ export default function AnalyticsPage() {
     };
   }, [events]);
 
-  // â”€â”€ Booking source breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Booking source breakdown ──────────────────────────────────────────────────────────────────────
   const bookingSources = useMemo(() => {
     const counts: Record<string, number> = {};
     events.filter(e => e.event_name === 'session_booked').forEach(e => {
@@ -356,7 +356,7 @@ export default function AnalyticsPage() {
     return events.filter(event => new Date(event.created_at) >= cutoff);
   }, [events, insightRange]);
 
-  // â”€â”€ Auto Book + search bar insights â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Auto Book + search bar insights ───────────────────────────────────────────────────────────────
   const autoBookInsights = useMemo(() => {
     const autoBookEvents = insightEvents.filter(e => e.event_name === 'auto_book_used');
     const actionCounts: Record<string, number> = {};
@@ -397,7 +397,7 @@ export default function AnalyticsPage() {
     };
   }, [insightEvents]);
 
-  // â”€â”€ Attendance source breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Attendance source breakdown ───────────────────────────────────────────────────────────────────
   const attendanceSources = useMemo(() => {
     const counts: Record<string, number> = {};
     events.filter(e => e.event_name === 'attendance_marked').forEach(e => {
@@ -409,7 +409,7 @@ export default function AnalyticsPage() {
 
   const maxAttSource = attendanceSources[0]?.[1] ?? 1;
 
-  // â”€â”€ Operations by type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Operations by type ────────────────────────────────────────────────────────────────────────────
   const operationBreakdown = useMemo(() => {
     const counts: Record<OperationType, number> = {
       addition: 0,
@@ -438,7 +438,7 @@ export default function AnalyticsPage() {
     ? Math.max(...operationBreakdown.map(o => o.count), 1)
     : 1;
 
-  // â”€â”€ Weekly ops table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Weekly ops table ──────────────────────────────────────────────────────────────────────────────
   const weeklyData = useMemo(() => {
     const past = sessionStudents.filter(s => s.date < today);
     const weeks: Record<string, { present: number; noShow: number; total: number; bookings: number; events: number; attendanceMarks: number }> = {};
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
       }));
   }, [sessionStudents, events, today, weekRange, currentWeek]);
 
-  // â”€â”€ Feature usage (top 15) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Feature usage (top 15) ────────────────────────────────────────────────────────────────────────
   const featureUsage = useMemo(() => {
     const counts: Record<string, number> = {};
     events.forEach(e => { counts[e.event_name] = (counts[e.event_name] ?? 0) + 1; });
@@ -481,7 +481,7 @@ export default function AnalyticsPage() {
 
   const maxFeature = featureUsage[0]?.count ?? 1;
 
-  // â”€â”€ Daily activity (last 14 days) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Daily activity (last 14 days) ─────────────────────────────────────────────────────────────────
   const dailyActivity = useMemo(() => {
     const days: Record<string, number> = {};
     for (let i = 13; i >= 0; i--) {
@@ -501,7 +501,7 @@ export default function AnalyticsPage() {
 
   const maxDaily = Math.max(...dailyActivity.map(d => d.count), 1);
 
-  // â”€â”€ Student & Tutor Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Student & Tutor Management ────────────────────────────────────────────────────────────────────
   const mgmtActivity = useMemo(() => {
     const studentEvents = ['student_created', 'student_edited', 'student_deleted', 'students_bulk_deleted', 'students_imported'];
     const tutorEvents   = ['tutor_created', 'tutor_edited', 'tutor_deleted', 'tutors_bulk_deleted'];
@@ -515,7 +515,7 @@ export default function AnalyticsPage() {
   }, [events]);
   const maxMgmt = mgmtActivity[0]?.[1] ?? 1;
 
-  // â”€â”€ Communications breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Communications breakdown ─────────────────────────────────────────────────────────────────────
   const commsBreakdown = useMemo(() => {
     const categories = [
       { key: 'reminder_sent',          label: 'Reminders',           color: '#dc2626' },
@@ -532,7 +532,7 @@ export default function AnalyticsPage() {
   const maxComms = Math.max(...commsBreakdown.map(c => c.count), 1);
   const totalEmailsSent = commsBreakdown.reduce((sum, c) => sum + c.count, 0);
 
-  // â”€â”€ Center config activity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Center config activity ───────────────────────────────────────────────────────────────────────
   const centerActivity = useMemo(() => {
     const cats = [
       { key: 'term_created',        label: 'Terms created',   color: '#16a34a' },
@@ -548,7 +548,7 @@ export default function AnalyticsPage() {
   }, [events]);
   const maxCenter = centerActivity[0]?.count ?? 1;
 
-  // â”€â”€ Virtual vs In-Person â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Virtual vs In-Person ─────────────────────────────────────────────────────────────────────────
   const virtualStats = useMemo(() => {
     const virtual = sessionStudents.filter(s => s.isVirtual).length;
     const inPerson = sessionStudents.filter(s => !s.isVirtual).length;
@@ -556,7 +556,7 @@ export default function AnalyticsPage() {
     return { virtual, inPerson, total, pct: total > 0 ? Math.round((virtual / total) * 100) : 0 };
   }, [sessionStudents]);
 
-  // â”€â”€ Student time off â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Student time off ─────────────────────────────────────────────────────────────────────────────
   const studentTimeOffStats = useMemo(() => {
     const total = studentDateExceptions.length;
     const upcoming = studentDateExceptions.filter(e => e.exception_date >= today).slice(0, 10);
@@ -569,14 +569,14 @@ export default function AnalyticsPage() {
     return { total, upcoming, topReasons, maxReason: topReasons[0]?.[1] ?? 1 };
   }, [studentDateExceptions, today]);
 
-  // â”€â”€ Rate color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Rate color ─────────────────────────────────────────────────────────────────────────────────────────────
   const rc = (v: number | null) => !v ? '#94a3b8' : v >= 80 ? '#16a34a' : v >= 60 ? '#f59e0b' : '#dc2626';
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#f1f5f9' }}>
       <div className="flex flex-col items-center gap-3">
         <Loader2 size={22} className="animate-spin" style={{ color: '#dc2626' }} />
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9ca3af' }}>Loading analyticsâ€¦</p>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9ca3af' }}>Loading analytics…</p>
       </div>
     </div>
   );
@@ -584,7 +584,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen pb-20" style={{ background: '#f1f5f9' }}>
 
-      {/* â”€â”€ Header â”€â”€ */}
+      {/* ── Header ── */}
       <div className="sticky top-0 z-40" style={{ background: 'white', borderBottom: '2px solid #e5e7eb' }}>
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -672,20 +672,20 @@ export default function AnalyticsPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-sm font-black" style={{ color: wk.bookings > 0 ? '#16a34a' : '#d1d5db' }}>{wk.bookings || 'â€”'}</span>
+                            <span className="text-sm font-black" style={{ color: wk.bookings > 0 ? '#16a34a' : '#d1d5db' }}>{wk.bookings || '—'}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-sm font-semibold" style={{ color: wk.total > 0 ? '#374151' : '#d1d5db' }}>{wk.total || 'â€”'}</span>
+                            <span className="text-sm font-semibold" style={{ color: wk.total > 0 ? '#374151' : '#d1d5db' }}>{wk.total || '—'}</span>
                           </td>
                           <td className="px-4 py-3">
                             {wk.attendanceRate !== null
                               ? <span className="text-sm font-black" style={{ color: rc(wk.attendanceRate) }}>{wk.attendanceRate}%</span>
-                              : <span style={{ color: '#d1d5db' }}>â€”</span>}
+                              : <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
                           <td className="px-4 py-3">
                             {wk.noShowRate !== null
                               ? <span className="text-sm font-black" style={{ color: wk.noShowRate > 20 ? '#dc2626' : '#64748b' }}>{wk.noShowRate}%</span>
-                              : <span style={{ color: '#d1d5db' }}>â€”</span>}
+                              : <span style={{ color: '#d1d5db' }}>—</span>}
                           </td>
                         </tr>
                       ))}
@@ -711,7 +711,7 @@ export default function AnalyticsPage() {
         </Collapsible>
 
         {/* â”€â”€ Operations Breakdown â”€â”€ */}
-        <Collapsible title="Operation Types" defaultOpen={false} sub="Additions Â· Deletions Â· Confirmations Â· Reschedules">
+        <Collapsible title="Operation Types" defaultOpen={false} sub="Additions · Deletions · Confirmations · Reschedules">
           {operationBreakdown.length === 0 ? (
             <p className="text-sm italic" style={{ color: '#9ca3af' }}>No events yet.</p>
           ) : (
