@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
-import { DB, withCenter } from "@/lib/db";
+import { DB, withCenter, getCenterId } from "@/lib/db";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -223,6 +223,9 @@ export async function POST(req: NextRequest) {
     let failed = 0;
     const errors: string[] = [];
     const redirectedTo = guard.mode === "redirect" ? guard.redirectTo : null;
+    const details: { name: string; to: string }[] = [];
+    const centerId = getCenterId();
+    const logRows: object[] = [];
 
     for (const student of students ?? []) {
       const emails: string[] = [student.email, student.mom_email, student.dad_email].filter(Boolean) as string[];
@@ -253,13 +256,38 @@ export async function POST(req: NextRequest) {
           html,
         });
         sent++;
+        details.push({ name: student.name ?? student.id, to: toAddresses.join(", ") });
+        logRows.push({
+          center_id: centerId,
+          student_id: student.id,
+          student_name: student.name ?? "",
+          term_id: termId,
+          term_name: termName,
+          emailed_to: toAddresses.join(", "),
+          status: "sent",
+        });
       } catch (err: any) {
         failed++;
-        errors.push(`${student.name ?? student.id}: ${err?.message ?? "send failed"}`);
+        const errMsg = err?.message ?? "send failed";
+        errors.push(`${student.name ?? student.id}: ${errMsg}`);
+        logRows.push({
+          center_id: centerId,
+          student_id: student.id,
+          student_name: student.name ?? "",
+          term_id: termId,
+          term_name: termName,
+          emailed_to: toAddresses.join(", "),
+          status: "failed",
+          error: errMsg,
+        });
       }
     }
 
-    return NextResponse.json({ sent, failed, errors, mode: guard.mode, redirectedTo });
+    if (logRows.length > 0) {
+      await supabase.from(DB.studentScheduleLogs).insert(logRows);
+    }
+
+    return NextResponse.json({ sent, failed, errors, mode: guard.mode, redirectedTo, details });
   } catch (err: any) {
     console.error("send-student-schedule error:", err);
     return NextResponse.json({ error: err?.message ?? "Internal error" }, { status: 500 });

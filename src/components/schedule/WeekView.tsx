@@ -844,10 +844,11 @@ export function WeekView({
                                       borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                       borderBottom: '1px solid #cbd5e1',
                                       minWidth: 220,
+                                      maxWidth: 220,
                                     }}
                                     onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                     onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, isoDate, block.time); }}>
-                                    <div className="flex flex-col gap-1.5 h-full min-h-20">
+                                    <div className="flex flex-col gap-1.5 h-full min-h-20" style={{ overflow: 'hidden' }}>
 
                                       {/* Booked students — same card style as TodayView */}
                                       {hasStudents && session!.students.map((student: any) => {
@@ -1020,7 +1021,7 @@ export function WeekView({
                                                 <span className="text-[8px] font-black px-1 py-0.5 rounded" style={{ background: '#ede9fe', color: '#7c3aed', letterSpacing: '0.02em' }}>↺ REC</span>
                                               )}
                                             </div>
-                                            {student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
+                                            {student.notes && <p className="text-[10px] mt-1 italic break-words overflow-hidden" style={{ color: '#6b7280', wordBreak: 'break-word' }}>📝 {student.notes}</p>}
                                             {bulkRemoveMode && (
                                               <div className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: isSelected ? '#7c3aed' : '#6b7280' }}>
                                                 <span style={{ width: 10, height: 10, borderRadius: 999, display: 'inline-block', background: isSelected ? '#7c3aed' : '#d1d5db' }} />

@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
     let sent = 0;
     let failed = 0;
     const errors: string[] = [];
+    const details: { name: string; to: string }[] = [];
 
     for (const student of students ?? []) {
       const recipientName: string = student.name ?? 'Student';
@@ -204,6 +205,7 @@ export async function POST(req: NextRequest) {
           html,
         });
         sent++;
+        details.push({ name: recipientName, to });
       } catch (e: any) {
         failed++;
         const msg: string = e?.message ?? 'Unknown error';
@@ -217,6 +219,7 @@ export async function POST(req: NextRequest) {
       errors,
       mode: guard.mode,
       redirectedTo: guard.mode === 'redirect' ? guard.redirectTo : null,
+      details,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? 'Internal server error.' }, { status: 500 });

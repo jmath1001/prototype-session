@@ -71,6 +71,18 @@ type BlastRecipient = {
   notifyDad: boolean;
 };
 
+type StudentSchedLog = {
+  id: string;
+  student_id: string;
+  student_name: string;
+  term_id: string;
+  term_name: string;
+  emailed_to: string;
+  status: 'sent' | 'failed';
+  error: string | null;
+  sent_at: string;
+};
+
 type ScheduleEntry = {
   date: string;
   time: string;
@@ -392,7 +404,7 @@ export default function ContactCenter() {
   const [selected, setSelected]                   = useState<Set<string>>(new Set());
   const [sending, setSending]                     = useState(false);
   const [confirmSend, setConfirmSend]             = useState(false);
-  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string } | null>(null);
+  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
 
   const [logs, setLogs]                 = useState<Log[]>([]);
   const [loadingLogs, setLoadingLogs]   = useState(true);
@@ -419,7 +431,7 @@ export default function ContactCenter() {
   const [loadingBlastRecipients, setLoadingBlastRecipients] = useState(false);
   const [blastSending, setBlastSending]                     = useState(false);
   const [blastConfirm, setBlastConfirm]                     = useState(false);
-  const [blastResult, setBlastResult]                       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null } | null>(null);
+  const [blastResult, setBlastResult]                       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[] } | null>(null);
   const [blastExpanded, setBlastExpanded]                   = useState(false);
   const [editingBlastTemplate, setEditingBlastTemplate]     = useState(false);
 
@@ -429,7 +441,7 @@ export default function ContactCenter() {
   const [generalSelected, setGeneralSelected] = useState<Set<string>>(new Set());
   const [generalSending, setGeneralSending]   = useState(false);
   const [generalConfirm, setGeneralConfirm]   = useState(false);
-  const [generalResult, setGeneralResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null } | null>(null);
+  const [generalResult, setGeneralResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[] } | null>(null);
   const [generalExpanded, setGeneralExpanded] = useState(false);
 
   // Student schedule email state
@@ -437,7 +449,10 @@ export default function ContactCenter() {
   const [studentSchedSelected, setStudentSchedSelected] = useState<Set<string>>(new Set());
   const [studentSchedSending, setStudentSchedSending]   = useState(false);
   const [studentSchedConfirm, setStudentSchedConfirm]   = useState(false);
-  const [studentSchedResult, setStudentSchedResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string } | null>(null);
+  const [studentSchedResult, setStudentSchedResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
+  const [studentSchedLogs, setStudentSchedLogs]         = useState<StudentSchedLog[]>([]);
+  const [loadingStudentSchedLogs, setLoadingStudentSchedLogs] = useState(false);
+  const [studentSchedLogsExpanded, setStudentSchedLogsExpanded] = useState(false);
 
   // Tutor schedule email state
   const [tutorSchedExpanded, setTutorSchedExpanded]   = useState(false);
@@ -448,7 +463,7 @@ export default function ContactCenter() {
   const [tutorSchedDay, setTutorSchedDay]             = useState(() => toISODate(new Date()));
   const [tutorsWithEmail, setTutorsWithEmail]         = useState<{ id: string; name: string; email: string }[]>([]);
   const [tutorSchedSending, setTutorSchedSending]     = useState(false);
-  const [tutorSchedResult, setTutorSchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string } | null>(null);
+  const [tutorSchedResult, setTutorSchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
   const [previewModal, setPreviewModal]               = useState<EmailPreview | null>(null);
   const [previewLoading, setPreviewLoading]           = useState(false);
 
@@ -582,6 +597,23 @@ export default function ContactCenter() {
     setLoadingBlastRecipients(false);
   }, []);
 
+  const fetchStudentSchedLogs = useCallback(async (termId: string) => {
+    if (!termId) { setStudentSchedLogs([]); return; }
+    setLoadingStudentSchedLogs(true);
+    try {
+      const { data } = await withCenter(
+        supabase
+          .from(DB.studentScheduleLogs)
+          .select('id, student_id, student_name, term_id, term_name, emailed_to, status, error, sent_at')
+          .eq('term_id', termId)
+      ).order('sent_at', { ascending: false });
+      setStudentSchedLogs((data as StudentSchedLog[]) ?? []);
+    } catch {
+      setStudentSchedLogs([]);
+    }
+    setLoadingStudentSchedLogs(false);
+  }, []);
+
   const fetchCandidates = useCallback(async (date: string, termId?: string) => {
     setLoadingCandidates(true);
     setSendResult(null);
@@ -673,6 +705,7 @@ export default function ContactCenter() {
       .catch(() => {});
   }, [fetchSettings, fetchLogs, fetchTerms, fetchBlastRecipients]);
   useEffect(() => { fetchCandidates(dispatchDate, selectedTermId || undefined); }, [dispatchDate, selectedTermId, fetchCandidates]);
+  useEffect(() => { void fetchStudentSchedLogs(studentSchedTermId); }, [studentSchedTermId, fetchStudentSchedLogs]);
 
   useEffect(() => {
     withCenter(supabase
@@ -785,7 +818,7 @@ export default function ContactCenter() {
       });
       const data = await res.json();
       if (!res.ok) setStudentSchedResult({ sent: 0, failed: studentSchedSelected.size, errors: [data.error ?? 'Request failed'] });
-      else { setStudentSchedResult(data); setStudentSchedConfirm(false); logEvent('student_schedules_sent', { sent: data.sent ?? 0 }); }
+      else { setStudentSchedResult(data); setStudentSchedConfirm(false); logEvent('student_schedules_sent', { sent: data.sent ?? 0 }); void fetchStudentSchedLogs(studentSchedTermId); }
     } catch (e: any) {
       setStudentSchedResult({ sent: 0, failed: 0, errors: [e?.message ?? 'Unknown error'] });
     } finally {
@@ -886,6 +919,7 @@ export default function ContactCenter() {
           redirectedTo: data.redirectedTo ?? null,
           skipped: !!data.skipped,
           reason: data.reason,
+          details: data.details ?? [],
         });
         logEvent('reminder_sent', { sent: data.sent ?? 0, failed: data.failed ?? 0, date: dispatchDate });
         await Promise.all([fetchCandidates(dispatchDate, selectedTermId || undefined), fetchLogs()]);
@@ -941,6 +975,7 @@ export default function ContactCenter() {
           errors: data.errors ?? [],
           mode: data.mode,
           redirectedTo: data.redirectedTo ?? null,
+          details: data.details ?? [],
         });
         logEvent('reminder_sent', { sent: data.sent ?? 0, termId: blastTermId });
         logEvent('blast_sent', { type: 'availability', sent: data.sent ?? 0, termId: blastTermId });
@@ -982,6 +1017,7 @@ export default function ContactCenter() {
           errors: data.errors ?? [],
           mode: data.mode,
           redirectedTo: data.redirectedTo ?? null,
+          details: data.details ?? [],
         });
         logEvent('reminder_sent', { sent: data.sent ?? 0 });
         logEvent('blast_sent', { type: 'general', sent: data.sent ?? 0 });
@@ -1323,63 +1359,47 @@ export default function ContactCenter() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-5xl px-6 py-8">
 
-      {/* ── Page header ────────────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white px-6 py-4">
-        <div className="mx-auto max-w-4xl flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Mail size={16} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 leading-tight">Notifications</h1>
-            <p className="text-xs text-slate-500">Send emails, reminders, and announcements</p>
-          </div>
+        {/* ── Page header ─────────────────────────────────────────────────── */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+          <p className="mt-1 text-sm text-slate-500">Email tools for students and tutors</p>
         </div>
-      </div>
 
-      {/* ── Tab bar ─────────────────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white px-6">
-        <div className="mx-auto max-w-4xl">
-          <nav className="flex gap-1 overflow-x-auto">
-            {([
-              { id: 'reminders',    label: 'Reminders',         icon: <Send size={13} /> },
-              { id: 'availability', label: 'Availability',      icon: <Link2 size={13} /> },
-              { id: 'general',      label: 'General Blast',     icon: <Mail size={13} /> },
-              { id: 'tutor',        label: 'Tutor Schedules',   icon: <Calendar size={13} /> },
-              { id: 'student',      label: 'Student Schedules',  icon: <Users size={13} /> },
-              { id: 'history',      label: 'Send History',      icon: <Clock size={13} />, badge: logs.length || null },
-            ] as const).map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-xs font-semibold transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-                {'badge' in tab && tab.badge ? (
-                  <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{tab.badge}</span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
+        {/* ── Tab bar ─────────────────────────────────────────────────────── */}
+        <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200 pb-0">
+          {([
+            { id: 'reminders',    label: 'Reminders' },
+            { id: 'availability', label: 'Availability' },
+            { id: 'general',      label: 'General Blast' },
+            { id: 'tutor',        label: 'Tutor Schedules' },
+            { id: 'student',      label: 'Student Schedules' },
+            { id: 'history',      label: 'Send History', badge: logs.length || null },
+          ] as const).map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`relative flex shrink-0 items-center gap-1.5 px-4 py-2.5 text-sm font-semibold transition-colors focus:outline-none ${
+                activeTab === item.id
+                  ? 'text-slate-900 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t after:bg-slate-900'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {item.label}
+              {'badge' in item && item.badge ? (
+                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{item.badge}</span>
+              ) : null}
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* ── Tab panels ──────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-4xl px-6 py-6">
+        {/* ── Panel content ───────────────────────────────────────────────── */}
+        <div>
 
         {/* ── REMINDERS ─────────────────────────────────────────────────── */}
         {activeTab === 'reminders' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Send size={15} className="text-indigo-600" />}
-              title="Send Session Reminders"
-              description="Select a date, pick the students to remind, and dispatch. A second click confirms before sending."
-            />
 
             {/* Controls row */}
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1418,6 +1438,7 @@ export default function ContactCenter() {
                 redirectedTo={sendResult.redirectedTo}
                 skipped={sendResult.skipped}
                 reason={sendResult.reason}
+                details={sendResult.details}
               />
             )}
 
@@ -1666,11 +1687,6 @@ export default function ContactCenter() {
         {/* ── AVAILABILITY BLAST ──────────────────────────────────────────── */}
         {activeTab === 'availability' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Link2 size={15} className="text-indigo-600" />}
-              title="Availability Email Blast"
-              description="Send enrollment links to students and parents for a specific term. Recipients click the link to submit their preferred schedule."
-            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Left: term + template */}
@@ -1776,7 +1792,7 @@ export default function ContactCenter() {
                 )}
                 <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-3">
                   {blastResult && (
-                    <ResultBanner sent={blastResult.sent} failed={blastResult.failed} errors={blastResult.errors} mode={blastResult.mode} redirectedTo={blastResult.redirectedTo} />
+                    <ResultBanner sent={blastResult.sent} failed={blastResult.failed} errors={blastResult.errors} mode={blastResult.mode} redirectedTo={blastResult.redirectedTo} details={blastResult.details} />
                   )}
                   {!blastTermId && (
                     <p className="text-[11px] text-amber-600 font-medium">⚠ Select a term first to generate the availability link.</p>
@@ -1932,11 +1948,6 @@ export default function ContactCenter() {
         {/* ── GENERAL BLAST ───────────────────────────────────────────────── */}
         {activeTab === 'general' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Mail size={15} className="text-indigo-600" />}
-              title="General Email Blast"
-              description="Write any message and send it to any students and parents. No term required."
-            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Compose */}
@@ -2005,7 +2016,7 @@ export default function ContactCenter() {
                 )}
                 <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-3">
                   {generalResult && (
-                    <ResultBanner sent={generalResult.sent} failed={generalResult.failed} errors={generalResult.errors} mode={generalResult.mode} redirectedTo={generalResult.redirectedTo} />
+                    <ResultBanner sent={generalResult.sent} failed={generalResult.failed} errors={generalResult.errors} mode={generalResult.mode} redirectedTo={generalResult.redirectedTo} details={generalResult.details} />
                   )}
                   <div className="flex justify-end">
                     <SendButton
@@ -2026,11 +2037,6 @@ export default function ContactCenter() {
         {/* ── TUTOR SCHEDULES ─────────────────────────────────────────────── */}
         {activeTab === 'tutor' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Calendar size={15} className="text-indigo-600" />}
-              title="Tutor Schedules"
-              description="Email each tutor a summary of their sessions for the selected period."
-            />
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-5">
               {/* Mode toggle */}
@@ -2098,6 +2104,7 @@ export default function ContactCenter() {
                   redirectedTo={tutorSchedResult.redirectedTo}
                   skipped={tutorSchedResult.skipped}
                   reason={tutorSchedResult.reason}
+                  details={(tutorSchedResult as any).details}
                 />
               )}
 
@@ -2120,11 +2127,6 @@ export default function ContactCenter() {
         {/* ── STUDENT SCHEDULES ──────────────────────────────────────────── */}
         {activeTab === 'student' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Users size={15} className="text-indigo-600" />}
-              title="Student Recurring Schedules"
-              description="Send each student a summary of their recurring sessions for the selected term."
-            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Left: term + send */}
@@ -2133,7 +2135,7 @@ export default function ContactCenter() {
                   <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Term</p>
                   <select
                     value={studentSchedTermId}
-                    onChange={e => { setStudentSchedTermId(e.target.value); setStudentSchedResult(null); setStudentSchedConfirm(false); }}
+                    onChange={e => { setStudentSchedTermId(e.target.value); setStudentSchedResult(null); setStudentSchedConfirm(false); setStudentSchedLogsExpanded(false); }}
                     className={baseInputCls}
                   >
                     <option value="">— Select a term —</option>
@@ -2150,6 +2152,7 @@ export default function ContactCenter() {
                     redirectedTo={studentSchedResult.redirectedTo}
                     skipped={studentSchedResult.skipped}
                     reason={studentSchedResult.reason}
+                    details={(studentSchedResult as any).details}
                   />
                 )}
 
@@ -2199,45 +2202,109 @@ export default function ContactCenter() {
                   <EmptyState icon={<Users size={22} />} label="No students with email addresses" />
                 ) : (
                   <ul className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-72">
-                    {blastRecipients.map(r => (
-                      <li
-                        key={r.studentId}
-                        className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
-                        onClick={() => {
-                          setStudentSchedConfirm(false);
-                          setStudentSchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
-                        }}
-                      >
-                        <div className="mt-0.5"><Checkbox
-                          checked={studentSchedSelected.has(r.studentId)}
-                          onChange={() => {
+                    {blastRecipients.map(r => {
+                      const lastLog = studentSchedLogs.find(l => l.student_id === r.studentId);
+                      return (
+                        <li
+                          key={r.studentId}
+                          className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                          onClick={() => {
                             setStudentSchedConfirm(false);
                             setStudentSchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
                           }}
-                        /></div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-800">{r.studentName}</p>
-                          <div className="mt-0.5 text-[11px] text-slate-400">
-                            <EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} />
+                        >
+                          <div className="mt-0.5"><Checkbox
+                            checked={studentSchedSelected.has(r.studentId)}
+                            onChange={() => {
+                              setStudentSchedConfirm(false);
+                              setStudentSchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
+                            }}
+                          /></div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-slate-800">{r.studentName}</p>
+                              {lastLog && lastLog.status === 'sent' && (
+                                <span className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700" title={`Sent to ${lastLog.emailed_to}`}>
+                                  <Check size={9} /> Sent {formatSentAt(lastLog.sent_at)}
+                                </span>
+                              )}
+                              {lastLog && lastLog.status === 'failed' && (
+                                <span className="inline-flex items-center gap-1 rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600" title={lastLog.error ?? 'Send failed'}>
+                                  <AlertCircle size={9} /> Failed
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-slate-400">
+                              <EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} />
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
             </div>
+
+            {/* Schedule send history */}
+            {studentSchedTermId && (
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <button
+                  className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                  onClick={() => setStudentSchedLogsExpanded(p => !p)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock size={13} className="text-slate-400" />
+                    <span className="text-xs font-bold text-slate-700">Send History for this term</span>
+                    {loadingStudentSchedLogs ? (
+                      <Loader2 size={11} className="animate-spin text-slate-400" />
+                    ) : studentSchedLogs.length > 0 ? (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">{studentSchedLogs.length}</span>
+                    ) : null}
+                  </div>
+                  {studentSchedLogsExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                </button>
+                {studentSchedLogsExpanded && (
+                  loadingStudentSchedLogs ? (
+                    <LoadingRow label="Loading history…" />
+                  ) : studentSchedLogs.length === 0 ? (
+                    <EmptyState icon={<Mail size={22} />} label="No schedules sent for this term yet" />
+                  ) : (
+                    <ul className="divide-y divide-slate-100 max-h-72 overflow-y-auto border-t border-slate-100">
+                      {studentSchedLogs.map(log => (
+                        <li key={log.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {log.status === 'sent' ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50">
+                                <Check size={10} className="text-emerald-600" />
+                              </div>
+                            ) : (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50">
+                                <AlertCircle size={10} className="text-red-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800 truncate">{log.student_name}</p>
+                              <p className="text-[11px] text-slate-400 truncate">{log.emailed_to}</p>
+                              {log.status === 'failed' && log.error && (
+                                <p className="text-[10px] text-red-500 truncate">{log.error}</p>
+                              )}
+                            </div>
+                          </div>
+                          <p className="shrink-0 text-[11px] text-slate-400">{formatSentAt(log.sent_at)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* ── HISTORY ─────────────────────────────────────────────────────── */}
         {activeTab === 'history' && (
           <div className="space-y-4">
-            <SectionHeader
-              icon={<Clock size={15} className="text-indigo-600" />}
-              title="Send History"
-              description="A log of all reminder emails that have been dispatched."
-            />
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               {loadingLogs ? (
@@ -2283,7 +2350,8 @@ export default function ContactCenter() {
 
 
 
-      </div>
+        </div>{/* end panel content */}
+      </div>{/* end max-w-5xl */}
 
       {/* ── Email preview modal ──────────────────────────────────────────── */}
       {previewModal && (
@@ -2331,19 +2399,7 @@ export default function ContactCenter() {
 
 // ── Shared sub-components ──────────────────────────────────────────────────────
 
-function SectionHeader({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
-        {icon}
-      </div>
-      <div>
-        <h2 className="text-base font-bold text-slate-900 leading-tight">{title}</h2>
-        <p className="text-xs text-slate-500 mt-0.5">{description}</p>
-      </div>
-    </div>
-  );
-}
+// SectionHeader removed — layout uses sidebar nav
 
 function Checkbox({ checked, indeterminate, disabled, onChange }: { checked: boolean; indeterminate?: boolean; disabled?: boolean; onChange: () => void }) {
   return (
@@ -2413,16 +2469,47 @@ function SendButton({ onClick, loading, confirm, count, disabled, label }: { onC
   );
 }
 
-function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reason }: { sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string }) {
+function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reason, details }: { sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const isRedirect = mode === 'redirect';
   const isSuccess = failed === 0 && !skipped;
+
   return (
-    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold ${isSuccess ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-      {isSuccess ? <Check size={13} className="mt-0.5 shrink-0" /> : <AlertCircle size={13} className="mt-0.5 shrink-0" />}
-      <div className="space-y-0.5">
-        {skipped && reason && <p>{reason}</p>}
-        {mode === 'redirect' && redirectedTo && <p>Protected mode — redirected to {redirectedTo}.</p>}
-        {sent > 0 && <p>{sent} email{sent !== 1 ? 's' : ''} sent successfully.</p>}
-        {failed > 0 && <p>{failed} failed.{errors[0] ? ` ${errors[0]}` : ''}</p>}
+    <div className={`rounded-lg border text-xs font-semibold overflow-hidden ${isRedirect ? 'border-amber-300 bg-amber-50 text-amber-800' : isSuccess ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+      {isRedirect && (
+        <div className="flex items-center gap-2 bg-amber-100 border-b border-amber-200 px-3 py-2">
+          <AlertCircle size={13} className="shrink-0" />
+          <span className="font-bold">TEST MODE — emails redirected to: {redirectedTo}</span>
+        </div>
+      )}
+      <div className="flex items-start gap-2 px-3 py-2.5">
+        {!isRedirect && (isSuccess ? <Check size={13} className="mt-0.5 shrink-0" /> : <AlertCircle size={13} className="mt-0.5 shrink-0" />)}
+        <div className="space-y-0.5 flex-1 min-w-0">
+          {skipped && reason && <p>{reason}</p>}
+          {sent > 0 && <p>{sent} email{sent !== 1 ? 's' : ''} sent successfully.</p>}
+          {failed > 0 && <p>{failed} failed.{errors[0] ? ` ${errors[0]}` : ''}</p>}
+          {details && details.length > 0 && (
+            <div className="mt-1.5">
+              <button
+                onClick={() => setExpanded(e => !e)}
+                className="underline underline-offset-2 opacity-70 hover:opacity-100"
+              >
+                {expanded ? 'Hide' : 'Show'} who was emailed ({details.length})
+              </button>
+              {expanded && (
+                <ul className="mt-1.5 space-y-0.5 font-normal max-h-48 overflow-y-auto">
+                  {details.map((d, i) => (
+                    <li key={i} className="flex items-baseline gap-1.5">
+                      <span className="font-semibold">{d.name}</span>
+                      <span className="opacity-60">→</span>
+                      <span className="font-mono break-all opacity-80">{d.to}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

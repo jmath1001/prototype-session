@@ -1390,10 +1390,11 @@ export function TodayView({
                                     borderRight: dropState === 'invalid' ? '2px solid #ef4444' : '1px solid #e5e7eb',
                                     borderBottom: '1px solid #cbd5e1',
                                     minWidth: isCompact ? 160 : 260,
+                                    maxWidth: isCompact ? 160 : 260,
                                   }}
                                   onDragOver={(e) => { if (!isOutside && dropState !== 'invalid') e.preventDefault(); }}
                                   onDrop={(e) => { if (!isOutside && dropState !== 'invalid') void handleDropOnSlot(e, tutor, todayIso, block.time); }}>
-                                  <div className="flex flex-col gap-1.5 min-h-25">
+                                  <div className="flex flex-col gap-1.5 min-h-25" style={{ overflow: 'hidden' }}>
 
                                     {/* booked students */}
                                     {hasStudents && orderStudentsForDisplay(session!.students).map((student: any) => (
@@ -1519,7 +1520,7 @@ export function TodayView({
                                             <span className="text-[8px] font-black px-1 py-0.5 rounded" style={{ background: '#ede9fe', color: '#7c3aed', letterSpacing: '0.02em' }}>↺ REC</span>
                                           )}
                                         </div>
-                                        {!isCompact && student.notes && <p className="text-[10px] mt-1 italic truncate" style={{ color: '#6b7280' }}>📝 {student.notes}</p>}
+                                        {!isCompact && student.notes && <p className="text-[10px] mt-1 italic break-words overflow-hidden" style={{ color: '#6b7280', wordBreak: 'break-word' }}>📝 {student.notes}</p>}
                                       </div>
                                     ))}
 

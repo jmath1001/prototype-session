@@ -256,6 +256,7 @@ export async function POST(req: NextRequest) {
     let sent = 0;
     let failed = 0;
     const errors: string[] = [];
+    const details: { name: string; to: string }[] = [];
 
     for (const tutor of tutors ?? []) {
       if (!tutor.email) continue;
@@ -290,6 +291,7 @@ export async function POST(req: NextRequest) {
           html,
         });
         sent++;
+        details.push({ name: tutor.name ?? tutor.id, to });
       } catch (e: any) {
         failed++;
         const msg: string = e?.message ?? "Unknown error";
@@ -303,6 +305,7 @@ export async function POST(req: NextRequest) {
       errors,
       mode: guard.mode,
       redirectedTo: guard.mode === "redirect" ? guard.redirectTo : null,
+      details,
     });
   } catch (e: any) {
     return NextResponse.json(
