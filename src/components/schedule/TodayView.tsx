@@ -430,6 +430,7 @@ export function TodayView({
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const cardClickRef = useRef<{ x: number; y: number } | null>(null);
   const [topicDropdownRowId, setTopicDropdownRowId] = useState<string | null>(null);
   const [topicDropdownPos, setTopicDropdownPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
   const [topicDropdownOptions, setTopicDropdownOptions] = useState<string[]>([]);
@@ -1402,6 +1403,7 @@ export function TodayView({
                                         className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-xl cursor-pointer transition-all hover:shadow-md`}
                                         draggable={!!student.rowId}
                                         onDragStart={(e) => {
+                                          cardClickRef.current = null;
                                           if (!student.rowId) return;
                                           const payload: DragStudentPayload = {
                                             rowId: student.rowId,
@@ -1419,7 +1421,18 @@ export function TodayView({
                                           : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.14), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
                                           :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                         }
-                                        onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
+                                        onMouseDown={(e) => {
+                                          if ((e.target as HTMLElement).closest('button,input')) return;
+                                          cardClickRef.current = { x: e.clientX, y: e.clientY };
+                                        }}
+                                        onMouseUp={(e) => {
+                                          if (!cardClickRef.current) return;
+                                          const dx = Math.abs(e.clientX - cardClickRef.current.x);
+                                          const dy = Math.abs(e.clientY - cardClickRef.current.y);
+                                          cardClickRef.current = null;
+                                          if (dx > 6 || dy > 6) return;
+                                          setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block });
+                                        }}>
                                         <div className="flex justify-between items-start mb-1">
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <p className={`${isCompact ? 'text-[11px]' : 'text-sm'} font-bold leading-tight truncate`} style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}{student.grade ? ` (${student.grade})` : ''}</p>
@@ -1601,6 +1614,7 @@ export function TodayView({
                                           className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                           draggable={!!student.rowId}
                                           onDragStart={(e) => {
+                                            cardClickRef.current = null;
                                             if (!student.rowId) return;
                                             const payload: DragStudentPayload = {
                                               rowId: student.rowId,
@@ -1648,8 +1662,18 @@ export function TodayView({
                                             <Trash2 size={8} strokeWidth={2} />
                                           </button>
                                           <div className="flex-1 min-w-0 cursor-pointer"
-                                            onClick={() => setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block })}>
-                                            <div className="flex items-center gap-1">
+                                            onMouseDown={(e) => {
+                                              if ((e.target as HTMLElement).closest('button,input')) return;
+                                              cardClickRef.current = { x: e.clientX, y: e.clientY };
+                                            }}
+                                            onMouseUp={(e) => {
+                                              if (!cardClickRef.current) return;
+                                              const dx = Math.abs(e.clientX - cardClickRef.current.x);
+                                              const dy = Math.abs(e.clientY - cardClickRef.current.y);
+                                              cardClickRef.current = null;
+                                              if (dx > 6 || dy > 6) return;
+                                              setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: todayIso, tutorName: tutor.name, block });
+                                            }}>                                            <div className="flex items-center gap-1">
                                               <p className="text-[10px] font-bold leading-none truncate" style={{ color: '#111827', textDecoration: student.status === 'no-show' ? 'line-through' : 'none' }}>{student.name}</p>
                                               {attendanceBadge(student.status) && (
                                                 <span

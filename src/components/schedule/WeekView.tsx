@@ -135,6 +135,7 @@ export function WeekView({
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [seriesPromptId, setSeriesPromptId] = useState<string | null>(null);
+  const cardClickRef = useRef<{ x: number; y: number } | null>(null);
   const [topicEditRowId, setTopicEditRowId] = useState<string | null>(null);
   const [topicEditValue, setTopicEditValue] = useState('');
   const [topicDropdownRowId, setTopicDropdownRowId] = useState<string | null>(null);
@@ -859,6 +860,7 @@ export function WeekView({
                                             className="p-2 rounded-xl cursor-pointer transition-all hover:shadow-md"
                                             draggable={!!student.rowId && !bulkRemoveMode}
                                             onDragStart={(e) => {
+                                              cardClickRef.current = null;
                                               if (!student.rowId || bulkRemoveMode) return;
                                               const payload: DragStudentPayload = {
                                                 rowId: student.rowId,
@@ -876,12 +878,18 @@ export function WeekView({
                                               : student.status === 'present' ? { background: '#dcfce7', border: '1.5px solid #16a34a', boxShadow: '0 6px 14px rgba(22,163,74,0.16), 0 1px 0 rgba(22,163,74,0.18), inset 0 0 0 1px rgba(255,255,255,0.5)' }
                                               :                               { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }
                                             }
-                                            onClick={(e) => {
+                                            onMouseDown={(e) => {
+                                              if ((e.target as HTMLElement).closest('button,input')) return;
+                                              cardClickRef.current = { x: e.clientX, y: e.clientY };
+                                            }}
+                                            onMouseUp={(e) => {
+                                              if (!cardClickRef.current) return;
+                                              const dx = Math.abs(e.clientX - cardClickRef.current.x);
+                                              const dy = Math.abs(e.clientY - cardClickRef.current.y);
+                                              cardClickRef.current = null;
+                                              if (dx > 6 || dy > 6) return;
                                               e.stopPropagation();
-                                              if (bulkRemoveMode) {
-                                                toggleRemovalSelection(session.id, student.id, student.name);
-                                                return;
-                                              }
+                                              if (bulkRemoveMode) { toggleRemovalSelection(session.id, student.id, student.name); return; }
                                               setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block });
                                             }}>
                                             <div className="flex justify-between items-start mb-1">
@@ -1111,6 +1119,7 @@ export function WeekView({
                                               className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-lg transition-all"
                                               draggable={!!student.rowId && !bulkRemoveMode}
                                               onDragStart={(e) => {
+                                                cardClickRef.current = null;
                                                 if (!student.rowId || bulkRemoveMode) return;
                                                 const payload: DragStudentPayload = {
                                                   rowId: student.rowId,
@@ -1131,12 +1140,18 @@ export function WeekView({
                                                     : { background: palette.bg, border: `1.5px solid ${palette.border}`, boxShadow: '0 5px 12px rgba(99,102,241,0.1), 0 1px 0 rgba(17,24,39,0.12)' }),
                                                 ...(bulkRemoveMode ? { outline: isSelected ? '2px solid rgba(124,58,237,0.32)' : 'none', outlineOffset: 0 } : {}),
                                               }}
-                                              onClick={(e) => {
+                                              onMouseDown={(e) => {
+                                                if ((e.target as HTMLElement).closest('button,input')) return;
+                                                cardClickRef.current = { x: e.clientX, y: e.clientY };
+                                              }}
+                                              onMouseUp={(e) => {
+                                                if (!cardClickRef.current) return;
+                                                const dx = Math.abs(e.clientX - cardClickRef.current.x);
+                                                const dy = Math.abs(e.clientY - cardClickRef.current.y);
+                                                cardClickRef.current = null;
+                                                if (dx > 6 || dy > 6) return;
                                                 e.stopPropagation();
-                                                if (bulkRemoveMode) {
-                                                  toggleRemovalSelection(session.id, student.id, student.name);
-                                                  return;
-                                                }
+                                                if (bulkRemoveMode) { toggleRemovalSelection(session.id, student.id, student.name); return; }
                                                 setSelectedSessionWithNotes({ ...session, activeStudent: student, dayName: dayLabel, date: isoDate, tutorName: tutor.name, block });
                                               }}>
                                               <button
