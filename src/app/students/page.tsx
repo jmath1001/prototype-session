@@ -592,6 +592,8 @@ function StudentSlideOver({
 // ── Absence Modal ────────────────────────────────────────────────────────────
 type ExcEntry = { id: string; exception_date: string; reason: string | null }
 
+type PreviewSession = { date: string; time: string; tutorName: string }
+
 function AbsenceModal({ student, onClose, onDone }: { student: any; onClose: () => void; onDone: () => void }) {
   const today = toISODate(getCentralTimeNow())
   const [exceptions, setExceptions] = useState<ExcEntry[]>([])
@@ -601,6 +603,8 @@ function AbsenceModal({ student, onClose, onDone }: { student: any; onClose: () 
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<PreviewSession[]>([])
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -614,6 +618,42 @@ function AbsenceModal({ student, onClose, onDone }: { student: any; onClose: () 
       setLoadingEx(false)
     })()
   }, [student.id])
+
+  // Live preview: fetch sessions that would be cancelled for the selected range
+  useEffect(() => {
+    if (!startDate || !endDate || endDate < startDate) { setPreview([]); return }
+    let cancelled = false
+    ;(async () => {
+      setLoadingPreview(true)
+      const { data: seriesRows } = await (withCenter(
+        supabase.from(DB.recurringSeries).select('id').eq('student_id', student.id).eq('status', 'active')
+      ) as any)
+      if (cancelled) return
+      const seriesIds: string[] = (seriesRows ?? []).map((r: any) => r.id)
+      const sessions: PreviewSession[] = []
+      for (const seriesId of seriesIds) {
+        const { data: rows } = await (withCenter(
+          supabase.from(DB.sessionStudents)
+            .select(`id, ${DB.sessions}!inner(session_date, time, tutor_id, ${DB.tutors}(name))`)
+            .eq('series_id', seriesId)
+            .neq('status', 'cancelled')
+        ) as any)
+        if (cancelled) return
+        for (const row of (rows ?? [])) {
+          const sess = Array.isArray(row[DB.sessions]) ? row[DB.sessions][0] : row[DB.sessions]
+          const d = sess?.session_date ?? ''
+          if (d >= startDate && d <= endDate) {
+            const tutorRaw = sess?.[DB.tutors]
+            const tutorName = Array.isArray(tutorRaw) ? tutorRaw[0]?.name : tutorRaw?.name
+            sessions.push({ date: d, time: sess?.time ?? '', tutorName: tutorName ?? 'Unknown' })
+          }
+        }
+      }
+      sessions.sort((a, b) => a.date.localeCompare(b.date))
+      if (!cancelled) { setPreview(sessions); setLoadingPreview(false) }
+    })()
+    return () => { cancelled = true }
+  }, [startDate, endDate, student.id])
 
   const handleAdd = async () => {
     if (endDate < startDate) { setError('End date must be on or after start date.'); return }
@@ -651,7 +691,7 @@ function AbsenceModal({ student, onClose, onDone }: { student: any; onClose: () 
         }
       }
       if (totalMarked === 0) { setError('No scheduled sessions found in that date range.'); setSaving(false); return }
-      setReason(''); setStartDate(today); setEndDate(today)
+      setReason(''); setStartDate(today); setEndDate(today); setPreview([])
       const { data: refreshed } = await (withCenter(
         supabase.from(DB.studentDateExceptions).select('id, exception_date, reason').eq('student_id', student.id)
       ) as any).order('exception_date')
@@ -714,10 +754,34 @@ function AbsenceModal({ student, onClose, onDone }: { student: any; onClose: () 
                 <AlertTriangle size={11}/> {error}
               </div>
             )}
-            <button onClick={handleAdd} disabled={saving}
+            {/* Session preview */}
+            {loadingPreview ? (
+              <div className="flex items-center gap-2 rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-xs text-orange-500">
+                <Loader2 size={11} className="animate-spin"/> Checking sessions…
+              </div>
+            ) : preview.length > 0 ? (
+              <div className="rounded-lg border border-orange-200 overflow-hidden">
+                <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest" style={{ background: '#fed7aa', color: '#92400e' }}>
+                  {preview.length} session{preview.length !== 1 ? 's' : ''} will be cancelled
+                </div>
+                <div className="divide-y divide-orange-100">
+                  {preview.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5" style={{ background: '#fff7ed' }}>
+                      <span className="text-xs font-semibold text-slate-800">{s.date}</span>
+                      <span className="text-[10px] text-slate-500">{s.tutorName} · {s.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : startDate && endDate && endDate >= startDate ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-400">
+                No scheduled sessions in this range
+              </div>
+            ) : null}
+            <button onClick={handleAdd} disabled={saving || preview.length === 0}
               className="w-full rounded-xl py-2.5 text-xs font-bold text-white active:scale-95"
-              style={{ background: saving ? '#94a3b8' : '#c2410c' }}>
-              {saving ? 'Saving…' : 'Mark Off & Cancel Sessions'}
+              style={{ background: (saving || preview.length === 0) ? '#94a3b8' : '#c2410c' }}>
+              {saving ? 'Saving…' : `Mark Off & Cancel ${preview.length > 0 ? preview.length + ' Session' + (preview.length !== 1 ? 's' : '') : 'Sessions'}`}
             </button>
           </div>
 
