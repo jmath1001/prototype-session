@@ -242,6 +242,8 @@ export async function POST(req: NextRequest) {
           tutor_name: tutorMap[s.tutor_id] ?? "—",
         }));
 
+      if (studentSeries.length === 0) continue;
+
       const html = buildStudentScheduleHtml(centerName, student.name ?? "Student", termName, studentSeries, centerPhone);
       const subject = `Your tutoring schedule for ${termName}`;
 

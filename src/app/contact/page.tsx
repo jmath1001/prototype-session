@@ -2228,7 +2228,6 @@ export default function ContactCenter() {
                   <div className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 to-white px-4 py-3">
                     <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">{label}</p>
                     <p className="mt-0.5 text-[11px] text-indigo-400">{description}</p>
-                    {!isWeekly && <p className="mt-1 text-[11px] text-amber-500">Note: this sends sessions for today&apos;s date when it runs — schedule it for the morning of the day you want tutors to receive, not the night before.</p>}
                   </div>
                   {cronLoading && cronConfigured === null ? (
                     <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
