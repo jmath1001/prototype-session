@@ -584,7 +584,7 @@ export default function ContactCenter() {
       const rows: Term[] = Array.isArray(payload?.terms) ? payload.terms : [];
       setTerms(rows);
       const preferred = rows.find(t => t.status === 'active') ?? rows[0] ?? null;
-      setSelectedTermId(preferred?.id ?? '');
+      setSelectedTermId('');
       setBlastTermId(preferred?.id ?? '');
       if (preferred?.name) {
         setBlastSubject(`Availability Is Now Open for {{term}} – Submit Your Preferences`);
@@ -1555,17 +1555,6 @@ export default function ContactCenter() {
                     className="bg-transparent text-sm text-slate-800 outline-none"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Filter by term</label>
-                <select
-                  value={selectedTermId}
-                  onChange={e => setSelectedTermId(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400"
-                >
-                  {terms.length === 0 && <option value="">No terms</option>}
-                  {terms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
               </div>
             </div>
 

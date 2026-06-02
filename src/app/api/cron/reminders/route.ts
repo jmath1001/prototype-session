@@ -324,7 +324,7 @@ export async function GET() {
         .select(`id, session_date, time,
           ${SS} ( id, student_id, status, reminder_sent, confirmation_token, topic,
             ${STUDENTS} ( name, email, mom_name, mom_email, dad_name, dad_email, notify_student, notify_mom, notify_dad ) )`)
-        .in("session_date", [todayStr, tomorrowStr])
+        .eq("session_date", tomorrowStr)
     ) as any);
     if (error) throw error;
 
