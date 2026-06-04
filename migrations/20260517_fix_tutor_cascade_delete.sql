@@ -1,3 +1,4 @@
+
 -- Drop the auto-generated FK (no cascade) that blocks tutor deletes.
 -- The migration 20260427 already created slake_tutor_term_availability_tutor_fk
 -- with ON DELETE CASCADE, but the original auto-named constraint survived.

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { DB, withCenter } from '@/lib/db';
@@ -110,7 +110,7 @@ type EmailPreview = {
   note?: string;
 };
 
-// ── Slot preferences types & helpers ─────────────────────────────────────────
+// -- Slot preferences types & helpers -----------------------------------------
 const DOW_LABELS: Record<string, string> = {
   '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat', '7': 'Sun',
 }
@@ -126,7 +126,7 @@ function parseSpBlock(b: string): { dow: string; time: string } | null {
   return m ? { dow: m[1], time: m[2] } : null
 }
 function spBlockLabel(blocks: string[]): string {
-  if (blocks.length === 0) return '—'
+  if (blocks.length === 0) return '–'
   const first = parseSpBlock(blocks[0])
   if (!first) return blocks.join(', ')
   const dayStr = DOW_LABELS[first.dow] ?? `Day ${first.dow}`
@@ -165,7 +165,7 @@ function buildAnnouncementHtml(centerName: string, bodyText: string, availabilit
   const linkSection = availabilityLink
     ? `<table cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
         <td style="border-radius:8px;background:${BRAND_BLUE};">
-          <a href="${availabilityLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">Submit Availability →</a>
+          <a href="${availabilityLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">Submit Availability ?</a>
         </td>
       </tr></table>
       <p style="margin:14px 0 0;font-size:11px;color:#9ca3af;">If the button doesn't work: <a href="${availabilityLink}" style="color:${BRAND_BLUE};">${availabilityLink}</a></p>`
@@ -184,8 +184,8 @@ function buildAnnouncementHtml(centerName: string, bodyText: string, availabilit
       ${linkSection}
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
-      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
-      ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+      <p style="margin:0;font-size:11px;color:#9ca3af;">– ${centerName}</p>
+      ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
     </td></tr>
   </table>
   </td></tr>
@@ -256,7 +256,7 @@ function buildScheduleHtml(centerName: string, tutorName: string, schedule: Sche
     <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
       <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
         <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Schedule — ${periodLabel}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Schedule – ${periodLabel}</p>
       </td></tr>
       <tr><td style="padding:28px;">
         <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#111827;">Hi ${tutorName},</p>
@@ -267,8 +267,8 @@ function buildScheduleHtml(centerName: string, tutorName: string, schedule: Sche
         ${dateBlocks || `<p style="color:#9ca3af;font-size:13px;font-style:italic;">No sessions scheduled for this period.</p>`}
       </td></tr>
       <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
-        <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
-        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+        <p style="margin:0;font-size:11px;color:#9ca3af;">– ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
       </td></tr>
     </table>
     </td></tr>
@@ -298,7 +298,7 @@ function buildStudentScheduleHtml(centerName: string, studentName: string, termN
       return `<tr>
         <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f3f4f6;">${dayLabel}</td>
         <td style="padding:10px 14px;font-size:13px;color:#374151;white-space:nowrap;border-right:1px solid #f3f4f6;">${fmt12(s.time)}</td>
-        <td style="padding:10px 14px;font-size:13px;color:#374151;border-right:1px solid #f3f4f6;">${s.topic || '—'}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;border-right:1px solid #f3f4f6;">${s.topic || '–'}</td>
         <td style="padding:10px 14px;font-size:13px;color:#6b7280;white-space:nowrap;border-right:1px solid #f3f4f6;">${s.tutor_name}</td>
         <td style="padding:10px 14px;font-size:11px;color:#9ca3af;white-space:nowrap;">${startFmt} – ${endFmt}</td>
       </tr>`;
@@ -313,7 +313,7 @@ function buildStudentScheduleHtml(centerName: string, studentName: string, termN
     <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
       <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
         <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Your Recurring Schedule — ${termName}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Your Recurring Schedule – ${termName}</p>
       </td></tr>
       <tr><td style="padding:28px;">
         <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#111827;">Hi ${studentName},</p>
@@ -332,8 +332,8 @@ function buildStudentScheduleHtml(centerName: string, studentName: string, termN
         </div>
       </td></tr>
       <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
-        <p style="margin:0;font-size:11px;color:#9ca3af;">— ${centerName}</p>
-        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+        <p style="margin:0;font-size:11px;color:#9ca3af;">– ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
       </td></tr>
     </table>
     </td></tr>
@@ -360,14 +360,14 @@ function buildReminderStudentHtml(settings: Settings, studentName: string, sessi
       <p style="margin:0 0 16px;font-size:15px;color:#111827;line-height:1.6;">${body}</p>
       <table cellpadding="0" cellspacing="0" style="margin:24px 0 0;"><tr>
         <td style="border-radius:8px;background:${BRAND_RED};">
-          <a href="${confirmLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">✓ Confirm Attendance</a>
+          <a href="${confirmLink}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:white;text-decoration:none;border-radius:8px;">? Confirm Attendance</a>
         </td>
       </tr></table>
       <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">If the button doesn't work: <a href="${confirmLink}" style="color:${BRAND_RED};">${confirmLink}</a></p>
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
-      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
-      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+      <p style="margin:0;font-size:11px;color:#9ca3af;">– ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }
@@ -385,18 +385,79 @@ function buildReminderGuardianHtml(settings: Settings, guardianName: string, stu
         Hi <strong>${guardianName}</strong>,<br><br>
         This is a heads-up that <strong>${studentName}</strong> has a tutoring session on
         <strong>${sessionDate}</strong> at <strong>${sessionTime}</strong>.<br><br>
-        No action needed — this is for your records only.
+        No action needed – this is for your records only.
       </p>
     </td></tr>
     <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
-      <p style="margin:0;font-size:11px;color:#9ca3af;">— ${settings.center_name} Automated Reminders</p>
-      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email — call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">⚠ No phone number set — please add one in center settings.</p>`}
+      <p style="margin:0;font-size:11px;color:#9ca3af;">– ${settings.center_name} Automated Reminders</p>
+      ${settings.center_phone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${settings.center_phone}" style="color:#9ca3af;">${settings.center_phone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
     </td></tr>
   </table></td></tr></table></body></html>`;
 }
 
 function buildPreviewFrameHtml(subject: string, html: string) {
   return html;
+}
+
+type WeeklySessionRow = {
+  session_date: string;
+  time: string;
+  topic: string;
+  tutor_name: string;
+};
+
+function buildWeeklyStudentScheduleHtml(centerName: string, studentName: string, weekLabel: string, sessions: WeeklySessionRow[], centerPhone?: string | null): string {
+  const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const rows = sessions
+    .sort((a, b) => a.session_date.localeCompare(b.session_date) || a.time.localeCompare(b.time))
+    .map(s => {
+      const date = new Date(`${s.session_date}T00:00:00`);
+      const dayLabel = DOW[date.getDay()] ?? '';
+      const dateFmt = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `<tr>
+        <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#111827;white-space:nowrap;border-right:1px solid #f3f4f6;">${dayLabel}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;white-space:nowrap;border-right:1px solid #f3f4f6;">${dateFmt}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;white-space:nowrap;border-right:1px solid #f3f4f6;">${fmt12(s.time)}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#374151;border-right:1px solid #f3f4f6;">${s.topic || '–'}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#6b7280;white-space:nowrap;">${s.tutor_name}</td>
+      </tr>`;
+    })
+    .join('');
+  const tableBody = rows || `<tr><td colspan="5" style="padding:14px;font-size:12px;color:#9ca3af;font-style:italic;">No sessions scheduled this week.</td></tr>`;
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;">
+    <tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+      <tr><td style="background:${BRAND_BLUE};padding:20px 28px;">
+        <p style="margin:0;font-size:18px;font-weight:800;color:white;">${centerName}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">Your Schedule – ${weekLabel}</p>
+      </td></tr>
+      <tr><td style="padding:28px;">
+        <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#111827;">Hi ${studentName},</p>
+        <p style="margin:0 0 24px;font-size:13px;color:#6b7280;">Here is your confirmed tutoring schedule for the week of <strong>${weekLabel}</strong>.</p>
+        <div style="overflow-x:auto;">
+          <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;">
+            <thead><tr style="background:#f3f4f6;">
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Day</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Date</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Time</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;border-right:1px solid #e5e7eb;">Subject</th>
+              <th style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6b7280;text-align:left;">Tutor</th>
+            </tr></thead>
+            <tbody>${tableBody}</tbody>
+          </table>
+        </div>
+      </td></tr>
+      <tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;font-size:11px;color:#9ca3af;">– ${centerName}</p>
+        ${centerPhone ? `<p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">Please do not reply to this email – call us at <a href="tel:${centerPhone}" style="color:#9ca3af;">${centerPhone}</a>.</p>` : `<p style="margin:4px 0 0;font-size:11px;color:#f59e0b;font-weight:600;">? No phone number set – please add one in center settings.</p>`}
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body></html>`;
 }
 
 export default function ContactCenter() {
@@ -411,7 +472,7 @@ export default function ContactCenter() {
 
   const [dispatchDate, setDispatchDate]           = useState(tomorrow());
   const [terms, setTerms]                         = useState<Term[]>([]);
-  // const [selectedTermId, setSelectedTermId] = useState('') // removed — reminders are date-based
+  // const [selectedTermId, setSelectedTermId] = useState('') // removed – reminders are date-based
   const [candidates, setCandidates]               = useState<Candidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [selected, setSelected]                   = useState<Set<string>>(new Set());
@@ -424,7 +485,7 @@ export default function ContactCenter() {
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [cronHistoryExpanded, setCronHistoryExpanded] = useState(false);
 
-  // ── Auto-reminder schedule (cron) ──────────────────────────────────────────
+  // -- Auto-reminder schedule (cron) ------------------------------------------
   type CronSchedule = { hours: number[]; minutes: number[]; timezone: string }
   type CronJob = { enabled: boolean; nextExecution: number; lastExecution: number; lastStatus: number; schedule: CronSchedule }
   type CronHistoryItem = { date: number; status: number; statusText: string; httpStatus: number; duration: number }
@@ -437,7 +498,7 @@ export default function ContactCenter() {
   const [reminderTime, setReminderTime]   = useState('07:00');
   const cronFetchedRef = useRef(false);
 
-  // ── Tutor schedule cron (weekly & daily) ───────────────────────────────────
+  // -- Tutor schedule cron (weekly & daily) -----------------------------------
   const [tutorWeeklyCronJob, setTutorWeeklyCronJob]               = useState<CronJob | null>(null);
   const [tutorWeeklyCronHistory, setTutorWeeklyCronHistory]       = useState<CronHistoryItem[]>([]);
   const [tutorWeeklyCronLoading, setTutorWeeklyCronLoading]       = useState(false);
@@ -486,6 +547,17 @@ export default function ContactCenter() {
   const [studentSchedLogs, setStudentSchedLogs]         = useState<StudentSchedLog[]>([]);
   const [loadingStudentSchedLogs, setLoadingStudentSchedLogs] = useState(false);
   const [studentSchedLogsExpanded, setStudentSchedLogsExpanded] = useState(false);
+
+  // Weekly student schedule email state
+  const [weeklySchedWeekStart, setWeeklySchedWeekStart] = useState(() => {
+    const d = new Date(); const dow = d.getDay(); const daysToMon = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + daysToMon); return toISODate(d);
+  });
+  const [weeklySchedStudents, setWeeklySchedStudents]   = useState<BlastRecipient[]>([]);
+  const [loadingWeeklyStudents, setLoadingWeeklyStudents] = useState(false);
+  const [weeklySchedSelected, setWeeklySchedSelected]   = useState<Set<string>>(new Set());
+  const [weeklySchedSending, setWeeklySchedSending]     = useState(false);
+  const [weeklySchedConfirm, setWeeklySchedConfirm]     = useState(false);
+  const [weeklySchedResult, setWeeklySchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
 
   // Tutor schedule email state
   const [tutorSchedExpanded, setTutorSchedExpanded]   = useState(false);
@@ -606,7 +678,7 @@ export default function ContactCenter() {
       const recipients: BlastRecipient[] = (data ?? [])
         .map((s: any) => ({
           studentId: s.id,
-          studentName: s.name ?? '—',
+          studentName: s.name ?? '–',
           studentEmail: s.email ?? null,
           momEmail: s.mom_email ?? null,
           dadEmail: s.dad_email ?? null,
@@ -663,6 +735,33 @@ export default function ContactCenter() {
     setLoadingStudentSchedLogs(false);
   }, []);
 
+  const fetchWeeklySchedStudents = useCallback(async (weekStart: string) => {
+    setLoadingWeeklyStudents(true);
+    setWeeklySchedSelected(new Set());
+    setWeeklySchedResult(null);
+    try {
+      const weekEndDate = new Date(`${weekStart}T00:00:00`);
+      weekEndDate.setDate(weekEndDate.getDate() + 6);
+      const weekEnd = toISODate(weekEndDate);
+      const { data, error } = await (withCenter(
+        supabase
+          .from(DB.sessionStudents)
+          .select(`student_id, status, ${DB.sessions}!inner(session_date)`)
+          .neq('status', 'cancelled')
+          .gte(`${DB.sessions}.session_date`, weekStart)
+          .lte(`${DB.sessions}.session_date`, weekEnd)
+      ) as any);
+      if (error) throw error;
+      const studentIds = [...new Set((data ?? []).map((r: any) => r.student_id as string))];
+      const matched = (blastRecipients as BlastRecipient[]).filter(r => studentIds.includes(r.studentId));
+      setWeeklySchedStudents(matched);
+      setWeeklySchedSelected(new Set(matched.map(r => r.studentId)));
+    } catch {
+      setWeeklySchedStudents([]);
+    }
+    setLoadingWeeklyStudents(false);
+  }, [blastRecipients]);
+
   const fetchCandidates = useCallback(async (date: string) => {
     setLoadingCandidates(true);
     setSendResult(null);
@@ -704,10 +803,10 @@ export default function ContactCenter() {
         return {
           rowId:        r.id,
           studentId:    r.student_id,
-          studentName:  student?.name ?? '—',
+          studentName:  student?.name ?? '–',
           sessionDate:  sess?.session_date ?? date,
           sessionTime:  sess?.time ?? '',
-          tutorName:    tutor?.name ?? '—',
+          tutorName:    tutor?.name ?? '–',
           studentEmail:  student?.email ?? null,
           momEmail:      student?.mom_email ?? null,
           dadEmail:      student?.dad_email ?? null,
@@ -742,6 +841,7 @@ export default function ContactCenter() {
   useEffect(() => { fetchCandidates(dispatchDate); }, [dispatchDate, fetchCandidates]);
   useEffect(() => { void fetchStudentSchedLogs(studentSchedTermId); }, [studentSchedTermId, fetchStudentSchedLogs]);
   useEffect(() => { void fetchTutorSchedLogs(); }, [fetchTutorSchedLogs]);
+  useEffect(() => { void fetchWeeklySchedStudents(weeklySchedWeekStart); }, [weeklySchedWeekStart, fetchWeeklySchedStudents]);
 
   useEffect(() => {
     withCenter(supabase
@@ -843,7 +943,7 @@ export default function ContactCenter() {
     }
   }
 
-  // ── Tutor schedule cron fetch ───────────────────────────────────────────────
+  // -- Tutor schedule cron fetch -----------------------------------------------
   const fetchTutorCron = useCallback(() => {
     if (tutorCronFetchedRef.current) return
     tutorCronFetchedRef.current = true
@@ -944,6 +1044,25 @@ export default function ContactCenter() {
       setStudentSchedResult({ sent: 0, failed: 0, errors: [e?.message ?? 'Unknown error'] });
     } finally {
       setStudentSchedSending(false);
+    }
+  };
+
+  const handleSendWeeklyStudentSchedules = async () => {
+    setWeeklySchedSending(true);
+    setWeeklySchedResult(null);
+    try {
+      const res = await fetch('/api/send-weekly-student-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds: [...weeklySchedSelected], weekStart: weeklySchedWeekStart }),
+      });
+      const data = await res.json();
+      if (!res.ok) setWeeklySchedResult({ sent: 0, failed: weeklySchedSelected.size, errors: [data.error ?? 'Request failed'] });
+      else { setWeeklySchedResult(data); setWeeklySchedConfirm(false); logEvent('weekly_student_schedules_sent', { sent: data.sent ?? 0 }); }
+    } catch (e: any) {
+      setWeeklySchedResult({ sent: 0, failed: 0, errors: [e?.message ?? 'Unknown error'] });
+    } finally {
+      setWeeklySchedSending(false);
     }
   };
 
@@ -1251,7 +1370,7 @@ export default function ContactCenter() {
         })();
     const centerName = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
     const previewTitle = isDaily ? 'Tutor Daily Schedule Preview' : 'Tutor Weekly Schedule Preview';
-    const subjectLine = isDaily ? `Your schedule for ${periodLabel}` : `Your weekly schedule — ${periodLabel}`;
+    const subjectLine = isDaily ? `Your schedule for ${periodLabel}` : `Your weekly schedule – ${periodLabel}`;
 
     // Dummy schedule used when real data is unavailable or empty
     const buildDummySchedule = (): ScheduleEntry[] => isDaily
@@ -1274,7 +1393,7 @@ export default function ContactCenter() {
         title: previewTitle,
         subject: subjectLine,
         html: buildPreviewFrameHtml(subjectLine, html),
-        note: 'Sample preview — add a tutor email to preview a real schedule.',
+        note: 'Sample preview – add a tutor email to preview a real schedule.',
       });
       return;
     }
@@ -1300,7 +1419,7 @@ export default function ContactCenter() {
           students: sessionStudents
             .filter((student: any) => student.status !== 'cancelled')
             .map((student: any) => ({
-              name: student.name ?? '—',
+              name: student.name ?? '–',
               topic: student.topic ?? '',
             })),
         };
@@ -1315,7 +1434,7 @@ export default function ContactCenter() {
         subject: subjectLine,
         html: buildPreviewFrameHtml(subjectLine, html),
         note: isDummy
-          ? `Sample preview for ${previewTutor.name ?? 'Tutor'} — no real sessions found for ${periodLabel}.`
+          ? `Sample preview for ${previewTutor.name ?? 'Tutor'} – no real sessions found for ${periodLabel}.`
           : `Previewing ${previewTutor.name ?? 'Tutor'} for ${periodLabel}.`,
       });
     } catch (error: any) {
@@ -1349,7 +1468,7 @@ export default function ContactCenter() {
         title: 'Student Schedule Email Preview',
         subject,
         html: buildPreviewFrameHtml(subject, html),
-        note: studentSchedTermId ? 'Sample preview — no students found.' : 'Sample preview — select a term to see real data.',
+        note: studentSchedTermId ? 'Sample preview – no students found.' : 'Sample preview – select a term to see real data.',
       });
       return;
     }
@@ -1374,7 +1493,7 @@ export default function ContactCenter() {
         const { data: tutorData } = await (withCenter(
           supabase.from(DB.tutors).select('id, name').in('id', tutorIds)
         ) as any);
-        for (const t of tutorData ?? []) tutorMap[t.id] = t.name ?? '—';
+        for (const t of tutorData ?? []) tutorMap[t.id] = t.name ?? '–';
       }
 
       const series: StudentSeriesRow[] = (seriesData ?? []).map((s: any) => ({
@@ -1383,7 +1502,7 @@ export default function ContactCenter() {
         topic: s.topic ?? '',
         start_date: s.start_date,
         end_date: s.end_date,
-        tutor_name: tutorMap[s.tutor_id] ?? '—',
+        tutor_name: tutorMap[s.tutor_id] ?? '–',
       }));
 
       const displaySeries = series.length > 0 ? series : buildDummySeries();
@@ -1394,12 +1513,87 @@ export default function ContactCenter() {
         subject,
         html: buildPreviewFrameHtml(subject, html),
         note: isDummy
-          ? `Sample preview for ${previewStudent.studentName} — no active recurring series found for ${termName}.`
+          ? `Sample preview for ${previewStudent.studentName} – no active recurring series found for ${termName}.`
           : `Previewing ${previewStudent.studentName} for ${termName}.`,
       });
     } catch (err: any) {
       setPreviewModal({
         title: 'Student Schedule Email Preview',
+        subject: 'Preview unavailable',
+        html: buildPreviewFrameHtml('Preview unavailable', `<div style="padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;color:#991b1b;background:#fff;">${err?.message ?? 'Failed to load preview.'}</div>`),
+        note: err?.message ?? 'Failed to load preview.',
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const openWeeklyStudentSchedulePreview = async () => {
+    const previewStudent = weeklySchedStudents[0] ?? blastRecipients[0];
+    const centerName = settings?.center_name ?? DEFAULT_SETTINGS.center_name;
+    const weekEndDate = new Date(`${weeklySchedWeekStart}T00:00:00`);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = toISODate(weekEndDate);
+    const weekLabel = (() => {
+      const s = new Date(`${weeklySchedWeekStart}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      const e = new Date(`${weekEnd}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      return `${s} – ${e}`;
+    })();
+    const subject = `Your tutoring schedule for the week of ${weekLabel}`;
+
+    const buildDummySessions = (): WeeklySessionRow[] => {
+      const base = new Date(`${weeklySchedWeekStart}T00:00:00`);
+      return [
+        { session_date: toISODate(new Date(new Date(base).setDate(base.getDate() + 1))), time: '15:00', topic: 'Algebra II', tutor_name: 'Sample Tutor' },
+        { session_date: toISODate(new Date(new Date(base).setDate(base.getDate() + 3))), time: '16:30', topic: 'SAT Math', tutor_name: 'Sample Tutor' },
+      ];
+    };
+
+    if (!previewStudent) {
+      const html = buildWeeklyStudentScheduleHtml(centerName, 'Sample Student', weekLabel, buildDummySessions(), settings?.center_phone);
+      setPreviewModal({ title: 'Weekly Schedule Email Preview', subject, html: buildPreviewFrameHtml(subject, html), note: 'Sample preview – no students with sessions this week.' });
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const { data: ssData, error: ssError } = await (withCenter(
+        supabase
+          .from(DB.sessionStudents)
+          .select(`student_id, topic, status, ${DB.sessions}!inner(session_date, time, tutor_id)`)
+          .eq('student_id', previewStudent.studentId)
+          .neq('status', 'cancelled')
+          .gte(`${DB.sessions}.session_date`, weeklySchedWeekStart)
+          .lte(`${DB.sessions}.session_date`, weekEnd)
+      ) as any);
+      if (ssError) throw ssError;
+
+      const tutorIds = [...new Set((ssData ?? []).map((r: any) => { const s = Array.isArray(r[DB.sessions]) ? r[DB.sessions][0] : r[DB.sessions]; return s?.tutor_id as string | undefined; }).filter(Boolean) as string[])];
+      let tutorMap: Record<string, string> = {};
+      if (tutorIds.length > 0) {
+        const { data: tutorData } = await (withCenter(supabase.from(DB.tutors).select('id, name').in('id', tutorIds)) as any);
+        for (const t of tutorData ?? []) tutorMap[t.id] = t.name ?? '–';
+      }
+
+      const sessions: WeeklySessionRow[] = (ssData ?? []).map((r: any) => {
+        const sess = Array.isArray(r[DB.sessions]) ? r[DB.sessions][0] : r[DB.sessions];
+        return { session_date: sess?.session_date ?? '', time: sess?.time ?? '', topic: r.topic ?? '', tutor_name: tutorMap[sess?.tutor_id] ?? '–' };
+      }).filter((s: WeeklySessionRow) => s.session_date);
+
+      const displaySessions = sessions.length > 0 ? sessions : buildDummySessions();
+      const isDummy = sessions.length === 0;
+      const html = buildWeeklyStudentScheduleHtml(centerName, previewStudent.studentName, weekLabel, displaySessions, settings?.center_phone);
+      setPreviewModal({
+        title: 'Weekly Schedule Email Preview',
+        subject,
+        html: buildPreviewFrameHtml(subject, html),
+        note: isDummy
+          ? `Sample preview for ${previewStudent.studentName} – no sessions found this week.`
+          : `Previewing ${previewStudent.studentName} for ${weekLabel}.`,
+      });
+    } catch (err: any) {
+      setPreviewModal({
+        title: 'Weekly Schedule Email Preview',
         subject: 'Preview unavailable',
         html: buildPreviewFrameHtml('Preview unavailable', `<div style="padding:32px;font-family:ui-sans-serif,system-ui,sans-serif;color:#991b1b;background:#fff;">${err?.message ?? 'Failed to load preview.'}</div>`),
         note: err?.message ?? 'Failed to load preview.',
@@ -1485,13 +1679,13 @@ export default function ContactCenter() {
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-6 py-8">
 
-        {/* ── Page header ─────────────────────────────────────────────────── */}
+        {/* -- Page header --------------------------------------------------- */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="mt-1 text-sm text-slate-500">Email tools for students and tutors</p>
         </div>
 
-        {/* ── Tab bar ─────────────────────────────────────────────────────── */}
+        {/* -- Tab bar ------------------------------------------------------- */}
         <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200 pb-0">
           {([
             { id: 'reminders',    label: 'Reminders' },
@@ -1518,10 +1712,10 @@ export default function ContactCenter() {
           ))}
         </div>
 
-        {/* ── Panel content ───────────────────────────────────────────────── */}
+        {/* -- Panel content ------------------------------------------------- */}
         <div>
 
-        {/* ── REMINDERS ─────────────────────────────────────────────────── */}
+        {/* -- REMINDERS --------------------------------------------------- */}
         {activeTab === 'reminders' && (
           <div className="space-y-4">
 
@@ -1566,7 +1760,7 @@ export default function ContactCenter() {
                     {cronJob.schedule?.hours?.length === 1
                       ? ` at ${cronJob.schedule.hours[0]}:${String(cronJob.schedule?.minutes?.[0] ?? 0).padStart(2, '0')} (${cronJob.schedule.timezone ?? 'CT'})`
                       : ''}
-                    {' — '}will send for sessions on <span className="font-bold">{tomorrow()}</span>.
+                    {' – '}will send for sessions on <span className="font-bold">{tomorrow()}</span>.
                     Use the manual send below only for one-off cases.
                   </p>
                 </div>
@@ -1581,7 +1775,7 @@ export default function ContactCenter() {
                     <Checkbox checked={allChecked} indeterminate={someChecked && !allChecked} onChange={toggleAll} />
                   )}
                   <span className="text-xs font-semibold text-slate-600">
-                    {loadingCandidates ? 'Loading…' : `${candidates.length} student${candidates.length !== 1 ? 's' : ''} on ${dispatchDate}`}
+                    {loadingCandidates ? 'Loading–' : `${candidates.length} student${candidates.length !== 1 ? 's' : ''} on ${dispatchDate}`}
                   </span>
                   {cronConfigured && cronJob?.enabled && (
                     <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 border border-amber-300 bg-amber-50 rounded px-1.5 py-0.5">Manual override</span>
@@ -1600,7 +1794,7 @@ export default function ContactCenter() {
               </div>
 
               {loadingCandidates ? (
-                <LoadingRow label={`Loading sessions for ${dispatchDate}…`} />
+                <LoadingRow label={`Loading sessions for ${dispatchDate}–`} />
               ) : candidates.length === 0 ? (
                 <EmptyState icon={<Users size={24} />} label={`No sessions found for ${dispatchDate}`} />
               ) : (
@@ -1630,9 +1824,9 @@ export default function ContactCenter() {
                             {allOptedOut && !noEmail && <StatusBadge color="amber" label="Opted out" />}
                           </div>
                           <p className="mt-0.5 text-[11px] text-slate-500">
-                            {c.sessionTime} · {c.tutorName}
+                            {c.sessionTime} – {c.tutorName}
                             {(c.studentEmail || c.momEmail || c.dadEmail) && !c.reminderSent && (
-                              <> · <EmailList student={c} /></>
+                              <> – <EmailList student={c} /></>
                             )}
                           </p>
                         </div>
@@ -1645,7 +1839,7 @@ export default function ContactCenter() {
               {!loadingCandidates && candidates.length > 0 && (
                 <div className={`border-t px-4 py-3 flex items-center justify-between gap-3 ${cronConfigured && cronJob?.enabled ? 'border-amber-100 bg-amber-50/40' : 'border-slate-100 bg-slate-50'}`}>
                   {cronConfigured && cronJob?.enabled && confirmSend && (
-                    <p className="text-[11px] font-semibold text-amber-700">⚠ Auto is on — this may duplicate today&apos;s reminders</p>
+                    <p className="text-[11px] font-semibold text-amber-700">? Auto is on – this may duplicate today&apos;s reminders</p>
                   )}
                   <div className="ml-auto">
                     <SendButton
@@ -1661,7 +1855,7 @@ export default function ContactCenter() {
               )}
             </div>
 
-            {/* ── Auto Reminder Schedule ───────────────────────────────────── */}
+            {/* -- Auto Reminder Schedule ------------------------------------- */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
               <div className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 to-white px-4 py-3">
                 <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Auto Reminder Schedule</p>
@@ -1669,7 +1863,7 @@ export default function ContactCenter() {
               </div>
               {cronLoading && cronConfigured === null ? (
                 <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
-                  <Loader2 size={12} className="animate-spin" /> Checking reminder status…
+                  <Loader2 size={12} className="animate-spin" /> Checking reminder status–
                 </div>
               ) : cronConfigured === false ? (
                 <div className="px-4 py-3 text-xs text-slate-500">
@@ -1690,7 +1884,7 @@ export default function ContactCenter() {
                         disabled={cronSaving}
                         className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                       >
-                        {cronSaving ? 'Saving…' : cronJob.enabled ? 'Turn off' : 'Turn on'}
+                        {cronSaving ? 'Saving–' : cronJob.enabled ? 'Turn off' : 'Turn on'}
                       </button>
                     </div>
                   )}
@@ -1711,7 +1905,7 @@ export default function ContactCenter() {
                       className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
                     >
                       <Save size={11} />
-                      {cronSaving ? 'Saving…' : 'Save'}
+                      {cronSaving ? 'Saving–' : 'Save'}
                     </button>
                   </div>
                   {cronJob && cronJob.nextExecution > 0 && (
@@ -1750,7 +1944,7 @@ export default function ContactCenter() {
               ) : null}
             </div>
 
-            {/* ── Reminder Email Template ───────────────────────────────────── */}
+            {/* -- Reminder Email Template ------------------------------------- */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
               <div className="flex items-center justify-between border-b border-violet-100 bg-linear-to-r from-violet-50 to-white px-4 py-3">
                 <p className="text-xs font-bold text-violet-900 uppercase tracking-wide">Email Template</p>
@@ -1785,7 +1979,7 @@ export default function ContactCenter() {
                 </div>
               )}
               {loadingSettings ? (
-                <LoadingRow label="Loading template…" />
+                <LoadingRow label="Loading template–" />
               ) : !editingTemplate ? (
                 <div className="p-4 space-y-3">
                   <div>
@@ -1826,7 +2020,7 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* ── AVAILABILITY BLAST ──────────────────────────────────────────── */}
+        {/* -- AVAILABILITY BLAST -------------------------------------------- */}
         {activeTab === 'availability' && (
           <div className="space-y-4">
 
@@ -1912,7 +2106,7 @@ export default function ContactCenter() {
                   </label>
                 </div>
                 {loadingBlastRecipients ? (
-                  <LoadingRow label="Loading recipients…" />
+                  <LoadingRow label="Loading recipients–" />
                 ) : blastRecipients.length === 0 ? (
                   <EmptyState icon={<Users size={22} />} label="No students with email addresses" />
                 ) : (
@@ -1937,9 +2131,9 @@ export default function ContactCenter() {
                     <ResultBanner sent={blastResult.sent} failed={blastResult.failed} errors={blastResult.errors} mode={blastResult.mode} redirectedTo={blastResult.redirectedTo} details={blastResult.details} />
                   )}
                   {!blastTermId && (
-                    <p className="text-[11px] text-amber-600 font-medium">⚠ Select a term first to generate the availability link.</p>
+                    <p className="text-[11px] text-amber-600 font-medium">? Select a term first to generate the availability link.</p>
                   )}
-                  <p className="text-[11px] text-amber-600 font-medium">⚠ Availability email blast is temporarily disabled — feature still in progress.</p>
+                  <p className="text-[11px] text-amber-600 font-medium">? Availability email blast is temporarily disabled – feature still in progress.</p>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <button onClick={openAvailabilityFormPreview} disabled={!blastTermId} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 disabled:opacity-40">
                       <Eye size={11} /> Preview form
@@ -1957,7 +2151,7 @@ export default function ContactCenter() {
               </div>
             </div>
 
-            {/* ── Slot Preferences Survey ─────────────────────────────────── */}
+            {/* -- Slot Preferences Survey ----------------------------------- */}
             <div className="space-y-5 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3.5">
                 <div className="flex items-center gap-2.5">
@@ -2017,12 +2211,12 @@ export default function ContactCenter() {
                   <input
                     value={spSearch}
                     onChange={e => setSpSearch(e.target.value)}
-                    placeholder="Search enrolled students…"
+                    placeholder="Search enrolled students–"
                     className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400"
                   />
                 </div>
                 {spLoading ? (
-                  <LoadingRow label="Loading students…" />
+                  <LoadingRow label="Loading students–" />
                 ) : spFilteredStudents.length === 0 ? (
                   <EmptyState icon={<Users size={24} />} label={spSelectedTermId ? 'No enrolled students found.' : 'Select a term to begin.'} />
                 ) : (
@@ -2056,7 +2250,7 @@ export default function ContactCenter() {
                                   {prefs!.map((choice, ci) => (
                                     <span key={ci} className="text-[11px] text-slate-500">
                                       {ci + 1}. {spBlockLabel(choice)}
-                                      {ci < prefs!.length - 1 && <span className="mx-1 text-slate-300">·</span>}
+                                      {ci < prefs!.length - 1 && <span className="mx-1 text-slate-300">–</span>}
                                     </span>
                                   ))}
                                 </div>
@@ -2087,7 +2281,7 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* ── GENERAL BLAST ───────────────────────────────────────────────── */}
+        {/* -- GENERAL BLAST ------------------------------------------------- */}
         {activeTab === 'general' && (
           <div className="space-y-4">
 
@@ -2133,7 +2327,7 @@ export default function ContactCenter() {
                   </label>
                 </div>
                 {loadingBlastRecipients ? (
-                  <LoadingRow label="Loading recipients…" />
+                  <LoadingRow label="Loading recipients–" />
                 ) : blastRecipients.length === 0 ? (
                   <EmptyState icon={<Users size={22} />} label="No students with email addresses" />
                 ) : (
@@ -2176,11 +2370,11 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* ── TUTOR SCHEDULES ─────────────────────────────────────────────── */}
+        {/* -- TUTOR SCHEDULES ----------------------------------------------- */}
         {activeTab === 'tutor' && (
           <div className="space-y-4">
 
-            {/* ── Auto Schedule Cron ───────────────────────────────────────────── */}
+            {/* -- Auto Schedule Cron --------------------------------------------- */}
             {(() => {
               const isWeekly      = tutorSchedMode === 'weekly'
               const cronJob       = isWeekly ? tutorWeeklyCronJob       : tutorDailyCronJob
@@ -2207,7 +2401,7 @@ export default function ContactCenter() {
                   </div>
                   {cronLoading && cronConfigured === null ? (
                     <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
-                      <Loader2 size={12} className="animate-spin" /> Checking schedule status…
+                      <Loader2 size={12} className="animate-spin" /> Checking schedule status–
                     </div>
                   ) : cronConfigured === false ? (
                     <div className="px-4 py-3 text-xs text-slate-500">
@@ -2228,7 +2422,7 @@ export default function ContactCenter() {
                             disabled={cronSaving}
                             className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                           >
-                            {cronSaving ? 'Saving…' : cronJob.enabled ? 'Turn off' : 'Turn on'}
+                            {cronSaving ? 'Saving–' : cronJob.enabled ? 'Turn off' : 'Turn on'}
                           </button>
                         </div>
                       )}
@@ -2249,7 +2443,7 @@ export default function ContactCenter() {
                           className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
                         >
                           <Save size={11} />
-                          {cronSaving ? 'Saving…' : 'Save'}
+                          {cronSaving ? 'Saving–' : 'Save'}
                         </button>
                       </div>
                       {cronJob && cronJob.nextExecution > 0 && (
@@ -2366,7 +2560,7 @@ export default function ContactCenter() {
                   disabled={tutorSchedSending || tutorsWithEmail.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
                 >
-                  {tutorSchedSending ? <><Loader2 size={13} className="animate-spin" /> Sending…</> : <><Send size={13} /> Send to {tutorsWithEmail.length} tutor{tutorsWithEmail.length !== 1 ? 's' : ''}</>}
+                  {tutorSchedSending ? <><Loader2 size={13} className="animate-spin" /> Sending–</> : <><Send size={13} /> Send to {tutorsWithEmail.length} tutor{tutorsWithEmail.length !== 1 ? 's' : ''}</>}
                 </button>
               </div>
             </div>
@@ -2390,7 +2584,7 @@ export default function ContactCenter() {
               </button>
               {tutorSchedLogsExpanded && (
                 loadingTutorSchedLogs ? (
-                  <LoadingRow label="Loading history…" />
+                  <LoadingRow label="Loading history–" />
                 ) : tutorSchedLogs.length === 0 ? (
                   <EmptyState icon={<Mail size={22} />} label="No tutor schedules sent yet" />
                 ) : (
@@ -2430,7 +2624,7 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* ── STUDENT SCHEDULES ──────────────────────────────────────────── */}
+        {/* -- STUDENT SCHEDULES -------------------------------------------- */}
         {activeTab === 'student' && (
           <div className="space-y-4">
 
@@ -2444,7 +2638,7 @@ export default function ContactCenter() {
                     onChange={e => { setStudentSchedTermId(e.target.value); setStudentSchedResult(null); setStudentSchedConfirm(false); setStudentSchedLogsExpanded(false); }}
                     className={baseInputCls}
                   >
-                    <option value="">— Select a term —</option>
+                    <option value="">– Select a term –</option>
                     {terms.map(t => <option key={t.id} value={t.id}>{t.name} ({t.status})</option>)}
                   </select>
                 </div>
@@ -2479,7 +2673,7 @@ export default function ContactCenter() {
                   />
                 </div>
                 {!studentSchedTermId && (
-                  <p className="text-[11px] text-amber-600 font-medium">⚠ Select a term first.</p>
+                  <p className="text-[11px] text-amber-600 font-medium">? Select a term first.</p>
                 )}
               </div>
 
@@ -2503,7 +2697,7 @@ export default function ContactCenter() {
                   </label>
                 </div>
                 {loadingBlastRecipients ? (
-                  <LoadingRow label="Loading recipients…" />
+                  <LoadingRow label="Loading recipients–" />
                 ) : blastRecipients.length === 0 ? (
                   <EmptyState icon={<Users size={22} />} label="No students with email addresses" />
                 ) : (
@@ -2572,7 +2766,7 @@ export default function ContactCenter() {
                 </button>
                 {studentSchedLogsExpanded && (
                   loadingStudentSchedLogs ? (
-                    <LoadingRow label="Loading history…" />
+                    <LoadingRow label="Loading history–" />
                   ) : studentSchedLogs.length === 0 ? (
                     <EmptyState icon={<Mail size={22} />} label="No schedules sent for this term yet" />
                   ) : (
@@ -2608,13 +2802,132 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* ── HISTORY ─────────────────────────────────────────────────────── */}
+        {/* Weekly Schedules section (inside Reminders tab) */}
+        {activeTab === 'reminders' && (
+          <div className="mt-6 space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Weekly Schedules</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">Send students their scheduled sessions for a specific week.</p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Left: week picker + send */}
+              <div className="space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Week</p>
+                    <p className="text-[11px] text-slate-400 mb-2">Send students their actual scheduled sessions for the selected week.</p>
+                    <input
+                      type="date"
+                      value={weeklySchedWeekStart}
+                      onChange={e => { setWeeklySchedWeekStart(e.target.value); setWeeklySchedResult(null); setWeeklySchedConfirm(false); }}
+                      className={baseInputCls}
+                    />
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Week of {new Date(`${weeklySchedWeekStart}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} &ndash;{' '}
+                      {new Date(new Date(`${weeklySchedWeekStart}T00:00:00`).setDate(new Date(`${weeklySchedWeekStart}T00:00:00`).getDate() + 6)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+
+                {weeklySchedResult && (
+                  <ResultBanner
+                    sent={weeklySchedResult.sent}
+                    failed={weeklySchedResult.failed}
+                    errors={weeklySchedResult.errors}
+                    mode={weeklySchedResult.mode}
+                    redirectedTo={weeklySchedResult.redirectedTo}
+                    skipped={weeklySchedResult.skipped}
+                    reason={weeklySchedResult.reason}
+                    details={(weeklySchedResult as any).details}
+                  />
+                )}
+
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    onClick={() => void openWeeklyStudentSchedulePreview()}
+                    disabled={previewLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <Eye size={12} /> Preview email
+                  </button>
+                  <SendButton
+                    onClick={handleSendWeeklyStudentSchedules}
+                    loading={weeklySchedSending}
+                    confirm={weeklySchedConfirm}
+                    count={weeklySchedSelected.size}
+                    disabled={weeklySchedSelected.size === 0 || weeklySchedSending}
+                    label="Send schedules"
+                  />
+                </div>
+                {weeklySchedStudents.length === 0 && !loadingWeeklyStudents && (
+                  <p className="text-[11px] text-amber-600 font-medium">? No students with sessions found for this week.</p>
+                )}
+              </div>
+
+              {/* Right: recipient list */}
+              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between border-b border-blue-100 bg-linear-to-r from-blue-50 to-white px-4 py-3">
+                  <p className="text-xs font-bold text-blue-900 uppercase tracking-wide">
+                    Students with sessions <span className="text-blue-400 font-normal normal-case">({weeklySchedStudents.length})</span>
+                  </p>
+                  <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-500">
+                    <Checkbox
+                      checked={weeklySchedStudents.length > 0 && weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
+                      indeterminate={weeklySchedStudents.some(r => weeklySchedSelected.has(r.studentId)) && !weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
+                      onChange={() => {
+                        setWeeklySchedConfirm(false);
+                        const allSel = weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId));
+                        setWeeklySchedSelected(allSel ? new Set() : new Set(weeklySchedStudents.map(r => r.studentId)));
+                      }}
+                    />
+                    {weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId)) ? 'Deselect all' : 'Select all'}
+                  </label>
+                </div>
+                {loadingWeeklyStudents ? (
+                  <LoadingRow label="Loading students–" />
+                ) : weeklySchedStudents.length === 0 ? (
+                  <EmptyState icon={<Users size={22} />} label="No sessions scheduled this week" />
+                ) : (
+                  <ul className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-72">
+                    {weeklySchedStudents.map(r => (
+                      <li
+                        key={r.studentId}
+                        className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                        onClick={() => {
+                          setWeeklySchedConfirm(false);
+                          setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
+                        }}
+                      >
+                        <div className="mt-0.5"><Checkbox
+                          checked={weeklySchedSelected.has(r.studentId)}
+                          onChange={() => {
+                            setWeeklySchedConfirm(false);
+                            setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
+                          }}
+                        /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-800">{r.studentName}</p>
+                          <div className="mt-0.5 text-[11px] text-slate-400">
+                            <EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} />
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -- HISTORY ------------------------------------------------------- */}
         {activeTab === 'history' && (
           <div className="space-y-4">
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               {loadingLogs ? (
-                <LoadingRow label="Loading history…" />
+                <LoadingRow label="Loading history–" />
               ) : logs.length === 0 ? (
                 <EmptyState icon={<Mail size={24} />} label="No reminders sent yet" />
               ) : (
@@ -2659,7 +2972,7 @@ export default function ContactCenter() {
         </div>{/* end panel content */}
       </div>{/* end max-w-5xl */}
 
-      {/* ── Email preview modal ──────────────────────────────────────────── */}
+      {/* -- Email preview modal -------------------------------------------- */}
       {previewModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-[1px]"
@@ -2684,7 +2997,7 @@ export default function ContactCenter() {
               {previewLoading ? (
                 <div className="flex min-h-[72vh] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-slate-500">
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Loader2 size={14} className="animate-spin" /> Building preview…
+                    <Loader2 size={14} className="animate-spin" /> Building preview–
                   </div>
                 </div>
               ) : (
@@ -2703,9 +3016,9 @@ export default function ContactCenter() {
   );
 }
 
-// ── Shared sub-components ──────────────────────────────────────────────────────
+// -- Shared sub-components ------------------------------------------------------
 
-// SectionHeader removed — layout uses sidebar nav
+// SectionHeader removed – layout uses sidebar nav
 
 function Checkbox({ checked, indeterminate, disabled, onChange }: { checked: boolean; indeterminate?: boolean; disabled?: boolean; onChange: () => void }) {
   return (
@@ -2765,9 +3078,9 @@ function SendButton({ onClick, loading, confirm, count, disabled, label }: { onC
       style={{ background: confirm ? '#92400e' : '#0f172a' }}
     >
       {loading ? (
-        <><Loader2 size={13} className="animate-spin" /> Sending…</>
+        <><Loader2 size={13} className="animate-spin" /> Sending–</>
       ) : confirm ? (
-        <><AlertCircle size={13} /> Confirm — {count} recipient{count !== 1 ? 's' : ''}</>
+        <><AlertCircle size={13} /> Confirm – {count} recipient{count !== 1 ? 's' : ''}</>
       ) : (
         <><Send size={13} /> {label} ({count})</>
       )}
@@ -2785,7 +3098,7 @@ function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reaso
       {isRedirect && (
         <div className="flex items-center gap-2 bg-amber-100 border-b border-amber-200 px-3 py-2">
           <AlertCircle size={13} className="shrink-0" />
-          <span className="font-bold">TEST MODE — emails redirected to: {redirectedTo}</span>
+          <span className="font-bold">TEST MODE – emails redirected to: {redirectedTo}</span>
         </div>
       )}
       <div className="flex items-start gap-2 px-3 py-2.5">
@@ -2807,7 +3120,7 @@ function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reaso
                   {details.map((d, i) => (
                     <li key={i} className="flex items-baseline gap-1.5">
                       <span className="font-semibold">{d.name}</span>
-                      <span className="opacity-60">→</span>
+                      <span className="opacity-60">?</span>
                       <span className="font-mono break-all opacity-80">{d.to}</span>
                     </li>
                   ))}
@@ -2870,7 +3183,7 @@ function SpProposalPanel({ proposal, onClose, studentNames }: { proposal: SpProp
           <Play className="w-4 h-4 text-indigo-600" />
           <span className="text-sm font-bold text-indigo-900">Scheduler Proposal</span>
           <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">
-            {assignments.length} placed · {unmatched.length} unmatched
+            {assignments.length} placed – {unmatched.length} unmatched
           </span>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:bg-indigo-100 text-indigo-400">
@@ -2893,7 +3206,7 @@ function SpProposalPanel({ proposal, onClose, studentNames }: { proposal: SpProp
                         <li key={i} className="flex items-center gap-2 px-3 py-2 text-xs">
                           <span className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${spChoiceBadge(a.choiceUsed)}`}>C{a.choiceUsed}</span>
                           <span className="font-semibold text-slate-800">{a.studentName}</span>
-                          {a.subject && <span className="text-slate-400">· {a.subject}</span>}
+                          {a.subject && <span className="text-slate-400">– {a.subject}</span>}
                           <span className="ml-auto text-slate-500">{a.tutorName}</span>
                           {a.blocks.length === 2 && <span className="text-indigo-600 font-semibold">2h</span>}
                         </li>
@@ -2914,8 +3227,8 @@ function SpProposalPanel({ proposal, onClose, studentNames }: { proposal: SpProp
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                   <span>
                     <span className="font-semibold text-slate-800">{u.studentName}</span>
-                    {u.subject && <span className="text-slate-500"> · {u.subject}</span>}
-                    <span className="text-amber-700 ml-1">— {u.reason}</span>
+                    {u.subject && <span className="text-slate-500"> – {u.subject}</span>}
+                    <span className="text-amber-700 ml-1">– {u.reason}</span>
                   </span>
                 </li>
               ))}

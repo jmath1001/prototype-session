@@ -193,28 +193,33 @@ function getMondayOfCurrentWeek(): string {
 }
 
 // ── Subject Pills ─────────────────────────────────────────────────────────────
-function SubjectCheckboxes({ selected, onChange, subjects }: { selected: string[]; onChange: (s: string[]) => void; subjects: string[] }) {
+function SubjectCheckboxes({ selected, onChange }: { selected: string[]; onChange: (s: string[]) => void }) {
   const toggle = (s: string) =>
     onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s]);
 
   return (
     <div className="space-y-2">
       <label className="block text-[10px] font-semibold text-slate-400">Subjects</label>
-      <div className="rounded border border-slate-200 bg-slate-50 p-2.5">
-        <div className="flex flex-wrap gap-1">
-          {subjects.map(subject => {
-            const active = selected.includes(subject);
-            return (
-              <button key={subject} type="button" onClick={() => toggle(subject)}
-                className="rounded-md px-2 py-1 text-[10px] font-semibold tracking-[0.02em] transition-all"
-                style={active
-                  ? { background: '#0f172a', color: 'white', border: '1px solid #0f172a' }
-                  : { background: 'white', color: '#475569', border: '1px solid #cbd5e1' }}>
-                {subject}
-              </button>
-            );
-          })}
-        </div>
+      <div className="space-y-2">
+        {SUBJECT_GROUPS.map(group => (
+          <div key={group.group} className="rounded border border-slate-200 bg-slate-50 p-2.5">
+            <p className="mb-2 text-[10px] font-semibold text-slate-500">{group.group}</p>
+            <div className="flex flex-wrap gap-1">
+              {group.subjects.map(subject => {
+                const active = selected.includes(subject);
+                return (
+                  <button key={subject} type="button" onClick={() => toggle(subject)}
+                    className="rounded-md px-2 py-1 text-[10px] font-semibold tracking-[0.02em] transition-all"
+                    style={active
+                      ? { background: '#0f172a', color: 'white', border: '1px solid #0f172a' }
+                      : { background: 'white', color: '#475569', border: '1px solid #cbd5e1' }}>
+                    {subject}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -373,7 +378,6 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
     setStartDate('');
     setEndDate('');
     setNote('');
-    logEvent('tutor_time_off_added', { tutorId: tutor.id, tutorName: tutor.name, days: datesToInsert.length, note: note.trim() || null });
     await onRefetch();
     setSaving(false);
   };
@@ -388,7 +392,6 @@ function TimeOffPanel({ tutor, timeOffList, onRefetch }: {
       return;
     }
 
-    logEvent('tutor_time_off_removed', { tutorId: tutor.id, tutorName: tutor.name, days: ids.length });
     await onRefetch();
     setSaving(false);
   };
@@ -567,7 +570,6 @@ function TutorDetailPanel({
   termAvailabilityBlocks,
   sessionTimesByDay,
   termLabel,
-  centerSubjects,
 }: {
   tutor: TutorWithContact;
   timeOffList: TimeOff[];
@@ -579,7 +581,6 @@ function TutorDetailPanel({
   termAvailabilityBlocks: string[] | undefined;
   sessionTimesByDay: SessionTimesByDay | null;
   termLabel?: string;
-  centerSubjects: string[];
 }) {
   const [tab, setTab] = useState<'details' | 'timeoff'>('details');
   const [isEditing, setIsEditing] = useState(false);
@@ -603,18 +604,6 @@ function TutorDetailPanel({
     setConfirmDelete(false);
     setTab('details');
   }, [tutor]);
-
-  // Sync draft blocks when term availability loads asynchronously (or term selection changes),
-  // but only when not currently editing to avoid discarding in-progress changes.
-  useEffect(() => {
-    if (isEditing) return;
-    const blocks = selectedTermId ? (termAvailabilityBlocks ?? []) : (termAvailabilityBlocks ?? tutor.availabilityBlocks);
-    setDraft(prev => ({
-      ...prev,
-      availabilityBlocks: blocks,
-      availability: Array.from(new Set(blocks.map(b => parseInt(b.split('-')[0])))).sort((a, b) => a - b),
-    }));
-  }, [termAvailabilityBlocks, selectedTermId]);
 
   const hasTermOverride = termAvailabilityBlocks !== undefined;
 
@@ -703,25 +692,10 @@ function TutorDetailPanel({
         </div>
 
         <div className="mt-3 grid gap-2.5 lg:grid-cols-2">
-          <div className={`rounded border px-3.5 py-3 ${conflictCount > 0 ? 'border-red-300 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${conflictCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>Conflicts</p>
-            <p className={`mt-1 text-sm font-black ${conflictCount > 0 ? 'text-red-700' : 'text-slate-900'}`}>
-              {conflictCount > 0 ? `${conflictCount} session${conflictCount === 1 ? '' : 's'} need rearranging` : 'No conflicts'}
-            </p>
-            {conflictCount > 0 ? (
-              <div className="mt-1.5 space-y-0.5">
-                {conflictSessions.slice(0, 4).map(session => (
-                  <p key={session.id} className="text-[11px] font-medium text-red-600">
-                    {formatDateLabel(session.date)} · {formatSessionTimeLabel(session.time)}
-                  </p>
-                ))}
-                {conflictSessions.length > 4 && (
-                  <p className="text-[11px] text-red-400">+{conflictSessions.length - 4} more</p>
-                )}
-              </div>
-            ) : (
-              <p className="mt-0.5 text-[11px] text-slate-500">No blocked-date conflicts right now.</p>
-            )}
+          <div className="rounded border border-slate-100 bg-slate-50 px-3.5 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Conflicts</p>
+            <p className="mt-1 text-sm font-black text-slate-900">{conflictCount} session{conflictCount === 1 ? '' : 's'} need movement</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{conflictCount > 0 ? 'See details tab list below.' : 'No blocked-date conflicts right now.'}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-[#f1f5f9] px-3.5 py-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Time off</p>
@@ -783,7 +757,7 @@ function TutorDetailPanel({
 
                 <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
                   {isEditing ? (
-                    <SubjectCheckboxes selected={draft.subjects} onChange={subjects => setDraft({ ...draft, subjects })} subjects={centerSubjects} />
+                    <SubjectCheckboxes selected={draft.subjects} onChange={subjects => setDraft({ ...draft, subjects })} />
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-3">
@@ -833,7 +807,22 @@ function TutorDetailPanel({
                   })}
                 />
 
-
+                {/* Conflicts — compact, view-mode only */}
+                {!isEditing && conflictSessions.length > 0 && (
+                  <div className="rounded border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-red-700 mb-1.5">
+                      {conflictCount} conflict{conflictCount !== 1 ? 's' : ''} · time-off overlaps booked sessions
+                    </p>
+                    <div className="space-y-1">
+                      {conflictSessions.slice(0, 3).map(session => (
+                        <p key={session.id} className="text-[11px] text-red-700">
+                          {formatDateLabel(session.date)} · {formatSessionTimeLabel(session.time)}
+                        </p>
+                      ))}
+                      {conflictSessions.length > 3 && <p className="text-[11px] text-red-600">+{conflictSessions.length - 3} more</p>}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -865,14 +854,13 @@ function TutorDetailPanel({
 }
 
 // ── Tutor Row ─────────────────────────────────────────────────────────────────
-function TutorRow({ tutor, selected, onToggle, timeOffList, scheduledSessions, onSave, onDelete, onRefetch, centerSubjects }: {
+function TutorRow({ tutor, selected, onToggle, timeOffList, scheduledSessions, onSave, onDelete, onRefetch }: {
   tutor: TutorWithContact; selected: boolean; onToggle: () => void;
   timeOffList: TimeOff[];
   scheduledSessions: ScheduledSession[];
   onSave: (u: TutorWithContact) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onRefetch: () => Promise<void>;
-  centerSubjects: string[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'details' | 'timeoff'>('details');
@@ -1135,7 +1123,7 @@ function TutorRow({ tutor, selected, onToggle, timeOffList, scheduledSessions, o
                 {/* Edit-mode full controls */}
                 {isEditing && (
                   <div className="space-y-5 pt-2 border-t border-[#e2e8f0]">
-                    <SubjectCheckboxes selected={draft.subjects} onChange={subjects => setDraft({ ...draft, subjects })} subjects={centerSubjects} />
+                    <SubjectCheckboxes selected={draft.subjects} onChange={subjects => setDraft({ ...draft, subjects })} />
                     <AvailabilityGrid
                       blocks={draft.availabilityBlocks}
                       onChange={b => setDraft({
@@ -1176,7 +1164,6 @@ export default function TutorManagementPage() {
   const [timeOffList, setTimeOffList] = useState<TimeOff[]>([]);
   const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [centerSubjects, setCenterSubjects] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
   const [newTutor, setNewTutor] = useState<Omit<TutorWithContact, 'id'>>(EMPTY_TUTOR);
   const [saving, setSaving] = useState(false);
@@ -1240,13 +1227,6 @@ export default function TutorManagementPage() {
   };
 
   useEffect(() => { fetchAll(); }, []);
-
-  useEffect(() => {
-    fetch('/api/center-subjects', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(d => { if (Array.isArray(d?.subjects)) setCenterSubjects(d.subjects); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     fetch('/api/terms', { cache: 'no-store' })
@@ -1529,7 +1509,7 @@ export default function TutorManagementPage() {
                 </div>
               </div>
 
-              <SubjectCheckboxes selected={newTutor.subjects} onChange={subjects => setNewTutor({ ...newTutor, subjects })} subjects={centerSubjects} />
+              <SubjectCheckboxes selected={newTutor.subjects} onChange={subjects => setNewTutor({ ...newTutor, subjects })} />
               <AvailabilityGrid
                 blocks={newTutor.availabilityBlocks}
                 sessionTimesByDay={selectedTermSessionTimes}
@@ -1738,7 +1718,6 @@ export default function TutorManagementPage() {
                   termAvailabilityBlocks={termAvailabilityByTutor[activeTutor.id]}
                   sessionTimesByDay={selectedTermSessionTimes}
                   termLabel={terms.find(t => t.id === selectedTermId)?.name}
-                  centerSubjects={centerSubjects}
                 />
               ) : (
                 <div className="rounded-[28px] border border-[#cbd5e1] bg-white px-6 py-16 text-center shadow-[0_24px_60px_rgba(15,23,42,0.12)]">

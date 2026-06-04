@@ -594,7 +594,7 @@ export default function CenterSettingsPage() {
                             >
                               {isActive ? 'Current' : (activatingTermId === term.id ? 'Switching...' : 'Set Current')}
                             </button>
-                            <button onClick={() => handleEditTerm(term)}
+                            <button onClick={() => { handleEditTerm(term) }}
                               className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
                             >Edit</button>
                             <button onClick={() => handleDeleteTerm(term.id)}

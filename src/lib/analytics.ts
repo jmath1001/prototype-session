@@ -43,6 +43,7 @@ export type EventName =
   | 'blast_sent'
   | 'tutor_schedules_sent'
   | 'student_schedules_sent'
+  | 'weekly_student_schedules_sent'
   | 'first_visit'
   | 'auto_reminder_toggled'
   | 'auto_reminder_time_saved'
