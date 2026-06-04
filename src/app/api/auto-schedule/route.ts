@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
             .select('id').single()
 
           if (seriesErr || !series) {
-            errors.push(Series for : )
+            errors.push(`Series for ${a.studentName} failed: ${seriesErr?.message ?? 'unknown'}`)
             continue
           }
 
