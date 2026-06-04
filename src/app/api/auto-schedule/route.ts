@@ -72,7 +72,7 @@ function countWeeks(start: string, dow: number, end: string): number {
 function createConfirmationToken(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
-    ${Date.now()}-
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`
   )
 }
 
