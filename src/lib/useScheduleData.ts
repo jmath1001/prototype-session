@@ -954,7 +954,7 @@ export async function cancelSeries(seriesId: string): Promise<void> {
 export async function deleteSeries(seriesId: string, fromDate?: string): Promise<void> {
   const cutoff = fromDate ?? toISODate(new Date())
 
-  // Find all session_students rows for this series with a future session date
+  // Find all session_students rows for this series
   const { data: ssRows, error: fetchErr } = await (withCenter(
     supabase
       .from(SS)
@@ -965,11 +965,15 @@ export async function deleteSeries(seriesId: string, fromDate?: string): Promise
 
   const futureSSIds: string[] = []
   const futureSessionIds: string[] = []
+  let hasPastSessions = false
+
   for (const r of (ssRows ?? [])) {
     const sess = Array.isArray(r[SESSIONS]) ? r[SESSIONS][0] : r[SESSIONS]
     if (sess?.session_date >= cutoff) {
       futureSSIds.push(r.id)
       if (sess.id && !futureSessionIds.includes(sess.id)) futureSessionIds.push(sess.id)
+    } else {
+      hasPastSessions = true
     }
   }
 
@@ -979,7 +983,7 @@ export async function deleteSeries(seriesId: string, fromDate?: string): Promise
     if (error) throw error
   }
 
-  // Delete any sessions that now have no students remaining
+  // Delete any future sessions that now have no students remaining
   if (futureSessionIds.length > 0) {
     const { data: remaining } = await withCenter(
       supabase.from(SS).select('session_id').in('session_id', futureSessionIds)
@@ -991,9 +995,21 @@ export async function deleteSeries(seriesId: string, fromDate?: string): Promise
     }
   }
 
-  // Delete the recurring series row itself
-  const { error: deleteErr } = await withCenter(supabase.from(RECURRING).delete()).eq('id', seriesId)
-  if (deleteErr) throw deleteErr
+  if (hasPastSessions) {
+    // Past sessions exist — preserve the series record as a historical anchor.
+    // Truncate end_date to the day before the cutoff and mark cancelled so
+    // past session_students rows keep a valid series_id reference.
+    const dayBefore = new Date(cutoff + 'T00:00:00')
+    dayBefore.setDate(dayBefore.getDate() - 1)
+    const newEndDate = toISODate(dayBefore)
+    const { error: updateErr } = await withCenter(supabase.from(RECURRING)
+      .update({ status: 'cancelled', end_date: newEndDate })).eq('id', seriesId)
+    if (updateErr) throw updateErr
+  } else {
+    // No past sessions at all — safe to hard-delete the series record
+    const { error: deleteErr } = await withCenter(supabase.from(RECURRING).delete()).eq('id', seriesId)
+    if (deleteErr) throw deleteErr
+  }
 }
 
 function jsDayToIso(jsDay: number): number { return jsDay === 0 ? 7 : jsDay }
