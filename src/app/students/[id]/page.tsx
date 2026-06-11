@@ -55,30 +55,43 @@ type TimelineItem =
       sortDate: string
     }
 
+// ── Status pill config ─────────────────────────────────────────────────────
+function statusBadge(row: HistoryRow, today: string) {
+  if (row.status === 'present' || row.status === 'confirmed') return { text: 'Present',   bg: '#dcfce7', color: '#15803d' }
+  if (row.status === 'no-show')  return { text: 'No-show',   bg: '#fee2e2', color: '#b91c1c' }
+  if (row.status === 'cancelled') return { text: 'Cancelled', bg: '#f3f4f6', color: '#9ca3af' }
+  if (row.status === 'off')       return { text: 'Off',       bg: '#fff7ed', color: '#c2410c' }
+  if (row.date < today)           return { text: 'Unmarked',  bg: '#f1f5f9', color: '#475569' }
+  return                                 { text: 'Upcoming',  bg: '#dbeafe', color: '#1d4ed8' }
+}
+
 export default function StudentHistoryPage() {
   const params = useParams<{ id: string }>()
   const studentId = String(params?.id ?? '')
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [student, setStudent] = useState<any | null>(null)
-  const [history, setHistory] = useState<HistoryRow[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [student, setStudent]   = useState<any | null>(null)
+  const [history, setHistory]   = useState<HistoryRow[]>([])
   const [timelineTab, setTimelineTab] = useState<'all' | 'upcoming' | 'past'>('all')
-  const [editingRowId, setEditingRowId]   = useState<string | null>(null)
-  const [editDraft,    setEditDraft]      = useState({ status: '', topic: '', notes: '' })
-  const [editSaving,   setEditSaving]     = useState(false)
+  const [editingRowId, setEditingRowId] = useState<string | null>(null)
+  const [editDraft, setEditDraft]       = useState({ status: '', topic: '', notes: '' })
+  const [editSaving, setEditSaving]     = useState(false)
   const [expandedSeriesKeys, setExpandedSeriesKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let cancelled = false
-
     async function load() {
       if (!studentId) return
       setLoading(true)
       setError(null)
-
       try {
-        const [{ data: studentRow, error: studentErr }, { data: rows, error: rowsErr }, { data: tutorRows, error: tutorErr }, { data: exRows }] = await Promise.all([
+        const [
+          { data: studentRow, error: studentErr },
+          { data: rows, error: rowsErr },
+          { data: tutorRows, error: tutorErr },
+          { data: exRows },
+        ] = await Promise.all([
           withCenter(supabase.from(STUDENTS).select('*').eq('id', studentId)).single(),
           (withCenter(supabase
             .from(SS)
@@ -130,7 +143,10 @@ export default function StudentHistoryPage() {
 
         if (!cancelled) {
           setStudent(studentRow)
-          setHistory([...mapped as any[], ...exceptionRows].sort((a: any, b: any) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time)))
+          setHistory(
+            [...(mapped as HistoryRow[]), ...exceptionRows]
+              .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+          )
         }
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load student history')
@@ -138,23 +154,23 @@ export default function StudentHistoryPage() {
         if (!cancelled) setLoading(false)
       }
     }
-
     load()
     return () => { cancelled = true }
   }, [studentId])
 
   const today = toISODate(getCentralTimeNow())
-  const cancelledCount = useMemo(() => history.filter(s => s.status === 'cancelled').length, [history])
-  const offCount = useMemo(() => history.filter(s => s.status === 'off').length, [history])
-  const past = useMemo(() => history.filter(s => s.date < today), [history, today])
-  const upcoming = useMemo(() => history.filter(s => s.date >= today && s.status !== 'cancelled'), [history, today])
-  const pastActive = useMemo(() => past.filter(s => s.status !== 'cancelled' && s.status !== 'off'), [past])
-  const presentCount = useMemo(() => pastActive.filter(s => s.status === 'present' || s.status === 'confirmed').length, [pastActive])
-  const noShowCount = useMemo(() => pastActive.filter(s => s.status === 'no-show').length, [pastActive])
-  const unmarkedCount = useMemo(() => pastActive.filter(s => s.status !== 'present' && s.status !== 'confirmed' && s.status !== 'no-show').length, [pastActive])
-  const attendanceRate = pastActive.length > 0 ? presentCount / pastActive.length : null
-  const noShowRate = pastActive.length > 0 ? noShowCount / pastActive.length : null
 
+  const past     = useMemo(() => history.filter(s => s.date < today), [history, today])
+  const upcoming = useMemo(() => history.filter(s => s.date >= today && s.status !== 'cancelled'), [history, today])
+  const pastActive   = useMemo(() => past.filter(s => s.status !== 'cancelled' && s.status !== 'off'), [past])
+  const presentCount = useMemo(() => pastActive.filter(s => s.status === 'present' || s.status === 'confirmed').length, [pastActive])
+  const noShowCount  = useMemo(() => pastActive.filter(s => s.status === 'no-show').length, [pastActive])
+  const cancelledCount = useMemo(() => history.filter(s => s.status === 'cancelled').length, [history])
+  const offCount       = useMemo(() => history.filter(s => s.status === 'off').length, [history])
+  const attendanceRate = pastActive.length > 0 ? presentCount / pastActive.length : null
+  const noShowRate     = pastActive.length > 0 ? noShowCount / pastActive.length : null
+
+  // ── Weekly schedule ────────────────────────────────────────────────────────
   const weeklySchedule = useMemo(() => {
     const DAYS = [
       { abbr: 'Mon', dow: 1 },
@@ -185,6 +201,7 @@ export default function StudentHistoryPage() {
     return DAYS.map(day => ({ ...day, slots: byDow[day.dow] ?? [] }))
   }, [upcoming, history, today])
 
+  // ── Grouped timeline ───────────────────────────────────────────────────────
   const groupedTimeline = useMemo(() => {
     const source = timelineTab === 'upcoming' ? upcoming : timelineTab === 'past' ? past : history
 
@@ -198,26 +215,20 @@ export default function StudentHistoryPage() {
         existing.push(row)
         recurringBuckets.set(key, existing)
       } else {
-        singles.push({
-          kind: 'single',
-          key: `single-${row.rowId}`,
-          row,
-          sortDate: `${row.date}T${row.time}`,
-        })
+        singles.push({ kind: 'single', key: `single-${row.rowId}`, row, sortDate: `${row.date}T${row.time}` })
       }
     }
 
     const seriesItems: TimelineItem[] = Array.from(recurringBuckets.entries()).map(([seriesId, rows]) => {
       const ordered = [...rows].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
       const first = ordered[0]
-      const last = ordered[ordered.length - 1]
+      const last  = ordered[ordered.length - 1]
       const focus = timelineTab === 'upcoming' ? first : last
-      const present = rows.filter(r => r.status === 'present' || r.status === 'confirmed').length
-      const noShow = rows.filter(r => r.status === 'no-show').length
+      const present   = rows.filter(r => r.status === 'present' || r.status === 'confirmed').length
+      const noShow    = rows.filter(r => r.status === 'no-show').length
       const cancelled = rows.filter(r => r.status === 'cancelled').length
-      const off = rows.filter(r => r.status === 'off').length
-      const unmarked = rows.length - present - noShow - cancelled - off
-
+      const off       = rows.filter(r => r.status === 'off').length
+      const unmarked  = rows.length - present - noShow - cancelled - off
       return {
         kind: 'series',
         key: `series-${seriesId}-${timelineTab}`,
@@ -230,14 +241,10 @@ export default function StudentHistoryPage() {
         lastDate: last.date,
         focusDate: focus.date,
         count: rows.length,
-        present,
-        noShow,
-        cancelled,
-        off,
-        unmarked,
+        present, noShow, cancelled, off, unmarked,
         notesCount: rows.filter(r => !!r.notes).length,
         sortDate: `${focus.date}T${focus.time}`,
-      }
+      } as TimelineItem
     })
 
     const merged = [...singles, ...seriesItems]
@@ -245,16 +252,7 @@ export default function StudentHistoryPage() {
       const cmp = a.sortDate.localeCompare(b.sortDate)
       return timelineTab === 'upcoming' ? cmp : -cmp
     })
-  }, [timelineTab, past, upcoming])
-
-  const statusBadge = (row: any) => {
-    if (row.status === 'present' || row.status === 'confirmed') return { text: '✓ Present', bg: '#dcfce7', color: '#166534', shadow: '#16a34a20' }
-    if (row.status === 'no-show') return { text: '✕ No-show', bg: '#fee2e2', color: '#991b1b', shadow: '#dc262620' }
-    if (row.status === 'cancelled') return { text: '⊘ Cancelled', bg: '#f3f4f6', color: '#9ca3af', shadow: '#9ca3af20' }
-    if (row.status === 'off') return { text: '✈ Off', bg: '#fff7ed', color: '#c2410c', shadow: '#c2410c20' }
-    if (row.date < today) return { text: '? Unmarked', bg: '#f1f5f9', color: '#334155', shadow: '#64748b20' }
-    return { text: '→ Upcoming', bg: '#dbeafe', color: '#1e40af', shadow: '#3b82f620' }
-  }
+  }, [timelineTab, past, upcoming, history])
 
   const handleSaveEdit = async () => {
     if (!editingRowId || !student) return
@@ -280,29 +278,26 @@ export default function StudentHistoryPage() {
     }
   }
 
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%)' }}>
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-3" style={{ background: '#f1f5f9', border: '1.5px solid #e2e8f0' }}>
-            <div className="animate-spin w-6 h-6 border-2 border-[#3b82f6] border-t-[#10b981] rounded-full"></div>
-          </div>
-          <p className="text-sm font-semibold text-[#64748b]">Loading student history...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f7fa' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#e2e8f0] border-t-[#3b82f6] rounded-full animate-spin" />
+          <p className="text-[11px] font-bold tracking-widest uppercase text-[#94a3b8]">Loading</p>
         </div>
       </div>
     )
   }
 
+  // ── Error ──────────────────────────────────────────────────────────────────
   if (error || !student) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%)' }}>
-        <div className="rounded-2xl bg-white p-8 text-center shadow-sm" style={{ border: '1.5px solid #fca5a5', boxShadow: '0 4px 16px rgba(220,38,38,0.1)' }}>
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4" style={{ background: '#fef2f2', border: '1.5px solid #fca5a5' }}>
-            <AlertTriangle size={24} style={{ color: '#dc2626' }} />
-          </div>
-          <p className="text-base font-black text-[#dc2626]">Unable to load student</p>
-          <p className="mt-2 text-sm text-[#64748b]">{error ?? 'Student not found'}</p>
-          <Link href="/students" className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg font-bold text-sm" style={{ background: '#dc2626', color: '#ffffff' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f7fa' }}>
+        <div className="bg-white rounded-2xl border border-[#fca5a5] p-8 text-center shadow-sm max-w-sm w-full">
+          <AlertTriangle size={22} className="mx-auto mb-3 text-[#dc2626]" />
+          <p className="font-black text-[#dc2626]">{error ?? 'Student not found'}</p>
+          <Link href="/students" className="mt-4 inline-block text-xs font-bold text-[#3b82f6] hover:underline">
             ← Back to students
           </Link>
         </div>
@@ -310,65 +305,104 @@ export default function StudentHistoryPage() {
     )
   }
 
+  // ── Page ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%)' }}>
-      <div className="max-w-5xl mx-auto px-4 py-4 md:py-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <Link href="/students" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] hover:shadow-sm transition-all" style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', color: '#991b1b', border: '1.5px solid #fca5a5', boxShadow: '0 2px 4px rgba(220,38,38,0.08)' }}>
-            <ArrowLeft size={12} /> Back
-          </Link>
-        </div>
+    <div className="min-h-screen" style={{ background: '#f1f5f9' }}>
+      <div className="max-w-5xl mx-auto px-4 py-5 space-y-4">
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 4px 16px rgba(15,23,42,0.08)' }}>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Nav */}
+        <Link
+          href="/students"
+          className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[#94a3b8] hover:text-[#0f172a] transition-colors"
+        >
+          <ArrowLeft size={11} /> Students
+        </Link>
+
+        {/* ── Header card ── */}
+        <div className="bg-white rounded-2xl border border-[#e2e8f0] px-6 py-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-black text-[#0f172a]">{student.name}</h1>
-              <p className="text-[11px] text-[#64748b] font-semibold mt-0.5">
-                {upcoming.length > 0 ? `${upcoming.length} upcoming session${upcoming.length !== 1 ? 's' : ''}` : 'No upcoming sessions'}
-                {pastActive.length > 0 && ` · ${Math.round((presentCount / pastActive.length) * 100)}% attendance`}
+              <h1 className="text-2xl font-black text-[#0f172a] tracking-tight">{student.name}</h1>
+              <p className="text-[12px] text-[#64748b] font-semibold mt-1">
+                {upcoming.length > 0
+                  ? `${upcoming.length} upcoming session${upcoming.length !== 1 ? 's' : ''}`
+                  : 'No upcoming sessions'}
+                {pastActive.length > 0 && attendanceRate !== null &&
+                  ` · ${Math.round(attendanceRate * 100)}% attendance (${presentCount}/${pastActive.length})`}
+                {cancelledCount > 0 && ` · ${cancelledCount} cancelled`}
               </p>
             </div>
             {past.length >= 3 && noShowRate !== null && noShowRate > 0.4 && (
-              <span className="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em]" style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', color: '#991b1b', border: '1px solid #fca5a5' }}>
-                <AlertTriangle size={11} /> At Risk
+              <span className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest"
+                style={{ background: '#fef2f2', color: '#b91c1c', border: '1.5px solid #fca5a5' }}>
+                <AlertTriangle size={10} /> At Risk
               </span>
             )}
           </div>
+
+          {/* Stat pills */}
+          {pastActive.length > 0 && (
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
+              {[
+                { label: 'Present',   val: presentCount,                    bg: '#dcfce7', color: '#15803d' },
+                { label: 'No-show',   val: noShowCount,                     bg: '#fee2e2', color: '#b91c1c' },
+                { label: 'Upcoming',  val: upcoming.length,                 bg: '#dbeafe', color: '#1d4ed8' },
+                { label: 'Cancelled', val: cancelledCount,                  bg: '#f3f4f6', color: '#6b7280' },
+                ...(offCount > 0 ? [{ label: 'Off', val: offCount,          bg: '#fff7ed', color: '#c2410c' }] : []),
+              ].map(p => (
+                <span key={p.label}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                  style={{ background: p.bg, color: p.color }}>
+                  <span className="text-base font-black leading-none">{p.val}</span> {p.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="rounded-2xl bg-white shadow-sm overflow-hidden" style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 4px 16px rgba(15,23,42,0.08)' }}>
-          <div className="px-5 py-3.5" style={{ borderBottom: '1.5px solid #e2e8f0', background: 'linear-gradient(90deg, #ffffff 0%, #f8fafc 100%)' }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0f172a] flex items-center gap-1.5">
-              <CalendarDays size={12} /> Weekly Schedule
-            </p>
+        {/* ── Weekly Schedule ── */}
+        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#f1f5f9] flex items-center gap-2">
+            <CalendarDays size={13} className="text-[#94a3b8]" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">Weekly Schedule</p>
             {weeklySchedule.every(d => d.slots.length === 0) && (
-              <p className="text-[10px] text-[#94a3b8] mt-0.5">No recurring sessions found</p>
+              <span className="text-[10px] text-[#94a3b8] ml-1">— no recurring sessions</span>
             )}
           </div>
           <div className="p-4 grid grid-cols-3 md:grid-cols-6 gap-2">
             {weeklySchedule.map(day => {
-              const active = day.slots.length > 0
+              const active     = day.slots.length > 0
               const hasUpcoming = day.slots.some(s => s.isUpcoming)
               return (
-                <div key={day.dow} className="rounded-xl p-3 flex flex-col gap-2 min-h-20"
+                <div key={day.dow}
+                  className="rounded-xl p-2.5 min-h-[72px] flex flex-col gap-1.5"
                   style={{
-                    background: active ? (hasUpcoming ? 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)' : '#f8fafc') : '#f8fafc',
-                    border: active ? (hasUpcoming ? '1.5px solid #c4b5fd' : '1.5px solid #d1d5db') : '1.5px solid #e2e8f0',
-                    opacity: active ? 1 : 0.4,
+                    background: active
+                      ? hasUpcoming ? '#f5f3ff' : '#f8fafc'
+                      : '#f8fafc',
+                    border: `1.5px solid ${active ? (hasUpcoming ? '#c4b5fd' : '#e2e8f0') : '#e2e8f0'}`,
+                    opacity: active ? 1 : 0.45,
                   }}>
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em]"
-                    style={{ color: active ? (hasUpcoming ? '#6d28d9' : '#374151') : '#94a3b8' }}>
+                  <p className="text-[9px] font-black uppercase tracking-widest"
+                    style={{ color: active ? (hasUpcoming ? '#6d28d9' : '#64748b') : '#cbd5e1' }}>
                     {day.abbr}
                   </p>
                   {active ? day.slots.map(s => (
-                    <div key={s.seriesId} className="rounded-md p-1.5 flex flex-col gap-0.5"
-                      style={{ background: s.isUpcoming ? '#ede9fe' : '#f3f4f6' }}>
-                      <span className="inline-flex items-center gap-1 text-[8px] font-black leading-none"
-                        style={{ color: s.isUpcoming ? '#4c1d95' : '#6b7280' }}>
-                        <Repeat2 size={8} /> {s.blockLabel || s.time}
+                    <div key={s.seriesId}
+                      className="rounded-md px-1.5 py-1 flex flex-col gap-0.5"
+                      style={{ background: s.isUpcoming ? '#ede9fe' : '#f1f5f9' }}>
+                      <span className="text-[8px] font-black flex items-center gap-0.5 leading-none"
+                        style={{ color: s.isUpcoming ? '#4c1d95' : '#94a3b8' }}>
+                        <Repeat2 size={7} /> {s.blockLabel || s.time}
                       </span>
-                      <span className="text-[9px] font-semibold truncate leading-tight" style={{ color: s.isUpcoming ? '#6d28d9' : '#374151' }}>{s.topic}</span>
-                      <span className="text-[8px] truncate" style={{ color: s.isUpcoming ? '#7c3aed' : '#9ca3af' }}>{s.tutorName}</span>
+                      <span className="text-[9px] font-semibold truncate leading-tight"
+                        style={{ color: s.isUpcoming ? '#5b21b6' : '#374151' }}>
+                        {s.topic}
+                      </span>
+                      <span className="text-[8px] truncate"
+                        style={{ color: s.isUpcoming ? '#7c3aed' : '#9ca3af' }}>
+                        {s.tutorName}
+                      </span>
                     </div>
                   )) : (
                     <p className="text-[9px] text-[#cbd5e1] mt-auto">—</p>
@@ -379,99 +413,140 @@ export default function StudentHistoryPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white overflow-hidden shadow-sm" style={{ border: '1.5px solid #e2e8f0', boxShadow: '0 4px 16px rgba(15,23,42,0.08)' }}>
-          <div className="px-5 py-4 flex items-center justify-between gap-3" style={{ borderBottom: '1.5px solid #e2e8f0', background: 'linear-gradient(90deg, #ffffff 0%, #f8fafc 100%)' }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: '#0f172a' }}>📅 Session Timeline</p>
-            <div className="flex items-center gap-1.5 rounded-lg p-1.5" style={{ background: '#f1f5f9' }}>
-              <button
-                onClick={() => setTimelineTab('all')}
-                className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] transition-all"
-                style={timelineTab === 'all' ? { background: '#0f172a', color: '#ffffff', boxShadow: '0 2px 4px rgba(15,23,42,0.25)' } : { color: '#64748b' }}>
-                All ({history.length})
-              </button>
-              <button
-                onClick={() => setTimelineTab('upcoming')}
-                className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] transition-all"
-                style={timelineTab === 'upcoming' ? { background: '#3b82f6', color: '#ffffff', boxShadow: '0 2px 4px rgba(59,130,246,0.3)' } : { color: '#64748b' }}>
-                ↓ Upcoming ({upcoming.length})
-              </button>
-              <button
-                onClick={() => setTimelineTab('past')}
-                className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] transition-all"
-                style={timelineTab === 'past' ? { background: '#10b981', color: '#ffffff', boxShadow: '0 2px 4px rgba(16,185,129,0.3)' } : { color: '#64748b' }}>
-                ✓ Past ({past.length})
-              </button>
+        {/* ── Session Timeline ── */}
+        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm overflow-hidden">
+
+          {/* Timeline header + tabs */}
+          <div className="px-5 py-3 border-b border-[#f1f5f9] flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">Session Timeline</p>
+            <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: '#f1f5f9' }}>
+              {([
+                ['all',      `All (${history.length})`],
+                ['upcoming', `↑ Upcoming (${upcoming.length})`],
+                ['past',     `✓ Past (${past.length})`],
+              ] as const).map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTimelineTab(t)}
+                  className="px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wide transition-all"
+                  style={timelineTab === t
+                    ? { background: t === 'upcoming' ? '#3b82f6' : t === 'past' ? '#10b981' : '#0f172a', color: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }
+                    : { color: '#94a3b8' }}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="divide-y divide-[#e2e8f0] max-h-[68vh] overflow-y-auto">
+
+          {/* Rows */}
+          <div className="divide-y divide-[#f1f5f9] max-h-[70vh] overflow-y-auto">
             {groupedTimeline.length === 0 && (
-              <p className="px-5 py-8 text-sm text-[#64748b] text-center">No {timelineTab === 'all' ? '' : timelineTab + ' '}sessions found.</p>
+              <p className="px-5 py-10 text-sm text-center text-[#94a3b8]">
+                No {timelineTab === 'all' ? '' : timelineTab + ' '}sessions.
+              </p>
             )}
-            {groupedTimeline.map((item) => {
+
+            {groupedTimeline.map(item => {
+              /* ── Single row ── */
               if (item.kind === 'single') {
-                const row = item.row
-                const badge = statusBadge(row)
-                const d = new Date(row.date + 'T00:00:00')
+                const row   = item.row
+                const badge = statusBadge(row, today)
+                const d     = new Date(row.date + 'T00:00:00')
                 const isEditing = editingRowId === row.rowId
+
                 return (
-                  <div key={item.key} className="group px-5 py-3.5 transition-colors" style={{ borderLeft: `3px solid ${badge.color}`, background: isEditing ? '#f8fafc' : undefined }}>
+                  <div key={item.key}
+                    className="group"
+                    style={{ borderLeft: `3px solid ${badge.color}30` }}>
                     {isEditing ? (
-                      <div className="space-y-2.5">
+                      <div className="px-5 py-4 space-y-3" style={{ background: '#f8fafc' }}>
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: '#64748b' }}>Correcting · {row.date}</p>
-                          <button onClick={() => setEditingRowId(null)} className="text-[10px] text-[#94a3b8] hover:text-red-500 font-semibold">✕ Cancel</button>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#94a3b8]">
+                            Editing · {row.date}
+                          </p>
+                          <button onClick={() => setEditingRowId(null)}
+                            className="text-[10px] font-bold text-[#94a3b8] hover:text-[#ef4444]">
+                            ✕ Cancel
+                          </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Status</label>
-                            <select value={editDraft.status} onChange={e => setEditDraft(d => ({ ...d, status: e.target.value }))}
-                              className="mt-1 w-full rounded border border-[#e2e8f0] bg-white px-2 py-1.5 text-xs font-semibold text-[#0f172a]">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Status</label>
+                            <select value={editDraft.status}
+                              onChange={e => setEditDraft(d => ({ ...d, status: e.target.value }))}
+                              className="w-full rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0f172a]">
                               <option value="present">✓ Present</option>
                               <option value="no-show">✕ No-show</option>
                               <option value="scheduled">→ Scheduled</option>
                             </select>
                           </div>
-                          <div>
-                            <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Topic</label>
-                            <input value={editDraft.topic} onChange={e => setEditDraft(d => ({ ...d, topic: e.target.value }))}
-                              className="mt-1 w-full rounded border border-[#e2e8f0] px-2 py-1.5 text-xs text-[#0f172a]" />
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Topic</label>
+                            <input value={editDraft.topic}
+                              onChange={e => setEditDraft(d => ({ ...d, topic: e.target.value }))}
+                              className="w-full rounded-lg border border-[#e2e8f0] px-2.5 py-1.5 text-xs text-[#0f172a]" />
                           </div>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Notes</label>
-                          <textarea value={editDraft.notes} onChange={e => setEditDraft(d => ({ ...d, notes: e.target.value }))}
-                            rows={2} className="mt-1 w-full rounded border border-[#e2e8f0] px-2 py-1.5 text-xs text-[#0f172a] resize-none" />
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Notes</label>
+                          <textarea value={editDraft.notes}
+                            onChange={e => setEditDraft(d => ({ ...d, notes: e.target.value }))}
+                            rows={2}
+                            className="w-full rounded-lg border border-[#e2e8f0] px-2.5 py-1.5 text-xs text-[#0f172a] resize-none" />
                         </div>
                         <div className="flex justify-end gap-2">
                           <button onClick={() => setEditingRowId(null)}
-                            className="px-3 py-1.5 rounded border border-[#e2e8f0] text-[10px] font-semibold text-[#64748b] hover:bg-slate-50">
+                            className="px-3 py-1.5 rounded-lg border border-[#e2e8f0] text-[10px] font-bold text-[#64748b] hover:bg-white">
                             Cancel
                           </button>
                           <button onClick={handleSaveEdit} disabled={editSaving}
-                            className="px-3 py-1.5 rounded text-[10px] font-black text-white disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white disabled:opacity-50"
                             style={{ background: '#3b82f6' }}>
-                            {editSaving ? 'Saving…' : 'Save Changes'}
+                            {editSaving ? 'Saving…' : 'Save'}
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-3.5">
-                        <div className="w-9 shrink-0 text-center rounded-lg p-1.5" style={{ background: row.status === 'off' ? '#fff7ed' : row.status === 'cancelled' ? '#f3f4f6' : '#f1f5f9' }}>
-                          <p className="text-[8px] font-black uppercase leading-none" style={{ color: row.status === 'off' ? '#c2410c' : row.status === 'cancelled' ? '#9ca3af' : '#94a3b8' }}>{d.toLocaleDateString('en-US', { month: 'short' })}</p>
-                          <p className="text-base font-black leading-tight" style={{ color: row.status === 'off' ? '#c2410c' : row.status === 'cancelled' ? '#9ca3af' : '#0f172a' }}>{d.getDate()}</p>
+                      <div className="flex items-center gap-4 px-5 py-3 hover:bg-[#f8fafc] transition-colors">
+                        {/* Date */}
+                        <div className="w-9 shrink-0 text-center">
+                          <p className="text-[8px] font-black uppercase text-[#94a3b8] leading-none tracking-wide">
+                            {d.toLocaleDateString('en-US', { month: 'short' })}
+                          </p>
+                          <p className="text-[17px] font-black leading-tight"
+                            style={{ color: row.status === 'cancelled' ? '#d1d5db' : '#0f172a' }}>
+                            {d.getDate()}
+                          </p>
+                          <p className="text-[8px] font-bold uppercase text-[#cbd5e1] leading-none">
+                            {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </p>
                         </div>
+                        {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold truncate" style={{ color: row.status === 'cancelled' ? '#9ca3af' : '#0f172a', textDecoration: row.status === 'cancelled' ? 'line-through' : 'none' }}>{row.topic}</p>
-                          <p className="text-[10px] text-[#64748b] mt-0.5">{row.tutorName}{row.tutorName && row.blockLabel ? ' · ' : ''}{row.blockLabel}</p>
-                          {row.notes && <p className="text-[10px] mt-1 text-[#475569] truncate italic">"{row.notes}"</p>}
+                          <p className="text-[13px] font-bold truncate"
+                            style={{
+                              color: row.status === 'cancelled' ? '#9ca3af' : '#0f172a',
+                              textDecoration: row.status === 'cancelled' ? 'line-through' : 'none',
+                            }}>
+                            {row.topic}
+                          </p>
+                          <p className="text-[11px] text-[#64748b] mt-0.5 truncate">
+                            {[row.tutorName, row.blockLabel].filter(Boolean).join(' · ')}
+                          </p>
+                          {row.notes && (
+                            <p className="text-[10px] text-[#94a3b8] italic mt-0.5 truncate">"{row.notes}"</p>
+                          )}
                         </div>
+                        {/* Badge + edit */}
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <span className="text-[9px] font-black px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color, boxShadow: `0 2px 4px ${badge.shadow}` }}>{badge.text}</span>
-                          <span className="text-[9px] text-[#94a3b8]">{row.time}</span>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide"
+                            style={{ background: badge.bg, color: badge.color }}>
+                            {badge.text}
+                          </span>
                           {row.status !== 'cancelled' && row.status !== 'off' && (
                             <button
                               onClick={() => { setEditingRowId(row.rowId); setEditDraft({ status: row.status, topic: row.topic, notes: row.notes ?? '' }) }}
-                              className="text-[9px] font-semibold text-[#94a3b8] hover:text-[#3b82f6] opacity-0 group-hover:opacity-100 transition-opacity">
+                              className="text-[9px] font-bold text-[#cbd5e1] hover:text-[#3b82f6] opacity-0 group-hover:opacity-100 transition-all">
                               Edit
                             </button>
                           )}
@@ -482,117 +557,164 @@ export default function StudentHistoryPage() {
                 )
               }
 
+              /* ── Series row ── */
               const focus = new Date(item.focusDate + 'T00:00:00')
-              const seriesExpanded = expandedSeriesKeys.has(item.key)
-              // Pull actual HistoryRow objects for this series from history
+              const isExpanded = expandedSeriesKeys.has(item.key)
               const seriesRows = (timelineTab === 'upcoming' ? upcoming : timelineTab === 'past' ? past : history)
                 .filter(r => r.seriesId === item.seriesId)
                 .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))
+
               return (
-                <div key={item.key} style={{ borderLeft: '3px solid #7c3aed' }}>
+                <div key={item.key} style={{ borderLeft: '3px solid #c4b5fd' }}>
+                  {/* Series header button */}
                   <button
-                    className="w-full px-5 py-3.5 flex items-start gap-3.5 hover:bg-purple-50/40 transition-colors text-left"
-                    style={{ background: '#fcfdff' }}
+                    className="w-full flex items-center gap-4 px-5 py-3 hover:bg-[#faf9ff] transition-colors text-left"
                     onClick={() => setExpandedSeriesKeys(prev => {
                       const next = new Set(prev)
-                      seriesExpanded ? next.delete(item.key) : next.add(item.key)
+                      isExpanded ? next.delete(item.key) : next.add(item.key)
                       return next
                     })}>
-                    <div className="w-9 shrink-0 text-center rounded-lg p-1.5" style={{ background: '#f5f3ff' }}>
-                      <p className="text-[8px] font-black uppercase text-[#a78bfa] leading-none">{focus.toLocaleDateString('en-US', { month: 'short' })}</p>
-                      <p className="text-base font-black text-[#6d28d9] leading-tight">{focus.getDate()}</p>
+                    {/* Date */}
+                    <div className="w-9 shrink-0 text-center">
+                      <p className="text-[8px] font-black uppercase text-[#a78bfa] leading-none tracking-wide">
+                        {focus.toLocaleDateString('en-US', { month: 'short' })}
+                      </p>
+                      <p className="text-[17px] font-black text-[#6d28d9] leading-tight">{focus.getDate()}</p>
+                      <p className="text-[8px] font-bold uppercase text-[#c4b5fd] leading-none">
+                        {focus.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </p>
                     </div>
+                    {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-bold text-[#0f172a] truncate inline-flex items-center gap-1.5">
-                        <Repeat2 size={14} className="text-[#7c3aed]" /> {item.topic}
+                      <p className="text-[13px] font-bold text-[#0f172a] truncate flex items-center gap-1.5">
+                        <Repeat2 size={12} className="text-[#7c3aed] shrink-0" />
+                        {item.topic}
                       </p>
-                      <p className="text-[10px] text-[#64748b] mt-0.5">{item.tutorName} · {item.blockLabel}</p>
-                      <p className="text-[10px] text-[#475569] mt-1 font-semibold">
-                        {item.count} recurring sessions · {item.firstDate} to {item.lastDate}
+                      <p className="text-[11px] text-[#64748b] mt-0.5 truncate">
+                        {item.tutorName} · {item.blockLabel}
+                      </p>
+                      <p className="text-[10px] text-[#94a3b8] mt-0.5">
+                        {item.count} sessions · {item.firstDate} – {item.lastDate}
                       </p>
                     </div>
+                    {/* Right side */}
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className="text-[9px] font-black px-2.5 py-1 rounded-full" style={{ background: '#f5f3ff', color: '#6d28d9', boxShadow: '0 2px 4px #7c3aed20' }}>
-                        🔄 Recurring
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide"
+                        style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+                        Recurring
                       </span>
                       {timelineTab === 'upcoming' ? (
-                        <span className="text-[9px] text-[#3b82f6] font-semibold">{item.count} pending</span>
+                        <span className="text-[9px] font-semibold text-[#3b82f6]">{item.count} pending</span>
                       ) : (
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-[9px] text-[#64748b] font-semibold">{item.present} present · {item.noShow} no-show{item.unmarked > 0 ? ` · ${item.unmarked} upcoming` : ''}</span>
-                          {item.cancelled > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#f3f4f6', color: '#9ca3af' }}>{item.cancelled} cancelled</span>}
-                          {item.off > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#fff7ed', color: '#c2410c' }}>{item.off} off</span>}
-                        </div>
+                        <span className="text-[9px] text-[#64748b] font-semibold">
+                          {item.present}p · {item.noShow}ns{item.unmarked > 0 ? ` · ${item.unmarked} left` : ''}
+                        </span>
                       )}
-                      {seriesExpanded ? <ChevronUp size={12} className="text-[#a78bfa]" /> : <ChevronDown size={12} className="text-[#a78bfa]" />}
+                      {isExpanded
+                        ? <ChevronUp size={12} className="text-[#a78bfa]" />
+                        : <ChevronDown size={12} className="text-[#a78bfa]" />}
                     </div>
                   </button>
-                  {seriesExpanded && (
-                    <div className="divide-y divide-[#ede9fe]" style={{ background: '#faf9ff' }}>
+
+                  {/* Expanded sub-rows */}
+                  {isExpanded && (
+                    <div className="divide-y divide-[#f5f3ff]" style={{ background: '#faf9ff' }}>
                       {seriesRows.map(row => {
-                        const badge = statusBadge(row)
+                        const badge = statusBadge(row, today)
                         const d = new Date(row.date + 'T00:00:00')
                         const isEditing = editingRowId === row.rowId
                         const isReadOnly = row.status === 'cancelled' || row.status === 'off'
+
                         return (
-                          <div key={row.rowId} className="group pl-14 pr-5 py-3 transition-colors" style={{ borderLeft: `2px solid ${badge.color}20`, opacity: isReadOnly ? 0.75 : 1 }}>
+                          <div key={row.rowId}
+                            className="group"
+                            style={{ borderLeft: `2px solid ${badge.color}25`, opacity: isReadOnly ? 0.7 : 1 }}>
                             {isEditing ? (
-                              <div className="space-y-2.5">
+                              <div className="pl-14 pr-5 py-4 space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: '#64748b' }}>Correcting · {row.date}</p>
-                                  <button onClick={() => setEditingRowId(null)} className="text-[10px] text-[#94a3b8] hover:text-red-500 font-semibold">✕ Cancel</button>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-[#94a3b8]">
+                                    Editing · {row.date}
+                                  </p>
+                                  <button onClick={() => setEditingRowId(null)}
+                                    className="text-[10px] font-bold text-[#94a3b8] hover:text-[#ef4444]">
+                                    ✕ Cancel
+                                  </button>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Status</label>
-                                    <select value={editDraft.status} onChange={e => setEditDraft(d => ({ ...d, status: e.target.value }))}
-                                      className="mt-1 w-full rounded border border-[#e2e8f0] bg-white px-2 py-1.5 text-xs font-semibold text-[#0f172a]">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Status</label>
+                                    <select value={editDraft.status}
+                                      onChange={e => setEditDraft(d => ({ ...d, status: e.target.value }))}
+                                      className="w-full rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0f172a]">
                                       <option value="present">✓ Present</option>
                                       <option value="no-show">✕ No-show</option>
                                       <option value="scheduled">→ Scheduled</option>
                                     </select>
                                   </div>
-                                  <div>
-                                    <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Topic</label>
-                                    <input value={editDraft.topic} onChange={e => setEditDraft(d => ({ ...d, topic: e.target.value }))}
-                                      className="mt-1 w-full rounded border border-[#e2e8f0] px-2 py-1.5 text-xs text-[#0f172a]" />
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Topic</label>
+                                    <input value={editDraft.topic}
+                                      onChange={e => setEditDraft(d => ({ ...d, topic: e.target.value }))}
+                                      className="w-full rounded-lg border border-[#e2e8f0] px-2.5 py-1.5 text-xs text-[#0f172a]" />
                                   </div>
                                 </div>
-                                <div>
-                                  <label className="text-[9px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">Notes</label>
-                                  <textarea value={editDraft.notes} onChange={e => setEditDraft(d => ({ ...d, notes: e.target.value }))}
-                                    rows={2} className="mt-1 w-full rounded border border-[#e2e8f0] px-2 py-1.5 text-xs text-[#0f172a] resize-none" />
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black uppercase tracking-widest text-[#94a3b8]">Notes</label>
+                                  <textarea value={editDraft.notes}
+                                    onChange={e => setEditDraft(d => ({ ...d, notes: e.target.value }))}
+                                    rows={2}
+                                    className="w-full rounded-lg border border-[#e2e8f0] px-2.5 py-1.5 text-xs text-[#0f172a] resize-none" />
                                 </div>
                                 <div className="flex justify-end gap-2">
                                   <button onClick={() => setEditingRowId(null)}
-                                    className="px-3 py-1.5 rounded border border-[#e2e8f0] text-[10px] font-semibold text-[#64748b] hover:bg-slate-50">
+                                    className="px-3 py-1.5 rounded-lg border border-[#e2e8f0] text-[10px] font-bold text-[#64748b] hover:bg-white">
                                     Cancel
                                   </button>
                                   <button onClick={handleSaveEdit} disabled={editSaving}
-                                    className="px-3 py-1.5 rounded text-[10px] font-black text-white disabled:opacity-50"
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white disabled:opacity-50"
                                     style={{ background: '#3b82f6' }}>
-                                    {editSaving ? 'Saving…' : 'Save Changes'}
+                                    {editSaving ? 'Saving…' : 'Save'}
                                   </button>
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex items-start gap-3">
-                                <div className="w-9 shrink-0 text-center rounded-lg p-1.5" style={{ background: '#f1f5f9' }}>
-                                  <p className="text-[8px] font-black uppercase text-[#94a3b8] leading-none">{d.toLocaleDateString('en-US', { month: 'short' })}</p>
-                                  <p className="text-base font-black text-[#0f172a] leading-tight">{d.getDate()}</p>
+                              <div className="flex items-center gap-4 pl-14 pr-5 py-3 hover:bg-[#f5f3ff30] transition-colors">
+                                <div className="w-9 shrink-0 text-center">
+                                  <p className="text-[8px] font-black uppercase text-[#94a3b8] leading-none tracking-wide">
+                                    {d.toLocaleDateString('en-US', { month: 'short' })}
+                                  </p>
+                                  <p className="text-[17px] font-black leading-tight"
+                                    style={{ color: row.status === 'cancelled' ? '#d1d5db' : '#0f172a' }}>
+                                    {d.getDate()}
+                                  </p>
+                                  <p className="text-[8px] font-bold uppercase text-[#cbd5e1] leading-none">
+                                    {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                                  </p>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] font-bold truncate" style={{ color: row.status === 'cancelled' ? '#9ca3af' : '#0f172a', textDecoration: row.status === 'cancelled' ? 'line-through' : 'none' }}>{row.topic}</p>
-                                  <p className="text-[10px] text-[#64748b] mt-0.5">{row.tutorName}{row.tutorName && row.blockLabel ? ' · ' : ''}{row.blockLabel}</p>
-                                  {row.notes && <p className="text-[10px] mt-1 text-[#475569] truncate italic">&quot;{row.notes}&quot;</p>}
+                                  <p className="text-[13px] font-bold truncate"
+                                    style={{
+                                      color: row.status === 'cancelled' ? '#9ca3af' : '#0f172a',
+                                      textDecoration: row.status === 'cancelled' ? 'line-through' : 'none',
+                                    }}>
+                                    {row.topic}
+                                  </p>
+                                  <p className="text-[11px] text-[#64748b] mt-0.5 truncate">
+                                    {[row.tutorName, row.blockLabel].filter(Boolean).join(' · ')}
+                                  </p>
+                                  {row.notes && (
+                                    <p className="text-[10px] text-[#94a3b8] italic mt-0.5 truncate">"{row.notes}"</p>
+                                  )}
                                 </div>
                                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                  <span className="text-[9px] font-black px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color, boxShadow: `0 2px 4px ${badge.shadow}` }}>{badge.text}</span>
-                                  <span className="text-[9px] text-[#94a3b8]">{row.time}</span>
+                                  <span className="text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide"
+                                    style={{ background: badge.bg, color: badge.color }}>
+                                    {badge.text}
+                                  </span>
                                   {!isReadOnly && (
                                     <button
                                       onClick={() => { setEditingRowId(row.rowId); setEditDraft({ status: row.status, topic: row.topic, notes: row.notes ?? '' }) }}
-                                      className="text-[9px] font-semibold text-[#94a3b8] hover:text-[#3b82f6] opacity-0 group-hover:opacity-100 transition-opacity">
+                                      className="text-[9px] font-bold text-[#cbd5e1] hover:text-[#3b82f6] opacity-0 group-hover:opacity-100 transition-all">
                                       Edit
                                     </button>
                                   )}
@@ -609,6 +731,7 @@ export default function StudentHistoryPage() {
             })}
           </div>
         </div>
+
       </div>
     </div>
   )

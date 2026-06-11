@@ -987,7 +987,7 @@ export function WeekView({
                                                       just this
                                                     </button>
                                                     <button
-                                                      onClick={async e => { e.stopPropagation(); setSeriesPromptId(null); if (student.seriesId) { await deleteSeries(student.seriesId); logEvent('student_removed', { source: 'week_grid_series', seriesId: student.seriesId, studentName: student.name }); refetch(); } }}
+                                                      onClick={async e => { e.stopPropagation(); setSeriesPromptId(null); if (student.seriesId) { await deleteSeries(student.seriesId, isoDate); logEvent('student_removed', { source: 'week_grid_series', seriesId: student.seriesId, studentName: student.name }); refetch(); } }}
                                                       className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-600 hover:bg-red-200">
                                                       all future
                                                     </button>
@@ -1201,7 +1201,7 @@ export function WeekView({
                                                     just this
                                                   </button>
                                                   <button
-                                                    onClick={async e => { e.stopPropagation(); setSeriesPromptId(null); if (student.seriesId) { await deleteSeries(student.seriesId); logEvent('student_removed', { source: 'week_grid_mobile_series', seriesId: student.seriesId, studentName: student.name }); refetch(); } }}
+                                                    onClick={async e => { e.stopPropagation(); setSeriesPromptId(null); if (student.seriesId) { await deleteSeries(student.seriesId, isoDate); logEvent('student_removed', { source: 'week_grid_mobile_series', seriesId: student.seriesId, studentName: student.name }); refetch(); } }}
                                                     className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-600 hover:bg-red-200">
                                                     all future
                                                   </button>

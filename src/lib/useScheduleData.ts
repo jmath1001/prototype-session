@@ -951,8 +951,8 @@ export async function cancelSeries(seriesId: string): Promise<void> {
   if (updateErr) throw updateErr
 }
 
-export async function deleteSeries(seriesId: string): Promise<void> {
-  const today = toISODate(new Date())
+export async function deleteSeries(seriesId: string, fromDate?: string): Promise<void> {
+  const cutoff = fromDate ?? toISODate(new Date())
 
   // Find all session_students rows for this series with a future session date
   const { data: ssRows, error: fetchErr } = await (withCenter(
@@ -967,7 +967,7 @@ export async function deleteSeries(seriesId: string): Promise<void> {
   const futureSessionIds: string[] = []
   for (const r of (ssRows ?? [])) {
     const sess = Array.isArray(r[SESSIONS]) ? r[SESSIONS][0] : r[SESSIONS]
-    if (sess?.session_date >= today) {
+    if (sess?.session_date >= cutoff) {
       futureSSIds.push(r.id)
       if (sess.id && !futureSessionIds.includes(sess.id)) futureSessionIds.push(sess.id)
     }
