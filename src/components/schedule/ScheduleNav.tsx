@@ -1,6 +1,7 @@
 "use client"
-import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, Trash2, Check, NotebookPen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, Trash2, Check, NotebookPen, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { formatWeekRange } from './scheduleConstants';
 import { toISODate } from '@/lib/useScheduleData';
 
@@ -344,77 +345,124 @@ export function ScheduleNav({
 
       </div>
 
-      {/* ── Notes floating panel ── */}
-      {notesOpen && (
+      {/* ── Center Weekly Notes modal ── */}
+      {notesOpen && typeof document !== 'undefined' && createPortal((
         <div
+          onClick={() => setNotesOpen(false)}
           style={{
-            position: 'absolute',
-            top: '100%',
-            left: 16,
-            width: 300,
-            background: '#ffffff',
-            border: '1px solid #c7d2fe',
-            borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(79,70,229,0.13)',
-            zIndex: 50,
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.52)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1000,
             display: 'flex',
-            flexDirection: 'column',
-            padding: 12,
-            gap: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: 12, color: '#4f46e5' }}>Notes</span>
-            <button
-              onClick={insertBullet}
-              title="Insert bullet point"
-              style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', background: '#e0e7ff', border: 'none', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
-            >• Bullet</button>
-          </div>
-          <textarea
-            ref={textareaRef}
-            autoFocus
-            value={notes}
-            onChange={e => { setNotes(e.target.value); setNotesSaved(false); }}
-            placeholder="Jot down anything you need to remember…"
+          <div
+            onClick={e => e.stopPropagation()}
             style={{
-              width: '100%',
-              minHeight: 140,
-              resize: 'vertical',
-              border: '1px solid #e0e7ff',
-              borderRadius: 6,
-              padding: '8px 10px',
-              fontSize: 13,
-              color: '#374151',
-              outline: 'none',
-              fontFamily: 'inherit',
-              lineHeight: 1.5,
-            }}
-          />
-          <button
-            onClick={handleSaveNotes}
-            disabled={notesSaving}
-            style={{
-              padding: '6px 0',
-              borderRadius: 7,
-              fontSize: 11,
-              fontWeight: 700,
-              border: 'none',
-              cursor: notesSaving ? 'not-allowed' : 'pointer',
-              background: notesSaved ? '#dcfce7' : notesSaving ? '#e0e7ff' : '#4f46e5',
-              color: notesSaved ? '#15803d' : notesSaving ? '#818cf8' : 'white',
-              transition: 'background 0.2s',
+              width: 'min(620px, 92vw)',
+              maxHeight: '84vh',
+              background: '#ffffff',
+              border: '1px solid #c7d2fe',
+              borderRadius: 14,
+              boxShadow: '0 24px 64px rgba(15,23,42,0.26)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
             }}
           >
-            {notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save Notes'}
-          </button>
-          {notesError && (
-            <p style={{ margin: 0, color: '#b91c1c', fontSize: 11, fontWeight: 600 }}>
-              {notesError}
-            </p>
-          )}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 10,
+                padding: '14px 16px',
+                borderBottom: '1px solid #e0e7ff',
+                background: '#f8faff',
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: '#3730a3' }}>Center Weekly Notes</p>
+                <p style={{ margin: '2px 0 0', fontWeight: 500, fontSize: 11, color: '#64748b' }}>
+                  Shared across all weeks
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={insertBullet}
+                  title="Insert bullet point"
+                  style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}
+                >• Bullet</button>
+                <button
+                  onClick={() => setNotesOpen(false)}
+                  title="Close"
+                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #cbd5e1', background: 'white', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+              <textarea
+                ref={textareaRef}
+                autoFocus
+                value={notes}
+                onChange={e => { setNotes(e.target.value); setNotesSaved(false); }}
+                placeholder="Jot down anything you need to remember…"
+                style={{
+                  width: '100%',
+                  minHeight: 220,
+                  maxHeight: '46vh',
+                  resize: 'vertical',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  fontSize: 14,
+                  color: '#1f2937',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  lineHeight: 1.6,
+                  background: '#ffffff',
+                }}
+              />
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <p style={{ margin: 0, color: '#64748b', fontSize: 11, fontWeight: 600 }}>
+                  These notes persist globally for this center.
+                </p>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={notesSaving}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    border: 'none',
+                    cursor: notesSaving ? 'not-allowed' : 'pointer',
+                    background: notesSaved ? '#dcfce7' : notesSaving ? '#e0e7ff' : '#4f46e5',
+                    color: notesSaved ? '#15803d' : notesSaving ? '#818cf8' : 'white',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save Notes'}
+                </button>
+              </div>
+              {notesError && (
+                <p style={{ margin: 0, color: '#b91c1c', fontSize: 11, fontWeight: 600 }}>
+                  {notesError}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }
