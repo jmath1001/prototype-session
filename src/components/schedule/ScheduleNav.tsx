@@ -3,8 +3,6 @@ import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, Trash2, Check, No
 import { useState, useEffect, useRef } from 'react';
 import { formatWeekRange } from './scheduleConstants';
 import { toISODate } from '@/lib/useScheduleData';
-import { supabase } from '@/lib/supabaseClient';
-import { DB } from '@/lib/db';
 
 interface ScheduleNavProps {
   todayView: boolean;
@@ -66,27 +64,53 @@ export function ScheduleNav({
   const [notes, setNotes] = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    supabase
-      .from(DB.centerSettings)
-      .select('notes')
-      .eq('center_id', process.env.NEXT_PUBLIC_CENTER_ID ?? '')
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.notes) setNotes(data.notes); });
+    let cancelled = false;
+
+    async function loadNotes() {
+      setNotesError(null);
+      try {
+        const res = await fetch('/api/center-weekly-notes', { cache: 'no-store' });
+        const payload = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setNotesError(payload?.error ?? 'Failed to load notes');
+          return;
+        }
+        setNotes(typeof payload?.notes === 'string' ? payload.notes : '');
+      } catch (err: any) {
+        if (cancelled) return;
+        setNotesError(err?.message ?? 'Failed to load notes');
+      }
+    }
+
+    loadNotes();
+    return () => { cancelled = true; };
   }, []);
 
   async function handleSaveNotes() {
+    setNotesError(null);
     setNotesSaving(true);
-    await supabase
-      .from(DB.centerSettings)
-      .update({ notes })
-      .eq('center_id', process.env.NEXT_PUBLIC_CENTER_ID ?? '');
-    setNotesSaving(false);
-    setNotesSaved(true);
-    setTimeout(() => setNotesSaved(false), 2000);
+    try {
+      const res = await fetch('/api/center-weekly-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error ?? 'Failed to save notes');
+
+      setNotesSaved(true);
+      setTimeout(() => setNotesSaved(false), 2000);
+    } catch (err: any) {
+      setNotesError(err?.message ?? 'Failed to save notes');
+      setNotesSaved(false);
+    } finally {
+      setNotesSaving(false);
+    }
   }
 
   function insertBullet() {
@@ -384,6 +408,11 @@ export function ScheduleNav({
           >
             {notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save Notes'}
           </button>
+          {notesError && (
+            <p style={{ margin: 0, color: '#b91c1c', fontSize: 11, fontWeight: 600 }}>
+              {notesError}
+            </p>
+          )}
         </div>
       )}
     </div>
