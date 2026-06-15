@@ -18,7 +18,7 @@ export async function GET() {
     return NextResponse.json({ notes: data?.notes ?? '' })
   } catch (err: any) {
     return NextResponse.json(
-      { error: err?.message ?? 'Failed to load center weekly notes' },
+      { error: err?.message ?? 'Failed to load center notes' },
       { status: 500 }
     )
   }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ notes: notes ?? '' })
   } catch (err: any) {
     return NextResponse.json(
-      { error: err?.message ?? 'Failed to save center weekly notes' },
+      { error: err?.message ?? 'Failed to save center notes' },
       { status: 500 }
     )
   }

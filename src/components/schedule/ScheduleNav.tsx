@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { formatWeekRange } from './scheduleConstants';
 import { toISODate } from '@/lib/useScheduleData';
+import { supabase } from '@/lib/supabaseClient';
+import { DB, getCenterId } from '@/lib/db';
 
 interface ScheduleNavProps {
   todayView: boolean;
@@ -66,12 +68,20 @@ export function ScheduleNav({
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
+  const [notesDirty, setNotesDirty] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const notesDirtyRef = useRef(false);
+
+  useEffect(() => {
+    notesDirtyRef.current = notesDirty;
+  }, [notesDirty]);
 
   useEffect(() => {
     let cancelled = false;
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    let realtime: ReturnType<typeof supabase.channel> | null = null;
 
-    async function loadNotes() {
+    async function loadNotes(opts?: { force?: boolean }) {
       setNotesError(null);
       try {
         const res = await fetch('/api/center-weekly-notes', { cache: 'no-store' });
@@ -81,7 +91,10 @@ export function ScheduleNav({
           setNotesError(payload?.error ?? 'Failed to load notes');
           return;
         }
-        setNotes(typeof payload?.notes === 'string' ? payload.notes : '');
+        if (opts?.force || !notesDirtyRef.current) {
+          setNotes(typeof payload?.notes === 'string' ? payload.notes : '');
+          if (opts?.force) setNotesDirty(false);
+        }
       } catch (err: any) {
         if (cancelled) return;
         setNotesError(err?.message ?? 'Failed to load notes');
@@ -89,7 +102,37 @@ export function ScheduleNav({
     }
 
     loadNotes();
-    return () => { cancelled = true; };
+
+    // Poll as a fallback in case realtime isn't available.
+    pollId = setInterval(() => {
+      void loadNotes();
+    }, 15000);
+
+    try {
+      realtime = supabase
+        .channel('center-notes-sync')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: DB.centerSettings,
+            filter: `center_id=eq.${getCenterId()}`,
+          },
+          () => {
+            void loadNotes();
+          }
+        )
+        .subscribe();
+    } catch {
+      // Ignore realtime initialization errors and rely on polling.
+    }
+
+    return () => {
+      cancelled = true;
+      if (pollId) clearInterval(pollId);
+      if (realtime) supabase.removeChannel(realtime);
+    };
   }, []);
 
   async function handleSaveNotes() {
@@ -104,6 +147,8 @@ export function ScheduleNav({
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error ?? 'Failed to save notes');
 
+      setNotes(typeof payload?.notes === 'string' ? payload.notes : notes);
+      setNotesDirty(false);
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2000);
     } catch (err: any) {
@@ -124,6 +169,7 @@ export function ScheduleNav({
     const prefix = start === 0 || notes[start - 1] === '\n' ? '• ' : '\n• ';
     const next = before + prefix + after;
     setNotes(next);
+    setNotesDirty(true);
     setNotesSaved(false);
     requestAnimationFrame(() => {
       el.selectionStart = el.selectionEnd = start + prefix.length;
@@ -345,7 +391,7 @@ export function ScheduleNav({
 
       </div>
 
-      {/* ── Center Weekly Notes modal ── */}
+      {/* ── Center Notes modal ── */}
       {notesOpen && typeof document !== 'undefined' && createPortal((
         <div
           onClick={() => setNotesOpen(false)}
@@ -387,7 +433,7 @@ export function ScheduleNav({
               }}
             >
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: '#3730a3' }}>Center Weekly Notes</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: '#3730a3' }}>Center Notes</p>
                 <p style={{ margin: '2px 0 0', fontWeight: 500, fontSize: 11, color: '#64748b' }}>
                   Shared across all weeks
                 </p>
@@ -413,7 +459,7 @@ export function ScheduleNav({
                 ref={textareaRef}
                 autoFocus
                 value={notes}
-                onChange={e => { setNotes(e.target.value); setNotesSaved(false); }}
+                onChange={e => { setNotes(e.target.value); setNotesSaved(false); setNotesDirty(true); }}
                 placeholder="Jot down anything you need to remember…"
                 style={{
                   width: '100%',
