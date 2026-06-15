@@ -159,28 +159,28 @@ export function Navbar({
         <div className="mt-auto px-2 pb-3">
           {collapsed ? (
             <div
-              title="1 day left in trial"
+              title="Active Account"
               className="flex items-center justify-center rounded-lg border text-[10px] font-bold"
               style={{
                 height: 28,
-                borderColor: '#fcd34d',
-                background: '#fffbeb',
-                color: '#b45309',
+                borderColor: '#10b981',
+                background: '#ecfdf5',
+                color: '#065f46',
               }}
             >
-              1d
+              ✓
             </div>
           ) : (
             <div
               className="rounded-lg border px-2.5 py-2"
               style={{
-                borderColor: '#fcd34d',
-                background: '#fffbeb',
-                color: '#92400e',
+                borderColor: '#10b981',
+                background: '#ecfdf5',
+                color: '#065f46',
               }}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wide">Trial Status</p>
-              <p className="text-[11px] font-semibold">1 day left in trial</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide">Account Status</p>
+              <p className="text-[11px] font-semibold">Active</p>
             </div>
           )}
         </div>
