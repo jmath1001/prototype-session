@@ -156,7 +156,34 @@ export function Navbar({
 
         </nav>
 
-        <div className="h-3 shrink-0" />
+        <div className="mt-auto px-2 pb-3">
+          {collapsed ? (
+            <div
+              title="1 day left in trial"
+              className="flex items-center justify-center rounded-lg border text-[10px] font-bold"
+              style={{
+                height: 28,
+                borderColor: '#fcd34d',
+                background: '#fffbeb',
+                color: '#b45309',
+              }}
+            >
+              1d
+            </div>
+          ) : (
+            <div
+              className="rounded-lg border px-2.5 py-2"
+              style={{
+                borderColor: '#fcd34d',
+                background: '#fffbeb',
+                color: '#92400e',
+              }}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wide">Trial Status</p>
+              <p className="text-[11px] font-semibold">1 day left in trial</p>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* ── Mobile bottom tab bar ────────────────────────────────────────── */}
