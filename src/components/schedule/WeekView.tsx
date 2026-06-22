@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PlusCircle, Check, X, Loader2, Trash2, Search, ChevronDown, Monitor } from 'lucide-react';
-import { createInlineStudent, updateAttendance, removeStudentFromSession, updateSessionTopic, toggleStudentVirtual, toggleSeriesVirtual, deleteSeries, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
+import { createInlineStudent, updateAttendance, removeStudentFromSession, markStudentExcusedAbsence, updateSessionTopic, toggleStudentVirtual, toggleSeriesVirtual, deleteSeries, toISODate, dayOfWeek, getCentralTimeNow, type Tutor } from '@/lib/useScheduleData';
 import { getSessionsForDay, type SessionTimesByDay } from '@/components/constants';
 import { MAX_CAPACITY } from '@/components/constants';
 import { ACTIVE_DAYS, DAY_NAMES, getTutorPaletteByIndex } from './scheduleConstants';
@@ -134,6 +134,7 @@ export function WeekView({
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [draggingTopic, setDraggingTopic] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeActionPromptId, setRemoveActionPromptId] = useState<string | null>(null);
   const [seriesPromptId, setSeriesPromptId] = useState<string | null>(null);
   const cardClickRef = useRef<{ x: number; y: number } | null>(null);
   const [topicEditRowId, setTopicEditRowId] = useState<string | null>(null);
@@ -349,7 +350,12 @@ export function WeekView({
   }, [topicDropdownRowId]);
 
   useEffect(() => {
-    if (!bulkRemoveMode) clearSelection();
+    if (!bulkRemoveMode) {
+      clearSelection();
+      setRemovingId(null);
+      setRemoveActionPromptId(null);
+      setSeriesPromptId(null);
+    }
   }, [bulkRemoveMode]);
 
   const handleDropOnSlot = async (
@@ -965,12 +971,14 @@ export function WeekView({
                                                   onClick={async e => {
                                                     e.stopPropagation();
                                                     const sid = student.rowId || student.id;
-                                                    if (removingId !== sid) { setRemovingId(sid); return; }
+                                                    if (removingId !== sid) {
+                                                      setRemovingId(sid);
+                                                      setRemoveActionPromptId(null);
+                                                      setSeriesPromptId(null);
+                                                      return;
+                                                    }
                                                     setRemovingId(null);
-                                                    if (student.seriesId) { setSeriesPromptId(sid); return; }
-                                                    await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
-                                                    logEvent('student_removed', { source: 'week_grid', sessionId: session.id, studentId: student.id, studentName: student.name });
-                                                    refetch();
+                                                    setRemoveActionPromptId(sid);
                                                   }}
                                                   onBlur={() => setRemovingId(null)}
                                                   className="shrink-0 w-4 h-4 rounded-md flex items-center justify-center transition-all"
@@ -979,6 +987,33 @@ export function WeekView({
                                                     : { background: 'transparent', color: '#6b7280' }}>
                                                   <Trash2 size={9} strokeWidth={2} />
                                                 </button>
+                                                {removeActionPromptId === (student.rowId || student.id) && (
+                                                  <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                      onClick={async e => {
+                                                        e.stopPropagation();
+                                                        setRemoveActionPromptId(null);
+                                                        if (student.seriesId) { setSeriesPromptId(student.rowId || student.id); return; }
+                                                        await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                                        logEvent('student_removed', { source: 'week_grid', sessionId: session.id, studentId: student.id, studentName: student.name });
+                                                        refetch();
+                                                      }}
+                                                      className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                                      delete
+                                                    </button>
+                                                    <button
+                                                      onClick={async e => {
+                                                        e.stopPropagation();
+                                                        setRemoveActionPromptId(null);
+                                                        await markStudentExcusedAbsence({ sessionId: session.id, studentId: student.id });
+                                                        logEvent('student_removed', { source: 'week_grid', mode: 'excused_absence', sessionId: session.id, studentId: student.id, studentName: student.name });
+                                                        refetch();
+                                                      }}
+                                                      className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 hover:bg-amber-200">
+                                                      excused
+                                                    </button>
+                                                  </span>
+                                                )}
                                                 {seriesPromptId === (student.rowId || student.id) && (
                                                   <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                                     <button
@@ -1179,12 +1214,14 @@ export function WeekView({
                                                 onClick={async e => {
                                                   e.stopPropagation();
                                                   const sid = student.rowId || student.id;
-                                                  if (removingId !== sid) { setRemovingId(sid); return; }
+                                                  if (removingId !== sid) {
+                                                    setRemovingId(sid);
+                                                    setRemoveActionPromptId(null);
+                                                    setSeriesPromptId(null);
+                                                    return;
+                                                  }
                                                   setRemovingId(null);
-                                                  if (student.seriesId) { setSeriesPromptId(sid); return; }
-                                                  await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
-                                                  logEvent('student_removed', { source: 'week_grid_mobile', sessionId: session.id, studentId: student.id, studentName: student.name });
-                                                  refetch();
+                                                  setRemoveActionPromptId(sid);
                                                 }}
                                                 onBlur={() => setRemovingId(null)}
                                                 className="shrink-0 w-3 h-3 rounded flex items-center justify-center transition-all"
@@ -1193,6 +1230,33 @@ export function WeekView({
                                                   : { background: 'transparent', color: '#6b7280' }}>
                                                 <Trash2 size={7} strokeWidth={2} />
                                               </button>
+                                              {removeActionPromptId === (student.rowId || student.id) && (
+                                                <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                  <button
+                                                    onClick={async e => {
+                                                      e.stopPropagation();
+                                                      setRemoveActionPromptId(null);
+                                                      if (student.seriesId) { setSeriesPromptId(student.rowId || student.id); return; }
+                                                      await removeStudentFromSession({ sessionId: session.id, studentId: student.id });
+                                                      logEvent('student_removed', { source: 'week_grid_mobile', sessionId: session.id, studentId: student.id, studentName: student.name });
+                                                      refetch();
+                                                    }}
+                                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                                    delete
+                                                  </button>
+                                                  <button
+                                                    onClick={async e => {
+                                                      e.stopPropagation();
+                                                      setRemoveActionPromptId(null);
+                                                      await markStudentExcusedAbsence({ sessionId: session.id, studentId: student.id });
+                                                      logEvent('student_removed', { source: 'week_grid_mobile', mode: 'excused_absence', sessionId: session.id, studentId: student.id, studentName: student.name });
+                                                      refetch();
+                                                    }}
+                                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 hover:bg-amber-200">
+                                                    excused
+                                                  </button>
+                                                </span>
+                                              )}
                                               {seriesPromptId === (student.rowId || student.id) && (
                                                 <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                                   <button

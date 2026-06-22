@@ -769,6 +769,32 @@ export async function removeStudentFromSession({ sessionId, studentId }: {
   if (error) throw error
 }
 
+export async function markStudentExcusedAbsence({ sessionId, studentId }: {
+  sessionId: string; studentId: string
+}) {
+  const { data: current, error: readErr } = await supabase
+    .from(SS)
+    .select('notes')
+    .eq('session_id', sessionId)
+    .eq('student_id', studentId)
+    .single()
+  if (readErr) throw readErr
+
+  const existingNotes = String(current?.notes ?? '').trim()
+  const marker = 'Excused absence'
+  const hasMarker = existingNotes.toLowerCase().includes(marker.toLowerCase())
+  const nextNotes = hasMarker
+    ? (existingNotes || null)
+    : (existingNotes ? `${existingNotes}\n\n${marker}` : marker)
+
+  const { error } = await supabase
+    .from(SS)
+    .update({ status: 'cancelled', notes: nextNotes })
+    .eq('session_id', sessionId)
+    .eq('student_id', studentId)
+  if (error) throw error
+}
+
 export async function updateSessionNotes({ rowId, notes }: {
   rowId: string; notes: string | null
 }) {

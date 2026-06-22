@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   bookStudent,
   removeStudentFromSession,
+  markStudentExcusedAbsence,
   updateAttendance,
   updateConfirmationStatus,
   updateSessionNotes,
@@ -83,6 +84,7 @@ function ModalContent({
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [recurringDays, setRecurringDays] = useState<number>(4);
   const [recurringMode, setRecurringMode] = useState<'weeks' | 'until_term_end'>('weeks');
+  const [showRemoveChoices, setShowRemoveChoices] = useState(false);
 
   const existingSeriesId = student?.seriesId ?? student?.series_id ?? null;
   const isRecurringBooking = !!existingSeriesId;
@@ -98,6 +100,7 @@ function ModalContent({
   useEffect(() => {
     setNotesDraft(student.notes ?? '');
     setApplyToSeries(false);
+    setShowRemoveChoices(false);
   }, [student.id, student.rowId]);
 
   const handleAttendance = async (status: 'scheduled' | 'present' | 'no-show') => {
@@ -131,10 +134,15 @@ function ModalContent({
     setNotesSaving(false);
   };
 
-  const handleRemove = async () => {
+  const handleRemove = async (mode: 'delete' | 'excused') => {
     try {
-      await removeStudentFromSession({ sessionId: s.id, studentId: student.id });
-      logEvent('student_removed', { source: 'attendance_modal', sessionId: s.id, studentId: student.id, studentName: student.name });
+      if (mode === 'excused') {
+        await markStudentExcusedAbsence({ sessionId: s.id, studentId: student.id });
+        logEvent('student_removed', { source: 'attendance_modal', mode: 'excused_absence', sessionId: s.id, studentId: student.id, studentName: student.name });
+      } else {
+        await removeStudentFromSession({ sessionId: s.id, studentId: student.id });
+        logEvent('student_removed', { source: 'attendance_modal', sessionId: s.id, studentId: student.id, studentName: student.name });
+      }
       refetch();
       setSelectedSession(null);
     }
@@ -451,13 +459,39 @@ function ModalContent({
               <RefreshCw size={11} /> Part of Recurring Series
             </div>
           )}
-          <button onClick={handleRemove}
-            className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
-            style={{ border: '1px dashed #fca5a5', color: '#ef4444', background: 'transparent' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fff1f2'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-            <UserX size={12} strokeWidth={2} /> Remove from Session
-          </button>
+          {!showRemoveChoices ? (
+            <button onClick={() => setShowRemoveChoices(true)}
+              className="w-full py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+              style={{ border: '1px dashed #fca5a5', color: '#ef4444', background: 'transparent' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fff1f2'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              <UserX size={12} strokeWidth={2} /> Remove from Session
+            </button>
+          ) : (
+            <div className="rounded-xl p-2.5" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <p className="text-[10px] font-bold mb-2" style={{ color: '#9a3412' }}>Choose remove type:</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => void handleRemove('delete')}
+                  className="flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider"
+                  style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c' }}>
+                  Delete
+                </button>
+                <button
+                  onClick={() => void handleRemove('excused')}
+                  className="flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider"
+                  style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
+                  Excused
+                </button>
+                <button
+                  onClick={() => setShowRemoveChoices(false)}
+                  className="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

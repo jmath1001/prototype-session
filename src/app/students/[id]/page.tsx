@@ -90,7 +90,7 @@ function DateBlock({
       <p className={`text-[17px] font-black leading-tight ${purple ? 'text-violet-700' : dim ? 'text-slate-300' : 'text-slate-900'}`}>
         {d.getDate()}
       </p>
-      <p className={`text-[9px] font-semibold uppercase leading-none ${purple ? 'text-violet-300' : 'text-slate-200'}`}>
+      <p className={`text-[9px] font-semibold uppercase leading-none ${purple ? 'text-violet-500' : 'text-slate-400'}`}>
         {d.toLocaleDateString('en-US', { weekday: 'short' })}
       </p>
     </div>
@@ -109,6 +109,8 @@ export default function StudentHistoryPage() {
   const [editingRowId, setEditingRowId]   = useState<string | null>(null)
   const [editDraft, setEditDraft]         = useState({ status: '', topic: '', notes: '' })
   const [editSaving, setEditSaving]       = useState(false)
+  const [revertingRowId, setRevertingRowId] = useState<string | null>(null)
+  const [weeklyScheduleOpen, setWeeklyScheduleOpen] = useState(false)
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -234,6 +236,11 @@ export default function StudentHistoryPage() {
     return DAYS.map(day => ({ ...day, slots: byDow[day.dow] ?? [] }))
   }, [history])
 
+  const weeklySlotCount = useMemo(
+    () => weeklySchedule.reduce((sum, day) => sum + day.slots.length, 0),
+    [weeklySchedule]
+  )
+
   // Grouped timeline
   const groupedTimeline = useMemo((): TimelineItem[] => {
     const source =
@@ -259,7 +266,7 @@ export default function StudentHistoryPage() {
       const focus = tab === 'upcoming' ? asc[0] : desc[0]
       return {
         kind:       'series',
-        key:        `series-${seriesId}-${tab}`,
+        key:        `series-${seriesId}`,
         seriesId,
         topic:      focus.topic,
         tutorName:  focus.tutorName,
@@ -281,6 +288,15 @@ export default function StudentHistoryPage() {
       return tab === 'upcoming' ? cmp : -cmp
     })
   }, [tab, history, past, upcoming, today])
+
+  useEffect(() => {
+    if (expandedSeries.size > 0) return
+    const seriesKeys = groupedTimeline
+      .filter((item): item is Extract<TimelineItem, { kind: 'series' }> => item.kind === 'series')
+      .map(item => item.key)
+    if (seriesKeys.length === 0) return
+    setExpandedSeries(new Set(seriesKeys))
+  }, [groupedTimeline, expandedSeries.size])
 
   const handleSaveEdit = async () => {
     if (!editingRowId || !student) return
@@ -308,6 +324,35 @@ export default function StudentHistoryPage() {
     }
   }
 
+  const handleRevertCancelled = async (row: HistoryRow) => {
+    if (!row.rowId || row.rowId.startsWith('exc:')) return
+    setRevertingRowId(row.rowId)
+    try {
+      const cleanedNotes = (row.notes ?? '')
+        .replace(/\n?\n?excused absence/ig, '')
+        .trim()
+
+      await withCenter(
+        supabase
+          .from(SS)
+          .update({ status: 'scheduled', notes: cleanedNotes || null })
+          .eq('id', row.rowId)
+      )
+
+      setHistory(prev =>
+        prev.map(r =>
+          r.rowId === row.rowId
+            ? { ...r, status: 'scheduled', notes: cleanedNotes || null }
+            : r
+        )
+      )
+    } catch (err: any) {
+      alert(err?.message ?? 'Failed to revert session')
+    } finally {
+      setRevertingRowId(null)
+    }
+  }
+
   const inputCls = "w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-400"
 
   function SingleRow({ row, indented = false }: { row: HistoryRow; indented?: boolean }) {
@@ -315,6 +360,7 @@ export default function StudentHistoryPage() {
     const unmarked  = isUnmarked(row, today)
     const isEditing = editingRowId === row.rowId
     const canEdit   = row.status !== 'cancelled' && row.status !== 'off'
+    const canRevert = row.status === 'cancelled' && !row.rowId.startsWith('exc:')
 
     return (
       <div className={unmarked ? 'bg-amber-50/40' : ''}>
@@ -324,11 +370,11 @@ export default function StudentHistoryPage() {
             <p className={`text-[13px] font-semibold truncate ${row.status === 'cancelled' ? 'line-through text-slate-300' : 'text-slate-900'}`}>
               {row.topic}
             </p>
-            <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+            <p className="text-[11px] text-slate-600 mt-0.5 truncate">
               {[row.tutorName, row.blockLabel].filter(Boolean).join(' · ')}
             </p>
             {row.notes && (
-              <p className="text-[10px] text-slate-400 italic mt-0.5 truncate">"{row.notes}"</p>
+              <p className="text-[10px] text-slate-500 italic mt-0.5 truncate">"{row.notes}"</p>
             )}
           </div>
           <span className={`border rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none shrink-0 ${badge.cls}`}>
@@ -340,6 +386,15 @@ export default function StudentHistoryPage() {
               className="text-[9px] font-semibold text-slate-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all shrink-0"
             >
               Edit
+            </button>
+          )}
+          {canRevert && (
+            <button
+              onClick={() => void handleRevertCancelled(row)}
+              disabled={revertingRowId === row.rowId}
+              className="text-[9px] font-semibold text-slate-300 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-all shrink-0 disabled:opacity-50"
+            >
+              {revertingRowId === row.rowId ? 'Reverting…' : 'Revert'}
             </button>
           )}
         </div>
@@ -477,28 +532,46 @@ export default function StudentHistoryPage() {
 
         {/* Weekly Schedule */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Weekly Schedule</p>
-          </div>
-          <div className="grid grid-cols-6 gap-1.5 p-3">
-            {weeklySchedule.map(day => (
-              <div
-                key={day.dow}
-                className={`rounded-lg p-2 min-h-[60px] ${day.slots.length > 0 ? 'bg-violet-50 border border-violet-200' : 'bg-slate-50 border border-slate-100 opacity-50'}`}
-              >
-                <p className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${day.slots.length > 0 ? 'text-violet-500' : 'text-slate-300'}`}>
-                  {day.abbr}
-                </p>
-                {day.slots.map((slot, i) => (
-                  <div key={i} className="bg-violet-100 rounded px-1.5 py-1 mb-1">
-                    <p className="text-[9px] font-semibold text-violet-700 leading-tight truncate">{slot.blockLabel}</p>
-                    <p className="text-[9px] text-violet-600 leading-tight truncate mt-0.5">{slot.topic}</p>
-                    <p className="text-[8px] text-violet-400 leading-tight truncate">{slot.tutorName}</p>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+          <button
+            onClick={() => setWeeklyScheduleOpen(v => !v)}
+            className="w-full px-4 py-2.5 border-b border-slate-100 flex items-center justify-between text-left bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-700">Weekly Schedule</p>
+              <span className="inline-flex items-center border rounded px-1.5 py-0.5 text-[9px] font-semibold bg-violet-100 text-violet-700 border-violet-200">
+                {weeklySlotCount} slot{weeklySlotCount === 1 ? '' : 's'}
+              </span>
+              <span className="inline-flex items-center border rounded px-1.5 py-0.5 text-[9px] font-semibold bg-white text-slate-600 border-slate-300">
+                {weeklyScheduleOpen ? 'Collapse' : 'Expand'}
+              </span>
+            </div>
+            <span className="h-5 w-5 rounded-full border border-slate-300 bg-white flex items-center justify-center shrink-0">
+              {weeklyScheduleOpen
+                ? <ChevronUp size={12} className="text-slate-700" />
+                : <ChevronDown size={12} className="text-slate-700" />}
+            </span>
+          </button>
+          {weeklyScheduleOpen && (
+            <div className="grid grid-cols-6 gap-1.5 p-3">
+              {weeklySchedule.map(day => (
+                <div
+                  key={day.dow}
+                  className={`rounded-lg p-2 min-h-[60px] ${day.slots.length > 0 ? 'bg-violet-50 border border-violet-200' : 'bg-slate-50 border border-slate-100 opacity-50'}`}
+                >
+                  <p className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${day.slots.length > 0 ? 'text-violet-600' : 'text-slate-400'}`}>
+                    {day.abbr}
+                  </p>
+                  {day.slots.map((slot, i) => (
+                    <div key={i} className="bg-violet-100 rounded px-1.5 py-1 mb-1">
+                      <p className="text-[9px] font-semibold text-violet-700 leading-tight truncate">{slot.blockLabel}</p>
+                      <p className="text-[9px] text-violet-700 leading-tight truncate mt-0.5">{slot.topic}</p>
+                      <p className="text-[8px] text-violet-600 leading-tight truncate">{slot.tutorName}</p>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Session Timeline */}
@@ -547,7 +620,7 @@ export default function StudentHistoryPage() {
               return (
                 <div key={item.key} className="border-l-2 border-violet-200">
                   <button
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-violet-50/50 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left cursor-pointer border-y border-violet-200 bg-violet-50/70 hover:bg-violet-100/70"
                     onClick={() =>
                       setExpandedSeries(prev => {
                         const next = new Set(prev)
@@ -556,7 +629,17 @@ export default function StudentHistoryPage() {
                       })
                     }
                   >
-                    <DateBlock date={item.focusDate} purple />
+                    <div className="w-9 shrink-0 text-center">
+                      <p className="text-[9px] font-bold uppercase leading-none text-violet-700">
+                        {new Date(item.focusDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
+                      </p>
+                      <p className="text-[10px] font-black leading-tight text-violet-800 mt-0.5">
+                        {item.blockLabel}
+                      </p>
+                      <p className="text-[9px] font-semibold uppercase leading-none text-violet-600 mt-0.5">
+                        {item.time}
+                      </p>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-slate-900 flex items-center gap-1.5 truncate">
                         <Repeat2 size={11} className="text-violet-500 shrink-0" />
@@ -564,25 +647,30 @@ export default function StudentHistoryPage() {
                         <span className="border rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none bg-violet-50 text-violet-600 border-violet-200 shrink-0">
                           {item.count}
                         </span>
+                        <span className="border rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide bg-white text-violet-700 border-violet-300 shrink-0">
+                          {isExpanded ? 'Collapse' : 'Expand'}
+                        </span>
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      <p className="text-[11px] text-slate-700 mt-0.5 truncate">
                         {item.tutorName} · {item.blockLabel} · {item.firstDate} – {item.lastDate}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5 flex gap-3">
+                      <p className="text-[10px] text-slate-600 mt-0.5 flex gap-3">
                         {tab === 'upcoming' ? (
-                          <span className="text-blue-500">{item.count} pending</span>
+                          <span className="text-blue-700">{item.count} pending</span>
                         ) : (
                           <>
-                            <span className="text-emerald-600">{item.present}p</span>
-                            <span className="text-red-500">{item.noShow}ns</span>
-                            {item.unmarked > 0 && <span className="text-amber-500">{item.unmarked} unmarked</span>}
+                            <span className="text-emerald-700">{item.present} present</span>
+                            <span className="text-red-600">{item.noShow} no-show</span>
+                            {item.unmarked > 0 && <span className="text-amber-700">{item.unmarked} unmarked</span>}
                           </>
                         )}
                       </p>
                     </div>
-                    {isExpanded
-                      ? <ChevronUp size={12} className="text-slate-300 shrink-0" />
-                      : <ChevronDown size={12} className="text-slate-300 shrink-0" />}
+                    <span className="h-5 w-5 rounded-full border border-violet-300 bg-white flex items-center justify-center shrink-0">
+                      {isExpanded
+                        ? <ChevronUp size={12} className="text-violet-700" />
+                        : <ChevronDown size={12} className="text-violet-700" />}
+                    </span>
                   </button>
 
                   {isExpanded && (
