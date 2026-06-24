@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import { DB, withCenter } from "@/lib/db";
 
 // Cron endpoint — called by cron-job.org on a schedule.
-// Sends every tutor their schedule for the current Monday–Sunday week.
+// Sends every tutor their schedule for the upcoming Monday-Sunday week.
 //
 // Required env vars:
 //   TUTOR_WEEKLY_CRON_ENABLED=true   (must be set to allow sending)
@@ -58,14 +58,15 @@ function fmtDate(iso: string): string {
 function getWeekRange(): { fromDate: string; toDate: string; periodLabel: string } {
   const today = new Date();
   const dow = today.getDay(); // 0=Sun
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  const nextMonday = new Date(today);
+  const daysUntilNextMonday = ((8 - dow) % 7) || 7;
+  nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+  const sunday = new Date(nextMonday);
+  sunday.setDate(nextMonday.getDate() + 6);
 
-  const fromDate = toISODate(monday);
+  const fromDate = toISODate(nextMonday);
   const toDate = toISODate(sunday);
-  const startFmt = monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const startFmt = nextMonday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const endFmt = sunday.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return { fromDate, toDate, periodLabel: `Week of ${startFmt}–${endFmt}` };
 }

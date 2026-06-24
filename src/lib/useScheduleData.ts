@@ -631,14 +631,15 @@ export async function bookStudent({
 
     const { data: existing, error: fetchErr } = await (withCenter(supabase
       .from(SESSIONS)
-      .select(`id, ${SS}(id)`)
+      .select(`id, ${SS}(id, status)`)
       .eq('session_date', isoDate).eq('tutor_id', tutorId).eq('time', time)
       ).maybeSingle() as any)
     if (fetchErr) throw fetchErr
 
     let sessionId: string
     if (existing) {
-      if (existing[SS] && existing[SS].length >= MAX_CAPACITY)
+      const activeCount = (existing[SS] ?? []).filter((s: any) => s.status !== 'cancelled').length
+      if (activeCount >= MAX_CAPACITY)
         throw new Error(`This session with the tutor is full for ${isoDate}`)
       sessionId = existing.id
     } else {

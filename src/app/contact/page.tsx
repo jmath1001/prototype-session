@@ -147,6 +147,15 @@ function spChoiceBadge(c: 1 | 2 | 3) {
 const baseInputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100';
 const BRAND_BLUE = '#0f172a';
 const BRAND_RED = '#991b1b';
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+  { value: 0, label: 'Sunday' },
+];
 
 function toISODate(d: Date) { return d.toLocaleDateString('en-CA'); }
 function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return toISODate(d); }
@@ -486,7 +495,7 @@ export default function ContactCenter() {
   const [cronHistoryExpanded, setCronHistoryExpanded] = useState(false);
 
   // -- Auto-reminder schedule (cron) ------------------------------------------
-  type CronSchedule = { hours: number[]; minutes: number[]; timezone: string }
+  type CronSchedule = { hours: number[]; minutes: number[]; timezone: string; wdays?: number[] }
   type CronJob = { enabled: boolean; nextExecution: number; lastExecution: number; lastStatus: number; schedule: CronSchedule }
   type CronHistoryItem = { date: number; status: number; statusText: string; httpStatus: number; duration: number }
   const DEFAULT_REMINDER_TIMEZONE = 'America/Chicago'
@@ -505,6 +514,7 @@ export default function ContactCenter() {
   const [tutorWeeklyCronSaving, setTutorWeeklyCronSaving]         = useState(false);
   const [tutorWeeklyCronConfigured, setTutorWeeklyCronConfigured] = useState<boolean | null>(null);
   const [tutorWeeklyTime, setTutorWeeklyTime]                     = useState('07:00');
+  const [tutorWeeklyDay, setTutorWeeklyDay]                       = useState<number>(1);
   const [tutorWeeklyCronHistExpanded, setTutorWeeklyCronHistExpanded] = useState(false);
 
   const [tutorDailyCronJob, setTutorDailyCronJob]               = useState<CronJob | null>(null);
@@ -561,9 +571,9 @@ export default function ContactCenter() {
 
   // Tutor schedule email state
   const [tutorSchedExpanded, setTutorSchedExpanded]   = useState(false);
-  const [tutorSchedMode, setTutorSchedMode]           = useState<'weekly' | 'daily'>('weekly');
+  const [tutorSchedMode, setTutorSchedMode]           = useState<'weekly' | 'daily'>('daily');
   const [tutorSchedWeek, setTutorSchedWeek]           = useState(() => {
-    const d = new Date(); const dow = d.getDay(); d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow)); return toISODate(d);
+    const d = new Date(); const dow = d.getDay(); const daysToMon = (1 - dow + 7) % 7 || 7; d.setDate(d.getDate() + daysToMon); return toISODate(d);
   });
   const [tutorSchedDay, setTutorSchedDay]             = useState(() => toISODate(new Date()));
   const [tutorsWithEmail, setTutorsWithEmail]         = useState<{ id: string; name: string; email: string }[]>([]);
@@ -953,6 +963,7 @@ export default function ContactCenter() {
       const setJob      = type === 'tutor-weekly' ? setTutorWeeklyCronJob      : setTutorDailyCronJob
       const setHistory  = type === 'tutor-weekly' ? setTutorWeeklyCronHistory  : setTutorDailyCronHistory
       const setTime     = type === 'tutor-weekly' ? setTutorWeeklyTime          : setTutorDailyTime
+      const setWeekday  = type === 'tutor-weekly' ? setTutorWeeklyDay           : null
       setLoading(true)
       try {
         const [jobRes, histRes] = await Promise.all([
@@ -967,6 +978,10 @@ export default function ContactCenter() {
           const h = Array.isArray(details.schedule?.hours) && details.schedule.hours[0] !== -1 ? details.schedule.hours[0] : 7
           const m = Array.isArray(details.schedule?.minutes) && details.schedule.minutes[0] !== -1 ? details.schedule.minutes[0] : 0
           setTime(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+          if (setWeekday) {
+            const w = Array.isArray(details.schedule?.wdays) ? details.schedule.wdays[0] : 1
+            setWeekday(typeof w === 'number' && w >= 0 && w <= 6 ? w : 1)
+          }
         }
         setHistory(Array.isArray(histRes?.history) ? histRes.history.slice(0, 8) : [])
       } catch { setConfigured(false) }
@@ -984,19 +999,20 @@ export default function ContactCenter() {
     const [hStr, mStr] = time.split(':')
     const h = parseInt(hStr, 10)
     const m = parseInt(mStr, 10)
+    const wdays = type === 'tutor-weekly' ? [tutorWeeklyDay] : [-1]
     const timezone = cronJob?.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_REMINDER_TIMEZONE
     setSaving(true)
     try {
       const res = await fetch(`/api/cron-config?type=${type}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedule: { hours: [h], minutes: [m], wdays: [-1], timezone } }),
+        body: JSON.stringify({ schedule: { hours: [h], minutes: [m], wdays, timezone } }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'Failed to save')
       const updated = await fetch(`/api/cron-config?type=${type}`).then(r => r.json())
       if (updated?.jobDetails) setJob(updated.jobDetails)
-      logEvent('tutor_schedule_cron_time_saved', { type, time })
+      logEvent('tutor_schedule_cron_time_saved', { type, time, weekday: type === 'tutor-weekly' ? tutorWeeklyDay : -1 })
     } catch (err) {
       console.error('saveTutorCronTime', err)
     } finally {
@@ -2384,13 +2400,15 @@ export default function ContactCenter() {
               const cronConfigured = isWeekly ? tutorWeeklyCronConfigured : tutorDailyCronConfigured
               const cronTime      = isWeekly ? tutorWeeklyTime          : tutorDailyTime
               const setCronTime   = isWeekly ? setTutorWeeklyTime       : setTutorDailyTime
+              const weeklyDay     = tutorWeeklyDay
+              const setWeeklyDay  = setTutorWeeklyDay
               const histExpanded  = isWeekly ? tutorWeeklyCronHistExpanded : tutorDailyCronHistExpanded
               const setHistExpanded = isWeekly ? setTutorWeeklyCronHistExpanded : setTutorDailyCronHistExpanded
               const cronType      = isWeekly ? 'tutor-weekly' : 'tutor-daily'
               const envVar        = isWeekly ? 'CRONJOB_ORG_TUTOR_WEEKLY_JOB_ID' : 'CRONJOB_ORG_TUTOR_DAILY_JOB_ID'
               const label         = isWeekly ? 'Weekly Auto-Schedule' : 'Daily Auto-Schedule'
               const description   = isWeekly
-                ? 'Automatically sends each tutor their weekly schedule on a set schedule.'
+                ? 'Automatically sends each tutor their upcoming week schedule on a set schedule.'
                 : 'Automatically sends each tutor their daily schedule on a set schedule.'
 
               return (
@@ -2437,6 +2455,20 @@ export default function ContactCenter() {
                           />
                           <p className="mt-1 text-[11px] text-slate-400">Timezone: {cronJob?.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE}</p>
                         </div>
+                        {isWeekly && (
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-slate-600">Day of week</label>
+                            <select
+                              value={weeklyDay}
+                              onChange={e => setWeeklyDay(Number(e.target.value))}
+                              className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-slate-400 outline-none"
+                            >
+                              {WEEKDAY_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                         <button
                           onClick={() => void saveTutorCronTime(cronType)}
                           disabled={cronSaving}

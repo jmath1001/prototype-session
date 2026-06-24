@@ -84,7 +84,18 @@ export async function PATCH(req: NextRequest) {
     const sched: Record<string, unknown> = {}
     if (Array.isArray(s.hours))   sched.hours   = (s.hours   as number[]).map(Number)
     if (Array.isArray(s.minutes)) sched.minutes = (s.minutes as number[]).map(Number)
-    if (Array.isArray(s.wdays))   sched.wdays   = (s.wdays   as number[]).map(Number)
+    // Enforce expected weekday cadence for tutor schedule jobs.
+    // tutor-weekly: exactly one selected weekday (0=Sun ... 6=Sat)
+    // tutor-daily: every day (-1)
+    if (type === 'tutor-weekly') {
+      const requested = Array.isArray(s.wdays) ? Number((s.wdays as number[])[0]) : NaN
+      const normalized = Number.isInteger(requested) && requested >= 0 && requested <= 6 ? requested : 1
+      sched.wdays = [normalized]
+    } else if (type === 'tutor-daily') {
+      sched.wdays = [-1]
+    } else if (Array.isArray(s.wdays)) {
+      sched.wdays = (s.wdays as number[]).map(Number)
+    }
     if (typeof s.timezone === 'string') sched.timezone = s.timezone
     job.schedule = sched
   }
