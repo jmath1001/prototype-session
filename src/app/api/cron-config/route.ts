@@ -90,9 +90,13 @@ export async function PATCH(req: NextRequest) {
     if (type === 'tutor-weekly') {
       const requested = Array.isArray(s.wdays) ? Number((s.wdays as number[])[0]) : NaN
       const normalized = Number.isInteger(requested) && requested >= 0 && requested <= 6 ? requested : 1
-      sched.wdays = [normalized]
+      sched.wdays  = [normalized]
+      sched.mdays  = [-1]
+      sched.months = [-1]
     } else if (type === 'tutor-daily') {
-      sched.wdays = [-1]
+      sched.wdays  = [-1]
+      sched.mdays  = [-1]
+      sched.months = [-1]
     } else if (Array.isArray(s.wdays)) {
       sched.wdays = (s.wdays as number[]).map(Number)
     }

@@ -131,6 +131,7 @@ export async function POST(req: NextRequest) {
     let failed = 0;
     const errors: string[] = [];
     const details: { name: string; to: string }[] = [];
+    const failedDetails: { name: string; to: string; error: string }[] = [];
 
     for (const student of students ?? []) {
       const recipientName: string = student.name ?? 'Student';
@@ -210,6 +211,7 @@ export async function POST(req: NextRequest) {
         failed++;
         const msg: string = e?.message ?? 'Unknown error';
         if (errors.length < 5) errors.push(`${recipientName}: ${msg}`);
+        failedDetails.push({ name: recipientName, to, error: msg });
       }
     }
 
@@ -217,6 +219,7 @@ export async function POST(req: NextRequest) {
       sent,
       failed,
       errors,
+      failedDetails,
       mode: guard.mode,
       redirectedTo: guard.mode === 'redirect' ? guard.redirectTo : null,
       details,

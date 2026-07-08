@@ -225,6 +225,7 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
     const redirectedTo = guard.mode === "redirect" ? guard.redirectTo : null;
     const details: { name: string; to: string }[] = [];
+    const failedDetails: { name: string; to: string; error: string }[] = [];
     const centerId = getCenterId();
     const logRows: object[] = [];
 
@@ -280,6 +281,7 @@ export async function POST(req: NextRequest) {
         failed++;
         const errMsg = err?.message ?? "send failed";
         errors.push(`${student.name ?? student.id}: ${errMsg}`);
+        failedDetails.push({ name: student.name ?? student.id, to: toAddresses.join(", "), error: errMsg });
         logRows.push({
           center_id: centerId,
           student_id: student.id,
@@ -297,7 +299,7 @@ export async function POST(req: NextRequest) {
       await supabase.from(DB.studentScheduleLogs).insert(logRows);
     }
 
-    return NextResponse.json({ sent, failed, errors, mode: guard.mode, redirectedTo, details });
+    return NextResponse.json({ sent, failed, errors, failedDetails, mode: guard.mode, redirectedTo, details });
   } catch (err: any) {
     console.error("send-weekly-student-schedule error:", err);
     return NextResponse.json({ error: err?.message ?? "Internal error" }, { status: 500 });

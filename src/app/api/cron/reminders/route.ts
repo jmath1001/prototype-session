@@ -458,6 +458,7 @@ export async function POST(req: NextRequest) {
     const transporter = getTransporter();
     let sent = 0;
     const errors: string[] = [];
+    const failedDetails: { name: string; to: string; error: string }[] = [];
 
     for (const entry of filteredEntries) {
       const session = pickRelation(entry, SESSIONS);
@@ -467,11 +468,14 @@ export async function POST(req: NextRequest) {
         const result = await sendReminderForEntry({ entry, session, settings, transporter, guard, appBaseUrl });
         sent += result.sent ?? 0;
       } catch (e: any) {
-        errors.push(`${student?.name ?? entry.id}: ${e.message}`);
+        const errMsg: string = e.message ?? 'Unknown error';
+        errors.push(`${student?.name ?? entry.id}: ${errMsg}`);
+        const toAddr = [student?.email, student?.mom_email, student?.dad_email].filter(Boolean).join(', ');
+        if (toAddr) failedDetails.push({ name: student?.name ?? entry.id, to: toAddr, error: errMsg });
       }
     }
 
-    return NextResponse.json({ sent, failed: errors.length, errors, mode: guard.mode, redirectedTo: guard.redirectTo });
+    return NextResponse.json({ sent, failed: errors.length, errors, failedDetails, mode: guard.mode, redirectedTo: guard.redirectTo });
   } catch (err: any) {
     console.error("MANUAL SEND ERROR:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

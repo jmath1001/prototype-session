@@ -487,7 +487,7 @@ export default function ContactCenter() {
   const [selected, setSelected]                   = useState<Set<string>>(new Set());
   const [sending, setSending]                     = useState(false);
   const [confirmSend, setConfirmSend]             = useState(false);
-  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
+  const [sendResult, setSendResult]               = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
 
   const [logs, setLogs]                 = useState<Log[]>([]);
   const [loadingLogs, setLoadingLogs]   = useState(true);
@@ -535,7 +535,7 @@ export default function ContactCenter() {
   const [loadingBlastRecipients, setLoadingBlastRecipients] = useState(false);
   const [blastSending, setBlastSending]                     = useState(false);
   const [blastConfirm, setBlastConfirm]                     = useState(false);
-  const [blastResult, setBlastResult]                       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[] } | null>(null);
+  const [blastResult, setBlastResult]                       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
   const [blastExpanded, setBlastExpanded]                   = useState(false);
   const [editingBlastTemplate, setEditingBlastTemplate]     = useState(false);
 
@@ -545,7 +545,7 @@ export default function ContactCenter() {
   const [generalSelected, setGeneralSelected] = useState<Set<string>>(new Set());
   const [generalSending, setGeneralSending]   = useState(false);
   const [generalConfirm, setGeneralConfirm]   = useState(false);
-  const [generalResult, setGeneralResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[] } | null>(null);
+  const [generalResult, setGeneralResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
   const [generalExpanded, setGeneralExpanded] = useState(false);
 
   // Student schedule email state
@@ -553,7 +553,7 @@ export default function ContactCenter() {
   const [studentSchedSelected, setStudentSchedSelected] = useState<Set<string>>(new Set());
   const [studentSchedSending, setStudentSchedSending]   = useState(false);
   const [studentSchedConfirm, setStudentSchedConfirm]   = useState(false);
-  const [studentSchedResult, setStudentSchedResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
+  const [studentSchedResult, setStudentSchedResult]     = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
   const [studentSchedLogs, setStudentSchedLogs]         = useState<StudentSchedLog[]>([]);
   const [loadingStudentSchedLogs, setLoadingStudentSchedLogs] = useState(false);
   const [studentSchedLogsExpanded, setStudentSchedLogsExpanded] = useState(false);
@@ -567,7 +567,7 @@ export default function ContactCenter() {
   const [weeklySchedSelected, setWeeklySchedSelected]   = useState<Set<string>>(new Set());
   const [weeklySchedSending, setWeeklySchedSending]     = useState(false);
   const [weeklySchedConfirm, setWeeklySchedConfirm]     = useState(false);
-  const [weeklySchedResult, setWeeklySchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
+  const [weeklySchedResult, setWeeklySchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
 
   // Tutor schedule email state
   const [tutorSchedExpanded, setTutorSchedExpanded]   = useState(false);
@@ -578,7 +578,7 @@ export default function ContactCenter() {
   const [tutorSchedDay, setTutorSchedDay]             = useState(() => toISODate(new Date()));
   const [tutorsWithEmail, setTutorsWithEmail]         = useState<{ id: string; name: string; email: string }[]>([]);
   const [tutorSchedSending, setTutorSchedSending]     = useState(false);
-  const [tutorSchedResult, setTutorSchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] } | null>(null);
+  const [tutorSchedResult, setTutorSchedResult]       = useState<{ sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] } | null>(null);
   const [tutorSchedLogs, setTutorSchedLogs]           = useState<TutorSchedLog[]>([]);
   const [loadingTutorSchedLogs, setLoadingTutorSchedLogs] = useState(false);
   const [tutorSchedLogsExpanded, setTutorSchedLogsExpanded] = useState(false);
@@ -1656,10 +1656,11 @@ export default function ContactCenter() {
     }
   }
 
-  const [activeTab, setActiveTab] = useState<'reminders' | 'availability' | 'general' | 'tutor' | 'student' | 'history'>('reminders');
+  const [activeTab, setActiveTab] = useState<'students' | 'tutors' | 'terms' | 'general' | 'history'>('students');
+  const [studentSubTab, setStudentSubTab] = useState<'daily' | 'weekly'>('daily');
 
   useEffect(() => {
-    if (activeTab === 'tutor') fetchTutorCron()
+    if (activeTab === 'tutors') fetchTutorCron()
   }, [activeTab, fetchTutorCron])
 
   const openReminderPreview = () => {
@@ -1704,12 +1705,11 @@ export default function ContactCenter() {
         {/* -- Tab bar ------------------------------------------------------- */}
         <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200 pb-0">
           {([
-            { id: 'reminders',    label: 'Reminders' },
-            { id: 'availability', label: 'Availability' },
-            { id: 'general',      label: 'General Blast' },
-            { id: 'tutor',        label: 'Tutor Schedules' },
-            { id: 'student',      label: 'Student Schedules' },
-            { id: 'history',      label: 'Send History', badge: logs.length || null },
+            { id: 'students', label: 'Student Emails' },
+            { id: 'tutors',   label: 'Tutor Emails' },
+            { id: 'terms',    label: 'Terms' },
+            { id: 'general',  label: 'General' },
+            { id: 'history',  label: 'History', badge: logs.length || null },
           ] as const).map(item => (
             <button
               key={item.id}
@@ -1731,9 +1731,125 @@ export default function ContactCenter() {
         {/* -- Panel content ------------------------------------------------- */}
         <div>
 
-        {/* -- REMINDERS --------------------------------------------------- */}
-        {activeTab === 'reminders' && (
+        {/* -- STUDENTS ----------------------------------------------------- */}
+        {activeTab === 'students' && (
           <div className="space-y-4">
+
+            {/* Sub-tab bar */}
+            <div className="flex gap-1 border-b border-slate-200">
+              {([
+                { id: 'daily',  label: 'Daily Reminders',   desc: 'One-off reminders for a specific date' },
+                { id: 'weekly', label: 'Weekly Schedules',  desc: 'Send students their sessions for a week' },
+              ] as const).map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setStudentSubTab(item.id)}
+                  className={`relative px-4 py-2 text-sm font-semibold transition-colors focus:outline-none ${
+                    studentSubTab === item.id
+                      ? 'text-slate-900 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t after:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {studentSubTab === 'daily' && (<>
+            {/* Section: Reminders */}
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-base font-bold text-slate-900">Daily Reminders</h2>
+              <p className="text-xs text-slate-500">Send upcoming-session reminder emails to students for a specific date.</p>
+            </div>
+
+            {/* -- Auto Reminder Schedule ------------------------------------- */}
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 to-white px-4 py-3">
+                <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Auto Reminder Schedule</p>
+                <p className="mt-0.5 text-[11px] text-indigo-400">Reminders send automatically every day at this time.</p>
+              </div>
+              {cronLoading && cronConfigured === null ? (
+                <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
+                  <Loader2 size={12} className="animate-spin" /> Checking reminder status–
+                </div>
+              ) : cronConfigured === false ? (
+                <div className="px-4 py-3 text-xs text-slate-500">
+                  Automatic reminders aren&apos;t connected. Configure{' '}
+                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_API_KEY</code> and{' '}
+                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_JOB_ID</code> to enable.
+                </div>
+              ) : cronConfigured ? (
+                <div className="space-y-4 p-4">
+                  {cronJob && (
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${cronJob.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${cronJob.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        {cronJob.enabled ? 'Auto reminders on' : 'Auto reminders off'}
+                      </span>
+                      <button
+                        onClick={toggleCronEnabled}
+                        disabled={cronSaving}
+                        className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {cronSaving ? 'Saving–' : cronJob.enabled ? 'Turn off' : 'Turn on'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">Send daily at</label>
+                      <input
+                        type="time"
+                        value={reminderTime}
+                        onChange={e => setReminderTime(e.target.value)}
+                        className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-slate-400 outline-none"
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400">Timezone: {cronJob?.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE}</p>
+                    </div>
+                    <button
+                      onClick={saveReminderTime}
+                      disabled={cronSaving}
+                      className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      <Save size={11} />
+                      {cronSaving ? 'Saving–' : 'Save'}
+                    </button>
+                  </div>
+                  {cronJob && cronJob.nextExecution > 0 && (
+                    <p className="text-[11px] text-slate-400">
+                      Next send: {new Date(cronJob.nextExecution * 1000).toLocaleString(undefined, { timeZone: cronJob.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE })}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-500">
+                    When triggered, sends reminders for sessions on <span className="font-semibold text-slate-700">{tomorrow()}</span>
+                  </p>
+                  {cronHistory.length > 0 && (
+                    <div>
+                      <button
+                        onClick={() => setCronHistoryExpanded(v => !v)}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <ChevronDown size={11} className={`transition-transform ${cronHistoryExpanded ? 'rotate-180' : ''}`} />
+                        Recent sends ({cronHistory.length})
+                      </button>
+                      {cronHistoryExpanded && (
+                        <div className="mt-1.5 overflow-y-auto rounded border border-slate-100 max-h-24">
+                          {cronHistory.map((h, i) => (
+                            <div key={i} className="flex items-center gap-3 border-b border-slate-50 px-3 py-1 last:border-0 text-xs">
+                              <span className={`w-12 shrink-0 rounded-full px-2 py-0.5 text-center font-semibold ${h.status === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                {h.status === 1 ? 'OK' : 'Fail'}
+                              </span>
+                              <span className="text-slate-500">{new Date(h.date * 1000).toLocaleString()}</span>
+                              <span className="ml-auto text-slate-400">{h.duration}ms</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
             {/* Controls row */}
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1762,6 +1878,7 @@ export default function ContactCenter() {
                 skipped={sendResult.skipped}
                 reason={sendResult.reason}
                 details={sendResult.details}
+                failedDetails={sendResult.failedDetails}
               />
             )}
 
@@ -1871,95 +1988,6 @@ export default function ContactCenter() {
               )}
             </div>
 
-            {/* -- Auto Reminder Schedule ------------------------------------- */}
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-              <div className="border-b border-indigo-100 bg-linear-to-r from-indigo-50 to-white px-4 py-3">
-                <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Auto Reminder Schedule</p>
-                <p className="mt-0.5 text-[11px] text-indigo-400">Reminders send automatically every day at this time.</p>
-              </div>
-              {cronLoading && cronConfigured === null ? (
-                <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-400">
-                  <Loader2 size={12} className="animate-spin" /> Checking reminder status–
-                </div>
-              ) : cronConfigured === false ? (
-                <div className="px-4 py-3 text-xs text-slate-500">
-                  Automatic reminders aren&apos;t connected. Configure{' '}
-                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_API_KEY</code> and{' '}
-                  <code className="rounded bg-slate-100 px-1">CRONJOB_ORG_JOB_ID</code> to enable.
-                </div>
-              ) : cronConfigured ? (
-                <div className="space-y-4 p-4">
-                  {cronJob && (
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${cronJob.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${cronJob.enabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        {cronJob.enabled ? 'Auto reminders on' : 'Auto reminders off'}
-                      </span>
-                      <button
-                        onClick={toggleCronEnabled}
-                        disabled={cronSaving}
-                        className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        {cronSaving ? 'Saving–' : cronJob.enabled ? 'Turn off' : 'Turn on'}
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex items-end gap-3 flex-wrap">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-600">Send daily at</label>
-                      <input
-                        type="time"
-                        value={reminderTime}
-                        onChange={e => setReminderTime(e.target.value)}
-                        className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-slate-400 outline-none"
-                      />
-                      <p className="mt-1 text-[11px] text-slate-400">Timezone: {cronJob?.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE}</p>
-                    </div>
-                    <button
-                      onClick={saveReminderTime}
-                      disabled={cronSaving}
-                      className="mb-5 flex items-center gap-1.5 rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-                    >
-                      <Save size={11} />
-                      {cronSaving ? 'Saving–' : 'Save'}
-                    </button>
-                  </div>
-                  {cronJob && cronJob.nextExecution > 0 && (
-                    <p className="text-[11px] text-slate-400">
-                      Next send: {new Date(cronJob.nextExecution * 1000).toLocaleString(undefined, { timeZone: cronJob.schedule?.timezone || DEFAULT_REMINDER_TIMEZONE })}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-slate-500">
-                    When triggered, sends reminders for sessions on <span className="font-semibold text-slate-700">{tomorrow()}</span>
-                  </p>
-                  {cronHistory.length > 0 && (
-                    <div>
-                      <button
-                        onClick={() => setCronHistoryExpanded(v => !v)}
-                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 transition-colors"
-                      >
-                        <ChevronDown size={11} className={`transition-transform ${cronHistoryExpanded ? 'rotate-180' : ''}`} />
-                        Recent sends ({cronHistory.length})
-                      </button>
-                      {cronHistoryExpanded && (
-                        <div className="mt-1.5 overflow-y-auto rounded border border-slate-100 max-h-24">
-                          {cronHistory.map((h, i) => (
-                            <div key={i} className="flex items-center gap-3 border-b border-slate-50 px-3 py-1 last:border-0 text-xs">
-                              <span className={`w-12 shrink-0 rounded-full px-2 py-0.5 text-center font-semibold ${h.status === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                                {h.status === 1 ? 'OK' : 'Fail'}
-                              </span>
-                              <span className="text-slate-500">{new Date(h.date * 1000).toLocaleString()}</span>
-                              <span className="ml-auto text-slate-400">{h.duration}ms</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-
             {/* -- Reminder Email Template ------------------------------------- */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
               <div className="flex items-center justify-between border-b border-violet-100 bg-linear-to-r from-violet-50 to-white px-4 py-3">
@@ -2033,273 +2061,134 @@ export default function ContactCenter() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+            </>)}
 
-        {/* -- AVAILABILITY BLAST -------------------------------------------- */}
-        {activeTab === 'availability' && (
-          <div className="space-y-4">
+            {studentSubTab === 'weekly' && (<>
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-base font-bold text-slate-900">Weekly Schedules</h2>
+              <p className="text-xs text-slate-500">Send students their actual scheduled sessions for a specific week.</p>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              {/* Left: term + template */}
+              {/* Left: week picker + send */}
               <div className="space-y-4">
-                {/* Term */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Term</p>
-                  <select
-                    value={blastTermId}
-                    onChange={e => { setBlastTermId(e.target.value); setBlastResult(null); setBlastConfirm(false); }}
-                    className={baseInputCls}
-                  >
-                    {terms.length === 0 && <option value="">No terms available</option>}
-                    {terms.map(t => <option key={t.id} value={t.id}>{t.name} ({t.status})</option>)}
-                  </select>
-                  {blastTermId && (
-                    <p className="font-mono text-[10px] text-slate-400 break-all">{blastLinkPreview}</p>
-                  )}
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Week</p>
+                    <p className="text-[11px] text-slate-400 mb-2">Send students their actual scheduled sessions for the selected week.</p>
+                    <input
+                      type="date"
+                      value={weeklySchedWeekStart}
+                      onChange={e => { const d = new Date(`${e.target.value}T00:00:00`); const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); setWeeklySchedWeekStart(toISODate(d)); setWeeklySchedResult(null); setWeeklySchedConfirm(false); }}
+                      className={baseInputCls}
+                    />
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Week of {new Date(`${weeklySchedWeekStart}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} &ndash;{' '}
+                      {new Date(new Date(`${weeklySchedWeekStart}T00:00:00`).setDate(new Date(`${weeklySchedWeekStart}T00:00:00`).getDate() + 6)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Template */}
-                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-violet-100 bg-linear-to-r from-violet-50 to-white px-4 py-3">
-                    <p className="text-xs font-bold text-violet-900 uppercase tracking-wide">Email Template</p>
-                    <div className="flex items-center gap-2">
-                      <button onClick={openAvailabilityPreview} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                        <Eye size={10} /> Preview
-                      </button>
-                      <button onClick={() => setEditingBlastTemplate(v => !v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                        {editingBlastTemplate ? <><X size={10} /> Close</> : <><Edit3 size={10} /> Edit</>}
-                      </button>
-                    </div>
-                  </div>
-                  {!editingBlastTemplate ? (
-                    <div className="px-4 py-3 space-y-2">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Subject</p>
-                        <p className="text-sm text-slate-800">{blastSubject || <span className="text-slate-400 italic">Empty</span>}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Body</p>
-                        <p className="line-clamp-4 whitespace-pre-line text-xs text-slate-500">{blastBody || <span className="italic">Empty</span>}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {['{{name}}', '{{link}}', '{{term}}', '{{center}}'].map(v => (
-                          <span key={v} className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] text-slate-600">{v}</span>
-                        ))}
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-700">Subject</label>
-                        <input value={blastSubject} onChange={e => setBlastSubject(e.target.value)} className={baseInputCls} />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-slate-700">Body</label>
-                        <textarea value={blastBody} onChange={e => setBlastBody(e.target.value)} rows={7} className={`${baseInputCls} resize-none`} style={{ lineHeight: '1.6' }} />
-                      </div>
-                      {blastTermId && (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
-                          <p className="font-bold text-slate-500 uppercase tracking-widest text-[10px]">Preview</p>
-                          <p className="font-semibold text-slate-800">{applyTemplate(blastSubject, { name: 'Alex Student', link: blastLinkPreview, term: selectedBlastTerm?.name ?? '', center: settings?.center_name ?? 'Tutoring Center' })}</p>
-                          <p className="whitespace-pre-line text-slate-500">{applyTemplate(blastBody, { name: 'Alex Student', link: blastLinkPreview, term: selectedBlastTerm?.name ?? '', center: settings?.center_name ?? 'Tutoring Center' })}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {weeklySchedResult && (
+                  <ResultBanner
+                    sent={weeklySchedResult.sent}
+                    failed={weeklySchedResult.failed}
+                    errors={weeklySchedResult.errors}
+                    mode={weeklySchedResult.mode}
+                    redirectedTo={weeklySchedResult.redirectedTo}
+                    skipped={weeklySchedResult.skipped}
+                    reason={weeklySchedResult.reason}
+                    details={(weeklySchedResult as any).details}
+                    failedDetails={weeklySchedResult.failedDetails}
+                  />
+                )}
+
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    onClick={() => void openWeeklyStudentSchedulePreview()}
+                    disabled={previewLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <Eye size={12} /> Preview email
+                  </button>
+                  <SendButton
+                    onClick={handleSendWeeklyStudentSchedules}
+                    loading={weeklySchedSending}
+                    confirm={weeklySchedConfirm}
+                    count={weeklySchedSelected.size}
+                    disabled={weeklySchedSelected.size === 0 || weeklySchedSending}
+                    label="Send schedules"
+                  />
                 </div>
+                {weeklySchedStudents.length === 0 && !loadingWeeklyStudents && (
+                  <p className="text-[11px] text-amber-600 font-medium">? No students with sessions found for this week.</p>
+                )}
               </div>
 
-              {/* Right: recipients */}
+              {/* Right: recipient list */}
               <div className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between border-b border-blue-100 bg-linear-to-r from-blue-50 to-white px-4 py-3">
                   <p className="text-xs font-bold text-blue-900 uppercase tracking-wide">
-                    Recipients <span className="text-blue-400 font-normal normal-case">({blastRecipients.length})</span>
+                    Students with sessions <span className="text-blue-400 font-normal normal-case">({weeklySchedStudents.length})</span>
                   </p>
                   <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-500">
-                    <Checkbox checked={blastAllChecked} indeterminate={blastSomeChecked && !blastAllChecked} onChange={toggleBlastAll} />
-                    {blastAllChecked ? 'Deselect all' : 'Select all'}
+                    <Checkbox
+                      checked={weeklySchedStudents.length > 0 && weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
+                      indeterminate={weeklySchedStudents.some(r => weeklySchedSelected.has(r.studentId)) && !weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
+                      onChange={() => {
+                        setWeeklySchedConfirm(false);
+                        const allSel = weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId));
+                        setWeeklySchedSelected(allSel ? new Set() : new Set(weeklySchedStudents.map(r => r.studentId)));
+                      }}
+                    />
+                    {weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId)) ? 'Deselect all' : 'Select all'}
                   </label>
                 </div>
-                {loadingBlastRecipients ? (
-                  <LoadingRow label="Loading recipients–" />
-                ) : blastRecipients.length === 0 ? (
-                  <EmptyState icon={<Users size={22} />} label="No students with email addresses" />
+                {loadingWeeklyStudents ? (
+                  <LoadingRow label="Loading students–" />
+                ) : weeklySchedStudents.length === 0 ? (
+                  <EmptyState icon={<Users size={22} />} label="No sessions scheduled this week" />
                 ) : (
                   <ul className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-72">
-                    {blastRecipients.map(r => (
+                    {weeklySchedStudents.map(r => (
                       <li
                         key={r.studentId}
-                        className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
-                        onClick={() => { setBlastConfirm(false); toggleBlast(r.studentId); }}
+                        className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                        onClick={() => {
+                          setWeeklySchedConfirm(false);
+                          setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
+                        }}
                       >
-                        <Checkbox checked={blastSelected.has(r.studentId)} onChange={() => { setBlastConfirm(false); toggleBlast(r.studentId); }} />
+                        <div className="mt-0.5"><Checkbox
+                          checked={weeklySchedSelected.has(r.studentId)}
+                          onChange={() => {
+                            setWeeklySchedConfirm(false);
+                            setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
+                          }}
+                        /></div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-800">{r.studentName}</p>
-                          <p className="truncate text-[10px] text-slate-400"><EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} /></p>
+                          <div className="mt-0.5 text-[11px] text-slate-400">
+                            <EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} />
+                          </div>
                         </div>
                       </li>
                     ))}
                   </ul>
                 )}
-                <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-3">
-                  {blastResult && (
-                    <ResultBanner sent={blastResult.sent} failed={blastResult.failed} errors={blastResult.errors} mode={blastResult.mode} redirectedTo={blastResult.redirectedTo} details={blastResult.details} />
-                  )}
-                  {!blastTermId && (
-                    <p className="text-[11px] text-amber-600 font-medium">? Select a term first to generate the availability link.</p>
-                  )}
-                  <p className="text-[11px] text-amber-600 font-medium">? Availability email blast is temporarily disabled – feature still in progress.</p>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <button onClick={openAvailabilityFormPreview} disabled={!blastTermId} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 disabled:opacity-40">
-                      <Eye size={11} /> Preview form
-                    </button>
-                    <SendButton
-                      onClick={handleBlastSend}
-                      loading={blastSending}
-                      confirm={blastConfirm}
-                      count={blastSelected.size}
-                      disabled={true}
-                      label="Send availability"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
-
-            {/* -- Slot Preferences Survey ----------------------------------- */}
-            <div className="space-y-5 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3.5">
-                <div className="flex items-center gap-2.5">
-                  <Clipboard className="w-5 h-5 text-indigo-600" />
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900 leading-tight">Slot Preferences</h2>
-                    <p className="text-xs text-slate-500">Enter paper form choices for each enrolled student</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <select
-                      value={spSelectedTermId}
-                      onChange={e => setSpSelectedTermId(e.target.value)}
-                      className="appearance-none bg-white border border-slate-200 rounded-lg pl-3 pr-8 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
-                    >
-                      {spTerms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                  </div>
-                  <button
-                    onClick={spRunScheduler}
-                    disabled={spRunning || spPrefCount === 0}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {spRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                    Run Scheduler
-                  </button>
-                </div>
-              </div>
-
-              {!spLoading && spSelectedTermId && (
-                <div className="flex flex-wrap gap-3">
-                  <SpStatPill icon={<Users className="w-3.5 h-3.5" />} label="Enrolled" value={spEnrolledStudents.length} color="blue" />
-                  <SpStatPill icon={<Check className="w-3.5 h-3.5" />} label="Preferences entered" value={spPrefCount} color="green" />
-                  <SpStatPill icon={<AlertTriangle className="w-3.5 h-3.5" />} label="Awaiting" value={spEnrolledStudents.length - spPrefCount} color={spEnrolledStudents.length - spPrefCount > 0 ? 'amber' : 'gray'} />
-                </div>
-              )}
-
-              {spProposal && (
-                <SpProposalPanel
-                  proposal={spProposal}
-                  onClose={() => setSpProposal(null)}
-                  studentNames={Object.fromEntries(spStudents.map(s => [s.id, s.name]))}
-                />
-              )}
-              {spRunError && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  {spRunError}
-                </div>
-              )}
-
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                  <Search className="w-4 h-4 text-slate-400 shrink-0" />
-                  <input
-                    value={spSearch}
-                    onChange={e => setSpSearch(e.target.value)}
-                    placeholder="Search enrolled students–"
-                    className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400"
-                  />
-                </div>
-                {spLoading ? (
-                  <LoadingRow label="Loading students–" />
-                ) : spFilteredStudents.length === 0 ? (
-                  <EmptyState icon={<Users size={24} />} label={spSelectedTermId ? 'No enrolled students found.' : 'Select a term to begin.'} />
-                ) : (
-                  <ul className="divide-y divide-slate-100">
-                    {spFilteredStudents.map(student => {
-                      const enrollment = spEnrollmentMap[student.id]
-                      const prefs = enrollment?.slot_preferences ?? null
-                      const hasPrefs = Array.isArray(prefs) && prefs.length > 0
-                      const isOpen = spOpenStudentId === student.id
-                      return (
-                        <li key={student.id}>
-                          <button
-                            onClick={() => setSpOpenStudentId(isOpen ? null : student.id)}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-semibold text-slate-800 truncate">{student.name}</span>
-                                {hasPrefs ? (
-                                  <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                                    {prefs!.length} choice{prefs!.length !== 1 ? 's' : ''}
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                                    No preferences
-                                  </span>
-                                )}
-                              </div>
-                              {hasPrefs && (
-                                <div className="mt-0.5 flex flex-wrap gap-1">
-                                  {prefs!.map((choice, ci) => (
-                                    <span key={ci} className="text-[11px] text-slate-500">
-                                      {ci + 1}. {spBlockLabel(choice)}
-                                      {ci < prefs!.length - 1 && <span className="mx-1 text-slate-300">–</span>}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {isOpen ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
-                          </button>
-                          {isOpen && (
-                            <div className="px-4 pb-4 pt-1 bg-slate-50 border-t border-slate-100">
-                              <SlotPreferenceSurvey
-                                studentId={student.id}
-                                studentName={student.name}
-                                termId={spSelectedTermId}
-                                sessionTimesByDay={spSessionTimesByDay}
-                                initialPreferences={prefs}
-                                onSave={newPrefs => handleSpSave(student.id, newPrefs)}
-                                onClose={() => setSpOpenStudentId(null)}
-                              />
-                            </div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
+            </>)}
           </div>
         )}
 
         {/* -- GENERAL BLAST ------------------------------------------------- */}
         {activeTab === 'general' && (
           <div className="space-y-4">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-base font-bold text-slate-900">General Blast</h2>
+              <p className="text-xs text-slate-500">Send a freeform email to any group of students.</p>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Compose */}
@@ -2368,7 +2257,7 @@ export default function ContactCenter() {
                 )}
                 <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-3">
                   {generalResult && (
-                    <ResultBanner sent={generalResult.sent} failed={generalResult.failed} errors={generalResult.errors} mode={generalResult.mode} redirectedTo={generalResult.redirectedTo} details={generalResult.details} />
+                    <ResultBanner sent={generalResult.sent} failed={generalResult.failed} errors={generalResult.errors} mode={generalResult.mode} redirectedTo={generalResult.redirectedTo} details={generalResult.details} failedDetails={generalResult.failedDetails} />
                   )}
                   <div className="flex justify-end">
                     <SendButton
@@ -2387,8 +2276,28 @@ export default function ContactCenter() {
         )}
 
         {/* -- TUTOR SCHEDULES ----------------------------------------------- */}
-        {activeTab === 'tutor' && (
+        {activeTab === 'tutors' && (
           <div className="space-y-4">
+
+            {/* Sub-tab bar */}
+            <div className="flex gap-1 border-b border-slate-200">
+              {([
+                { id: 'weekly', label: 'Weekly Schedules' },
+                { id: 'daily',  label: 'Daily Schedules' },
+              ] as const).map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => { setTutorSchedMode(item.id); setTutorSchedResult(null); }}
+                  className={`relative px-4 py-2 text-sm font-semibold transition-colors focus:outline-none ${
+                    tutorSchedMode === item.id
+                      ? 'text-slate-900 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-t after:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
             {/* -- Auto Schedule Cron --------------------------------------------- */}
             {(() => {
@@ -2514,17 +2423,7 @@ export default function ContactCenter() {
             })()}
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-5">
-              {/* Mode toggle */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => { setTutorSchedMode('weekly'); setTutorSchedResult(null); }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tutorSchedMode === 'weekly' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-                >Weekly</button>
-                <button
-                  onClick={() => { setTutorSchedMode('daily'); setTutorSchedResult(null); }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${tutorSchedMode === 'daily' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-                >Daily</button>
-              </div>
+              {/* date picker */}
 
               <div className="flex flex-wrap items-end gap-4">
                 <div>
@@ -2534,7 +2433,7 @@ export default function ContactCenter() {
                       <input
                         type="date"
                         value={tutorSchedWeek}
-                        onChange={e => { setTutorSchedWeek(e.target.value); setTutorSchedResult(null); }}
+                      onChange={e => { const d = new Date(`${e.target.value}T00:00:00`); const dow = d.getDay(); d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); setTutorSchedWeek(toISODate(d)); setTutorSchedResult(null); }}
                         className={`${baseInputCls} w-auto`}
                       />
                     </>
@@ -2580,6 +2479,7 @@ export default function ContactCenter() {
                   skipped={tutorSchedResult.skipped}
                   reason={tutorSchedResult.reason}
                   details={(tutorSchedResult as any).details}
+                  failedDetails={tutorSchedResult.failedDetails}
                 />
               )}
 
@@ -2656,9 +2556,13 @@ export default function ContactCenter() {
           </div>
         )}
 
-        {/* -- STUDENT SCHEDULES -------------------------------------------- */}
-        {activeTab === 'student' && (
+        {/* -- STUDENT SCHEDULES (Terms tab) --------------------------------- */}
+        {activeTab === 'terms' && (
           <div className="space-y-4">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-base font-bold text-slate-900">Student Schedules</h2>
+              <p className="text-xs text-slate-500">Email students their recurring term schedule or weekly sessions.</p>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Left: term + send */}
@@ -2685,6 +2589,7 @@ export default function ContactCenter() {
                     skipped={studentSchedResult.skipped}
                     reason={studentSchedResult.reason}
                     details={(studentSchedResult as any).details}
+                    failedDetails={studentSchedResult.failedDetails}
                   />
                 )}
 
@@ -2831,125 +2736,6 @@ export default function ContactCenter() {
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Weekly Schedules section (inside Reminders tab) */}
-        {activeTab === 'reminders' && (
-          <div className="mt-6 space-y-4">
-            <div className="border-b border-slate-200 pb-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Weekly Schedules</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">Send students their scheduled sessions for a specific week.</p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Left: week picker + send */}
-              <div className="space-y-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                  <div>
-                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Week</p>
-                    <p className="text-[11px] text-slate-400 mb-2">Send students their actual scheduled sessions for the selected week.</p>
-                    <input
-                      type="date"
-                      value={weeklySchedWeekStart}
-                      onChange={e => { setWeeklySchedWeekStart(e.target.value); setWeeklySchedResult(null); setWeeklySchedConfirm(false); }}
-                      className={baseInputCls}
-                    />
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Week of {new Date(`${weeklySchedWeekStart}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} &ndash;{' '}
-                      {new Date(new Date(`${weeklySchedWeekStart}T00:00:00`).setDate(new Date(`${weeklySchedWeekStart}T00:00:00`).getDate() + 6)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                {weeklySchedResult && (
-                  <ResultBanner
-                    sent={weeklySchedResult.sent}
-                    failed={weeklySchedResult.failed}
-                    errors={weeklySchedResult.errors}
-                    mode={weeklySchedResult.mode}
-                    redirectedTo={weeklySchedResult.redirectedTo}
-                    skipped={weeklySchedResult.skipped}
-                    reason={weeklySchedResult.reason}
-                    details={(weeklySchedResult as any).details}
-                  />
-                )}
-
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <button
-                    onClick={() => void openWeeklyStudentSchedulePreview()}
-                    disabled={previewLoading}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <Eye size={12} /> Preview email
-                  </button>
-                  <SendButton
-                    onClick={handleSendWeeklyStudentSchedules}
-                    loading={weeklySchedSending}
-                    confirm={weeklySchedConfirm}
-                    count={weeklySchedSelected.size}
-                    disabled={weeklySchedSelected.size === 0 || weeklySchedSending}
-                    label="Send schedules"
-                  />
-                </div>
-                {weeklySchedStudents.length === 0 && !loadingWeeklyStudents && (
-                  <p className="text-[11px] text-amber-600 font-medium">? No students with sessions found for this week.</p>
-                )}
-              </div>
-
-              {/* Right: recipient list */}
-              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between border-b border-blue-100 bg-linear-to-r from-blue-50 to-white px-4 py-3">
-                  <p className="text-xs font-bold text-blue-900 uppercase tracking-wide">
-                    Students with sessions <span className="text-blue-400 font-normal normal-case">({weeklySchedStudents.length})</span>
-                  </p>
-                  <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-slate-500">
-                    <Checkbox
-                      checked={weeklySchedStudents.length > 0 && weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
-                      indeterminate={weeklySchedStudents.some(r => weeklySchedSelected.has(r.studentId)) && !weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId))}
-                      onChange={() => {
-                        setWeeklySchedConfirm(false);
-                        const allSel = weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId));
-                        setWeeklySchedSelected(allSel ? new Set() : new Set(weeklySchedStudents.map(r => r.studentId)));
-                      }}
-                    />
-                    {weeklySchedStudents.every(r => weeklySchedSelected.has(r.studentId)) ? 'Deselect all' : 'Select all'}
-                  </label>
-                </div>
-                {loadingWeeklyStudents ? (
-                  <LoadingRow label="Loading students–" />
-                ) : weeklySchedStudents.length === 0 ? (
-                  <EmptyState icon={<Users size={22} />} label="No sessions scheduled this week" />
-                ) : (
-                  <ul className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-72">
-                    {weeklySchedStudents.map(r => (
-                      <li
-                        key={r.studentId}
-                        className="flex cursor-pointer items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
-                        onClick={() => {
-                          setWeeklySchedConfirm(false);
-                          setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
-                        }}
-                      >
-                        <div className="mt-0.5"><Checkbox
-                          checked={weeklySchedSelected.has(r.studentId)}
-                          onChange={() => {
-                            setWeeklySchedConfirm(false);
-                            setWeeklySchedSelected(prev => { const n = new Set(prev); n.has(r.studentId) ? n.delete(r.studentId) : n.add(r.studentId); return n; });
-                          }}
-                        /></div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-800">{r.studentName}</p>
-                          <div className="mt-0.5 text-[11px] text-slate-400">
-                            <EmailList student={{ studentEmail: r.studentEmail, momEmail: r.momEmail, dadEmail: r.dadEmail, notifyStudent: r.notifyStudent, notifyMom: r.notifyMom, notifyDad: r.notifyDad } as any} />
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -3120,8 +2906,9 @@ function SendButton({ onClick, loading, confirm, count, disabled, label }: { onC
   );
 }
 
-function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reason, details }: { sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[] }) {
+function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reason, details, failedDetails }: { sent: number; failed: number; errors: string[]; mode?: string; redirectedTo?: string | null; skipped?: boolean; reason?: string; details?: { name: string; to: string }[]; failedDetails?: { name: string; to: string; error: string }[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [failedExpanded, setFailedExpanded] = useState(false);
   const isRedirect = mode === 'redirect';
   const isSuccess = failed === 0 && !skipped;
 
@@ -3152,8 +2939,28 @@ function ResultBanner({ sent, failed, errors, mode, redirectedTo, skipped, reaso
                   {details.map((d, i) => (
                     <li key={i} className="flex items-baseline gap-1.5">
                       <span className="font-semibold">{d.name}</span>
-                      <span className="opacity-60">?</span>
+                      <span className="opacity-60">→</span>
                       <span className="font-mono break-all opacity-80">{d.to}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {failedDetails && failedDetails.length > 0 && (
+            <div className="mt-1.5">
+              <button
+                onClick={() => setFailedExpanded(e => !e)}
+                className="underline underline-offset-2 opacity-70 hover:opacity-100 text-red-700"
+              >
+                {failedExpanded ? 'Hide' : 'Show'} failed addresses ({failedDetails.length})
+              </button>
+              {failedExpanded && (
+                <ul className="mt-1.5 space-y-1 font-normal max-h-48 overflow-y-auto">
+                  {failedDetails.map((d, i) => (
+                    <li key={i} className="rounded bg-red-100/60 px-2 py-1">
+                      <p className="font-semibold text-red-800">{d.name} <span className="font-mono font-normal opacity-80">→ {d.to}</span></p>
+                      <p className="mt-0.5 font-normal text-[10px] text-red-600 break-all">{d.error}</p>
                     </li>
                   ))}
                 </ul>
