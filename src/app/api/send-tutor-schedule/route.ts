@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
               )
               .join("\n");
       const text = `Hi ${tutor.name},\n\nHere's your schedule for ${periodLabel}:\n\n${textLines}\n\n— ${centerName}`;
-      const to = guard.mode === "live" ? tutor.email : guard.redirectTo!;
+      const to = (guard.mode === "live" ? tutor.email : guard.redirectTo) ?? '';
 
       let logStatus: 'sent' | 'failed' = 'sent';
       let logError: string | null = null;
