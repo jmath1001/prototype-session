@@ -301,7 +301,7 @@ export async function POST(req: NextRequest) {
         logStatus = 'failed';
         logError = e?.message ?? 'Unknown error';
         if (errors.length < 5) errors.push(`${tutor.name ?? tutor.id}: ${logError}`);
-        failedDetails.push({ name: tutor.name ?? tutor.id, to, error: logError });
+        failedDetails.push({ name: tutor.name ?? tutor.id, to, error: logError ?? '' });
       }
       await supabase.from(DB.tutorScheduleLogs).insert({
         center_id: process.env.NEXT_PUBLIC_CENTER_ID ?? process.env.CENTER_ID ?? '',
