@@ -1,7 +1,6 @@
 "use client"
 import { ChevronLeft, ChevronRight, CalendarDays, ChevronDown, Trash2, Check, NotebookPen, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { formatWeekRange } from './scheduleConstants';
 import { toISODate } from '@/lib/useScheduleData';
 import { supabase } from '@/lib/supabaseClient';
@@ -34,6 +33,25 @@ interface ScheduleNavProps {
   onJumpToDate?: (date: Date) => void;
 }
 
+function parseNoteText(text: string) {
+  return text.split('\n').map((line, i) => {
+    if (!line.trim()) return <div key={i} style={{ height: 4 }} />;
+    const isBullet = /^[•\-]\s/.test(line);
+    const raw = isBullet ? line.replace(/^[•\-]\s+/, '') : line;
+    const parts = raw.split(/(\*\*[^*]+\*\*)/).map((seg, si) =>
+      seg.startsWith('**') && seg.endsWith('**')
+        ? <strong key={si} style={{ fontWeight: 700, color: '#1e293b' }}>{seg.slice(2, -2)}</strong>
+        : <span key={si}>{seg}</span>
+    );
+    return (
+      <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start', marginBottom: 2 }}>
+        {isBullet && <span style={{ color: '#4f46e5', fontWeight: 900, fontSize: 13, lineHeight: 1.55, flexShrink: 0 }}>•</span>}
+        <span style={{ fontSize: 12.5, color: '#334155', lineHeight: 1.55 }}>{parts}</span>
+      </div>
+    );
+  });
+}
+
 export function ScheduleNav({
   todayView,
   setTodayView,
@@ -63,7 +81,10 @@ export function ScheduleNav({
   const [clearMenuOpen, setClearMenuOpen] = useState(false);
 
   // ── Sticky notes ──
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesVisible, setNotesVisible] = useState<boolean>(() => {
+    try { return localStorage.getItem('center-notes-collapsed') !== '1'; } catch { return true; }
+  });
+  const [notesEditing, setNotesEditing] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -177,6 +198,24 @@ export function ScheduleNav({
     });
   }
 
+  function insertBold() {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = notes.slice(start, end);
+    const inner = selected || 'bold text';
+    const next = notes.slice(0, start) + `**${inner}**` + notes.slice(end);
+    setNotes(next);
+    setNotesDirty(true);
+    setNotesSaved(false);
+    requestAnimationFrame(() => {
+      el.selectionStart = start + 2;
+      el.selectionEnd = start + 2 + inner.length;
+      el.focus();
+    });
+  }
+
   return (
     <div className="sticky top-0 z-30 border-b"
       style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(16px)', borderColor: '#e0e7ff' }}>
@@ -239,13 +278,18 @@ export function ScheduleNav({
               )}
               <div className="w-px h-5 shrink-0" style={{ background: '#a5b4fc' }} />
               <button
-                onClick={() => setNotesOpen(o => !o)}
-                title="Notes"
+                onClick={() => {
+                  const next = !notesVisible;
+                  setNotesVisible(next);
+                  if (!next) setNotesEditing(false);
+                  try { localStorage.setItem('center-notes-collapsed', next ? '0' : '1'); } catch {}
+                }}
+                title={notesVisible ? 'Hide notes' : 'Show notes'}
                 className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-lg shrink-0 transition-all"
                 style={{
-                  background: notesOpen ? '#4f46e5' : 'white',
-                  border: `1px solid ${notesOpen ? '#4f46e5' : '#a5b4fc'}`,
-                  color: notesOpen ? 'white' : '#4f46e5',
+                  background: notesVisible ? '#4f46e5' : 'white',
+                  border: `1px solid ${notesVisible ? '#4f46e5' : '#a5b4fc'}`,
+                  color: notesVisible ? 'white' : '#4f46e5',
                   cursor: 'pointer',
                 }}>
                 <NotebookPen size={12} />
@@ -391,124 +435,93 @@ export function ScheduleNav({
 
       </div>
 
-      {/* ── Center Notes modal ── */}
-      {notesOpen && typeof document !== 'undefined' && createPortal((
-        <div
-          onClick={() => setNotesOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.52)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 'min(620px, 92vw)',
-              maxHeight: '84vh',
-              background: '#ffffff',
-              border: '1px solid #c7d2fe',
-              borderRadius: 14,
-              boxShadow: '0 24px 64px rgba(15,23,42,0.26)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 10,
-                padding: '14px 16px',
-                borderBottom: '1px solid #e0e7ff',
-                background: '#f8faff',
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: 14, color: '#3730a3' }}>Center Notes</p>
-                <p style={{ margin: '2px 0 0', fontWeight: 500, fontSize: 11, color: '#64748b' }}>
-                  Shared across all weeks
-                </p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  onClick={insertBullet}
-                  title="Insert bullet point"
-                  style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}
-                >• Bullet</button>
-                <button
-                  onClick={() => setNotesOpen(false)}
-                  title="Close"
-                  style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #cbd5e1', background: 'white', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
-              <textarea
-                ref={textareaRef}
-                autoFocus
-                value={notes}
-                onChange={e => { setNotes(e.target.value); setNotesSaved(false); setNotesDirty(true); }}
-                placeholder="Jot down anything you need to remember…"
-                style={{
-                  width: '100%',
-                  minHeight: 220,
-                  maxHeight: '46vh',
-                  resize: 'vertical',
-                  border: '1px solid #c7d2fe',
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                  fontSize: 14,
-                  color: '#1f2937',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                  lineHeight: 1.6,
-                  background: '#ffffff',
-                }}
-              />
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <p style={{ margin: 0, color: '#64748b', fontSize: 11, fontWeight: 600 }}>
-                  These notes persist globally for this center.
-                </p>
-                <button
-                  onClick={handleSaveNotes}
-                  disabled={notesSaving}
+      {/* ── Center Notes inline panel ── */}
+      {!todayView && notesVisible && (
+        <div style={{ borderTop: '1px solid #e0e7ff', background: '#f5f7ff' }}>
+          <div className="mx-auto px-4 md:px-6 py-2.5" style={{ maxWidth: 1600 }}>
+            {notesEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#3730a3', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Center Notes</span>
+                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>Use • for bullets, **text** for bold</span>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                    <button onClick={insertBullet} title="Insert bullet" style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}>• Bullet</button>
+                    <button onClick={insertBold} title="Insert bold" style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}><strong>B</strong> Bold</button>
+                  </div>
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  autoFocus
+                  value={notes}
+                  onChange={e => { setNotes(e.target.value); setNotesSaved(false); setNotesDirty(true); }}
+                  placeholder="Jot down anything… Use • for bullets, **text** for bold"
+                  rows={3}
                   style={{
-                    padding: '8px 14px',
+                    width: '100%',
+                    resize: 'vertical',
+                    border: '1px solid #c7d2fe',
                     borderRadius: 8,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    border: 'none',
-                    cursor: notesSaving ? 'not-allowed' : 'pointer',
-                    background: notesSaved ? '#dcfce7' : notesSaving ? '#e0e7ff' : '#4f46e5',
-                    color: notesSaved ? '#15803d' : notesSaving ? '#818cf8' : 'white',
-                    transition: 'background 0.2s',
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    color: '#1f2937',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.6,
+                    background: '#ffffff',
                   }}
-                >
-                  {notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save Notes'}
-                </button>
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {notesError && <span style={{ fontSize: 11, color: '#b91c1c', fontWeight: 600 }}>{notesError}</span>}
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      onClick={() => setNotesEditing(false)}
+                      style={{ fontSize: 12, fontWeight: 600, color: '#64748b', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+                    >Cancel</button>
+                    <button
+                      onClick={async () => { await handleSaveNotes(); setNotesEditing(false); }}
+                      disabled={notesSaving}
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: 7,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        border: 'none',
+                        cursor: notesSaving ? 'not-allowed' : 'pointer',
+                        background: notesSaved ? '#dcfce7' : notesSaving ? '#e0e7ff' : '#4f46e5',
+                        color: notesSaved ? '#15803d' : notesSaving ? '#818cf8' : 'white',
+                      }}
+                    >{notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save'}</button>
+                  </div>
+                </div>
               </div>
-              {notesError && (
-                <p style={{ margin: 0, color: '#b91c1c', fontSize: 11, fontWeight: 600 }}>
-                  {notesError}
-                </p>
-              )}
-            </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {notes.trim()
+                    ? parseNoteText(notes)
+                    : <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No notes yet.</span>}
+                  {notesError && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#b91c1c', fontWeight: 600 }}>{notesError}</p>}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 1 }}>
+                  <button
+                    onClick={() => setNotesEditing(true)}
+                    style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >Edit</button>
+                  <button
+                    onClick={() => {
+                      setNotesVisible(false);
+                      setNotesEditing(false);
+                      try { localStorage.setItem('center-notes-collapsed', '1'); } catch {}
+                    }}
+                    title="Hide notes"
+                    style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #c7d2fe', background: 'white', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  ><X size={11} /></button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      ), document.body)}
+      )}
     </div>
   );
 }

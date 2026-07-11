@@ -54,7 +54,7 @@ export function PrintDailyButton({
         const activeStudents = (session?.students ?? []).filter((st: any) => st.status !== 'cancelled');
         if (activeStudents.length === 0) return `<td class="empty"></td>`;
         const rows = activeStudents.map((st: any) =>
-          `<div class="sr"><span class="sn">${st.name}${st.grade ? ` <em>${st.grade}</em>` : ''}</span><span class="ss">${st.topic ?? ''}</span><div class="sig"></div></div>`
+          `<div class="sr"><span class="sn">${st.name}${st.grade ? ` <em>${st.grade}</em>` : ''}${st.isVirtual ? ' <span class="virt">VIRTUAL</span>' : ''}</span><span class="ss">${st.topic ?? ''}</span><div class="sig"></div></div>`
         ).join('');
         return `<td>${rows}</td>`;
       }).join('');
@@ -91,6 +91,7 @@ export function PrintDailyButton({
         .sn em{font-style:normal;font-weight:400;font-size:8px;color:#777}
         .ss{display:block;font-size:8px;color:#555}
         .sig{border-bottom:1px solid #999;height:12px;margin-top:4px}
+        .virt{display:inline-block;font-size:7px;font-weight:700;letter-spacing:.05em;color:#fff;background:#6366f1;border-radius:3px;padding:1px 3px;vertical-align:middle;margin-left:3px;text-transform:uppercase}
       </style>
     </head><body>
       <div id="hdr">

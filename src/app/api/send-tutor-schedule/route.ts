@@ -55,7 +55,7 @@ function fmtDate(iso: string): string {
 type SessionEntry = {
   date: string;
   time: string;
-  students: { name: string; topic: string; notes: string }[];
+  students: { name: string; topic: string; notes: string; isVirtual: boolean }[];
 };
 
 function buildScheduleHtml(
@@ -89,7 +89,7 @@ function buildScheduleHtml(
               : s.students
                   .map(
                     (st) =>
-                      `${st.name}${st.topic ? ` <span style="color:#6b7280;font-size:11px;">(${st.topic})</span>` : ""}${st.notes ? `<br><span style="color:#6b7280;font-size:11px;font-style:italic;">${st.notes}</span>` : ""}`
+                      `${st.name}${st.isVirtual ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:#6366f1;background:#eef2ff;border-radius:4px;padding:0 4px;vertical-align:middle;">Virtual</span>` : ""}${st.topic ? ` <span style="color:#6b7280;font-size:11px;">(${st.topic})</span>` : ""}${st.notes ? `<br><span style="color:#6b7280;font-size:11px;font-style:italic;">${st.notes}</span>` : ""}`
                   )
                   .join(", ");
           return `<tr>
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
         supabase
           .from(DB.sessions)
           .select(
-            `id, session_date, time, tutor_id, ${DB.sessionStudents}(id, name, topic, status, notes)`
+            `id, session_date, time, tutor_id, ${DB.sessionStudents}(id, name, topic, status, notes, is_virtual)`
           )
           .in("tutor_id", safeIds)
           .gte("session_date", fromDate)
@@ -245,6 +245,7 @@ export async function POST(req: NextRequest) {
           name: ss.name ?? "—",
           topic: ss.topic ?? "",
           notes: ss.notes ?? "",
+          isVirtual: ss.is_virtual ?? false,
         }));
       scheduleByTutor[tid].push({
         date: session.session_date,
