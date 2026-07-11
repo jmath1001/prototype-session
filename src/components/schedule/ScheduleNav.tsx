@@ -85,6 +85,9 @@ export function ScheduleNav({
     try { return localStorage.getItem('center-notes-collapsed') !== '1'; } catch { return true; }
   });
   const [notesEditing, setNotesEditing] = useState(false);
+  const [notesHeight, setNotesHeight] = useState<number>(() => {
+    try { return Number(localStorage.getItem('center-notes-height')) || 80; } catch { return 80; }
+  });
   const [notes, setNotes] = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -196,6 +199,24 @@ export function ScheduleNav({
       el.selectionStart = el.selectionEnd = start + prefix.length;
       el.focus();
     });
+  }
+
+  function onNotesResizeMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = notesHeight;
+    let currentH = startH;
+    const onMove = (ev: MouseEvent) => {
+      currentH = Math.max(36, Math.min(500, startH + ev.clientY - startY));
+      setNotesHeight(currentH);
+    };
+    const onUp = () => {
+      try { localStorage.setItem('center-notes-height', String(currentH)); } catch {}
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function insertBold() {
@@ -455,10 +476,10 @@ export function ScheduleNav({
                   value={notes}
                   onChange={e => { setNotes(e.target.value); setNotesSaved(false); setNotesDirty(true); }}
                   placeholder="Jot down anything… Use • for bullets, **text** for bold"
-                  rows={3}
                   style={{
                     width: '100%',
-                    resize: 'vertical',
+                    height: notesHeight,
+                    resize: 'none',
                     border: '1px solid #c7d2fe',
                     borderRadius: 8,
                     padding: '8px 12px',
@@ -468,6 +489,7 @@ export function ScheduleNav({
                     fontFamily: 'inherit',
                     lineHeight: 1.6,
                     background: '#ffffff',
+                    overflowY: 'auto',
                   }}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -493,29 +515,51 @@ export function ScheduleNav({
                     >{notesSaving ? 'Saving…' : notesSaved ? '✓ Saved' : 'Save'}</button>
                   </div>
                 </div>
+                <div
+                  onMouseDown={onNotesResizeMouseDown}
+                  style={{ height: 10, cursor: 'ns-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 2, userSelect: 'none' }}
+                >
+                  <div style={{ width: 40, height: 3, borderRadius: 99, background: '#c7d2fe' }} />
+                </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {notes.trim()
-                    ? parseNoteText(notes)
-                    : <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No notes yet.</span>}
-                  {notesError && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#b91c1c', fontWeight: 600 }}>{notesError}</p>}
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 1 }}>
-                  <button
-                    onClick={() => setNotesEditing(true)}
-                    style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >Edit</button>
-                  <button
-                    onClick={() => {
-                      setNotesVisible(false);
-                      setNotesEditing(false);
-                      try { localStorage.setItem('center-notes-collapsed', '1'); } catch {}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      height: notesHeight,
+                      overflowY: 'auto',
+                      paddingRight: 4,
                     }}
-                    title="Hide notes"
-                    style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #c7d2fe', background: 'white', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  ><X size={11} /></button>
+                  >
+                    {notes.trim()
+                      ? parseNoteText(notes)
+                      : <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No notes yet.</span>}
+                    {notesError && <p style={{ margin: '4px 0 0', fontSize: 11, color: '#b91c1c', fontWeight: 600 }}>{notesError}</p>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 1 }}>
+                    <button
+                      onClick={() => setNotesEditing(true)}
+                      style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#e0e7ff', border: '1px solid #c7d2fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >Edit</button>
+                    <button
+                      onClick={() => {
+                        setNotesVisible(false);
+                        setNotesEditing(false);
+                        try { localStorage.setItem('center-notes-collapsed', '1'); } catch {}
+                      }}
+                      title="Hide notes"
+                      style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #c7d2fe', background: 'white', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    ><X size={11} /></button>
+                  </div>
+                </div>
+                <div
+                  onMouseDown={onNotesResizeMouseDown}
+                  style={{ height: 10, cursor: 'ns-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 2, userSelect: 'none' }}
+                >
+                  <div style={{ width: 40, height: 3, borderRadius: 99, background: '#c7d2fe' }} />
                 </div>
               </div>
             )}
